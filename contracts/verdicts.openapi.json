@@ -1,0 +1,999 @@
+{
+  "components": {
+    "schemas": {
+      "EventVerdict": {
+        "properties": {
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause"
+          },
+          "cause_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause Label"
+          },
+          "data_kind": {
+            "enum": [
+              "real",
+              "synthetic"
+            ],
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "event_date": {
+            "format": "date",
+            "title": "Event Date",
+            "type": "string"
+          },
+          "next_pass": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Pass"
+          },
+          "persistence_hours": {
+            "title": "Persistence Hours",
+            "type": "integer"
+          },
+          "previous_pass": {
+            "anyOf": [
+              {
+                "format": "date",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Previous Pass"
+          },
+          "state": {
+            "enum": [
+              "observable",
+              "not_observable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          }
+        },
+        "required": [
+          "aoi",
+          "event_date",
+          "persistence_hours",
+          "state",
+          "cause",
+          "cause_label",
+          "previous_pass",
+          "next_pass",
+          "data_kind",
+          "summary"
+        ],
+        "title": "EventVerdict",
+        "type": "object"
+      },
+      "Evidence": {
+        "properties": {
+          "changed_fraction": {
+            "title": "Changed Fraction",
+            "type": "number"
+          },
+          "mean_change_hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Change Hh Db"
+          },
+          "mean_change_hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Mean Change Hv Db"
+          },
+          "observed_fraction": {
+            "title": "Observed Fraction",
+            "type": "number"
+          },
+          "pixel_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Pixel Counts",
+            "type": "object"
+          },
+          "signature_counts": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "title": "Signature Counts",
+            "type": "object"
+          },
+          "threshold_hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threshold Hh Db"
+          },
+          "threshold_hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Threshold Hv Db"
+          }
+        },
+        "required": [
+          "observed_fraction",
+          "changed_fraction",
+          "threshold_hh_db",
+          "threshold_hv_db",
+          "mean_change_hh_db",
+          "mean_change_hv_db",
+          "pixel_counts",
+          "signature_counts"
+        ],
+        "title": "Evidence",
+        "type": "object"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "title": "Detail",
+            "type": "array"
+          }
+        },
+        "title": "HTTPValidationError",
+        "type": "object"
+      },
+      "Layers": {
+        "properties": {
+          "change_hh": {
+            "title": "Change Hh",
+            "type": "string"
+          },
+          "change_hv": {
+            "title": "Change Hv",
+            "type": "string"
+          },
+          "state": {
+            "title": "State",
+            "type": "string"
+          }
+        },
+        "required": [
+          "state",
+          "change_hh",
+          "change_hv"
+        ],
+        "title": "Layers",
+        "type": "object"
+      },
+      "PixelChange": {
+        "properties": {
+          "pair": {
+            "title": "Pair",
+            "type": "string"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "State"
+          }
+        },
+        "required": [
+          "pair",
+          "state"
+        ],
+        "title": "PixelChange",
+        "type": "object"
+      },
+      "PixelDate": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hh Db"
+          },
+          "hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hv Db"
+          }
+        },
+        "required": [
+          "date",
+          "hh_db",
+          "hv_db"
+        ],
+        "title": "PixelDate",
+        "type": "object"
+      },
+      "PixelSeries": {
+        "properties": {
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "changes": {
+            "items": {
+              "$ref": "#/components/schemas/PixelChange"
+            },
+            "title": "Changes",
+            "type": "array"
+          },
+          "data_kind": {
+            "enum": [
+              "real",
+              "synthetic"
+            ],
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "lat": {
+            "title": "Lat",
+            "type": "number"
+          },
+          "lon": {
+            "title": "Lon",
+            "type": "number"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          },
+          "values": {
+            "items": {
+              "$ref": "#/components/schemas/PixelDate"
+            },
+            "title": "Values",
+            "type": "array"
+          }
+        },
+        "required": [
+          "aoi",
+          "series",
+          "lon",
+          "lat",
+          "data_kind",
+          "values",
+          "changes"
+        ],
+        "title": "PixelSeries",
+        "type": "object"
+      },
+      "Receipt": {
+        "properties": {
+          "crid": {
+            "title": "Crid",
+            "type": "string"
+          },
+          "data_kind": {
+            "enum": [
+              "real",
+              "synthetic"
+            ],
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "direction": {
+            "title": "Direction",
+            "type": "string"
+          },
+          "frame": {
+            "title": "Frame",
+            "type": "integer"
+          },
+          "granules": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Granules",
+            "type": "array"
+          },
+          "maturity": {
+            "title": "Maturity",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "notices": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Notices",
+            "type": "array"
+          },
+          "polarization": {
+            "title": "Polarization",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          },
+          "spans_data_gap": {
+            "title": "Spans Data Gap",
+            "type": "boolean"
+          },
+          "track": {
+            "title": "Track",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "data_kind",
+          "maturity",
+          "series",
+          "track",
+          "direction",
+          "frame",
+          "mode",
+          "polarization",
+          "crid",
+          "granules",
+          "spans_data_gap",
+          "notices"
+        ],
+        "title": "Receipt",
+        "type": "object"
+      },
+      "SeriesInfo": {
+        "properties": {
+          "bbox": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Bbox",
+            "type": "array"
+          },
+          "data_kind": {
+            "enum": [
+              "real",
+              "synthetic"
+            ],
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "dates": {
+            "items": {
+              "format": "date",
+              "type": "string"
+            },
+            "title": "Dates",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "maturity": {
+            "title": "Maturity",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "data_kind",
+          "maturity",
+          "bbox",
+          "dates"
+        ],
+        "title": "SeriesInfo",
+        "type": "object"
+      },
+      "Summary": {
+        "properties": {
+          "detected": {
+            "title": "Detected",
+            "type": "string"
+          },
+          "does_not_prove": {
+            "title": "Does Not Prove",
+            "type": "string"
+          },
+          "missing": {
+            "title": "Missing",
+            "type": "string"
+          }
+        },
+        "required": [
+          "detected",
+          "does_not_prove",
+          "missing"
+        ],
+        "title": "Summary",
+        "type": "object"
+      },
+      "ValidationError": {
+        "properties": {
+          "ctx": {
+            "title": "Context",
+            "type": "object"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Location",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Message",
+            "type": "string"
+          },
+          "type": {
+            "title": "Error Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError",
+        "type": "object"
+      },
+      "Verdict": {
+        "properties": {
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause"
+          },
+          "cause_label": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cause Label"
+          },
+          "evidence": {
+            "$ref": "#/components/schemas/Evidence"
+          },
+          "from_date": {
+            "format": "date",
+            "title": "From Date",
+            "type": "string"
+          },
+          "hypotheses": {
+            "items": {
+              "type": "string"
+            },
+            "title": "Hypotheses",
+            "type": "array"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "kind": {
+            "enum": [
+              "consecutive",
+              "full_window"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "layers": {
+            "$ref": "#/components/schemas/Layers"
+          },
+          "receipt": {
+            "$ref": "#/components/schemas/Receipt"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          },
+          "state": {
+            "enum": [
+              "change_probable",
+              "no_detectable_change",
+              "not_observable"
+            ],
+            "title": "State",
+            "type": "string"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/Summary"
+          },
+          "to_date": {
+            "format": "date",
+            "title": "To Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "aoi",
+          "series",
+          "kind",
+          "from_date",
+          "to_date",
+          "state",
+          "cause",
+          "cause_label",
+          "summary",
+          "hypotheses",
+          "evidence",
+          "layers",
+          "receipt"
+        ],
+        "title": "Verdict",
+        "type": "object"
+      }
+    }
+  },
+  "info": {
+    "title": "NISAR verdicts",
+    "version": "0.1.0"
+  },
+  "openapi": "3.1.0",
+  "paths": {
+    "/aois": {
+      "get": {
+        "operationId": "aois_aois_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "type": "string"
+                  },
+                  "title": "Response Aois Aois Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Aois"
+      }
+    },
+    "/aois/{aoi}/events": {
+      "get": {
+        "operationId": "event_aois__aoi__events_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi",
+            "required": true,
+            "schema": {
+              "title": "Aoi",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "persistence_hours",
+            "required": false,
+            "schema": {
+              "default": 24,
+              "maximum": 720,
+              "minimum": 1,
+              "title": "Persistence Hours",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "es",
+              "enum": [
+                "es",
+                "en"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EventVerdict"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Event"
+      }
+    },
+    "/aois/{aoi}/series": {
+      "get": {
+        "operationId": "series_aois__aoi__series_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi",
+            "required": true,
+            "schema": {
+              "title": "Aoi",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/SeriesInfo"
+                  },
+                  "title": "Response Series Aois  Aoi  Series Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Series"
+      }
+    },
+    "/aois/{aoi}/series/{series_id}/pixel": {
+      "get": {
+        "operationId": "pixel_aois__aoi__series__series_id__pixel_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi",
+            "required": true,
+            "schema": {
+              "title": "Aoi",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "title": "Series Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lon",
+            "required": true,
+            "schema": {
+              "maximum": 180,
+              "minimum": -180,
+              "title": "Lon",
+              "type": "number"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lat",
+            "required": true,
+            "schema": {
+              "maximum": 90,
+              "minimum": -90,
+              "title": "Lat",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PixelSeries"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Pixel"
+      }
+    },
+    "/aois/{aoi}/series/{series_id}/verdicts": {
+      "get": {
+        "operationId": "verdicts_aois__aoi__series__series_id__verdicts_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi",
+            "required": true,
+            "schema": {
+              "title": "Aoi",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "title": "Series Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "es",
+              "enum": [
+                "es",
+                "en"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Verdict"
+                  },
+                  "title": "Response Verdicts Aois  Aoi  Series  Series Id  Verdicts Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verdicts"
+      }
+    },
+    "/aois/{aoi}/series/{series_id}/verdicts/{pair_id}": {
+      "get": {
+        "operationId": "verdict_aois__aoi__series__series_id__verdicts__pair_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi",
+            "required": true,
+            "schema": {
+              "title": "Aoi",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "series_id",
+            "required": true,
+            "schema": {
+              "title": "Series Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "pair_id",
+            "required": true,
+            "schema": {
+              "title": "Pair Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "es",
+              "enum": [
+                "es",
+                "en"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Verdict"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Verdict"
+      }
+    },
+    "/health": {
+      "get": {
+        "operationId": "health_health_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": {
+                    "type": "string"
+                  },
+                  "title": "Response Health Health Get",
+                  "type": "object"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Health"
+      }
+    }
+  }
+}

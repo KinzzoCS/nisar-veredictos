@@ -1,0 +1,120 @@
+"""Agrupa gránulos GCOV en series que se pueden comparar entre sí."""
+from __future__ import annotations
+
+import re
+from collections import defaultdict
+from dataclasses import dataclass
+from datetime import date, datetime
+
+# Hueco permanente de adquisición publicado por ASF.
+DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
+
+_TITLE = re.compile(
+    r"GCOV_(?P<cycle>\d+)_(?P<track>\d+)_(?P<direction>[AD])_(?P<frame>\d+)_(?P<mode>\w{4})_(?P<polarization>\w{4})_"
+    r"\w_(?P<start>\d{8})T\d{6}_\d{8}T\d{6}_(?P<crid>[A-Z]\d+)_"
+)
+
+Point = tuple[float, float]
+
+
+@dataclass(frozen=True)
+class Granule:
+    id: str
+    track: int
+    direction: str
+    frame: int
+    mode: str
+    polarization: str
+    crid: str
+    start: date
+    size_mb: float
+    footprint: tuple[Point, ...] = ()
+
+    @property
+    def group_key(self) -> tuple:
+        # Todo lo que debe coincidir para que una diferencia no sea un artefacto de procesado.
+        return (self.track, self.direction, self.frame, self.mode, self.polarization, self.crid)
+
+
+@dataclass(frozen=True)
+class Series:
+    id: str
+    track: int
+    direction: str
+    frame: int
+    mode: str
+    polarization: str
+    crid: str
+    granules: tuple[Granule, ...]
+    contains_aoi: bool
+    max_gap_days: int
+    spans_data_gap: bool
+
+    @property
+    def dates(self) -> list[date]:
+        return [granule.start for granule in self.granules]
+
+
+def parse_title(title: str, size_mb: float = 0.0, footprint: tuple[Point, ...] = ()) -> Granule | None:
+    match = _TITLE.search(title)
+    if not match:
+        return None
+    return Granule(
+        id=title,
+        track=int(match["track"]),
+        direction=match["direction"],
+        frame=int(match["frame"]),
+        mode=match["mode"],
+        polarization=match["polarization"],
+        crid=match["crid"],
+        start=datetime.strptime(match["start"], "%Y%m%d").date(),
+        size_mb=size_mb,
+        footprint=footprint,
+    )
+
+
+def point_in_polygon(lon: float, lat: float, polygon: tuple[Point, ...]) -> bool:
+    inside = False
+    for (x1, y1), (x2, y2) in zip(polygon, polygon[1:] + polygon[:1]):
+        if (y1 > lat) != (y2 > lat) and lon < (x2 - x1) * (lat - y1) / (y2 - y1) + x1:
+            inside = not inside
+    return inside
+
+
+def _contains(polygon: tuple[Point, ...], bbox: list[float]) -> bool:
+    west, south, east, north = bbox
+    corners = [(west, south), (west, north), (east, south), (east, north)]
+    return bool(polygon) and all(point_in_polygon(x, y, polygon) for x, y in corners)
+
+
+def crosses_gap(first: date, second: date) -> bool:
+    return first < DATA_GAP[1] and second > DATA_GAP[0]
+
+
+def build_series(granules: list[Granule], bbox: list[float], min_dates: int = 2) -> list[Series]:
+    groups: dict[tuple, dict[date, Granule]] = defaultdict(dict)
+    for granule in granules:
+        groups[granule.group_key].setdefault(granule.start, granule)
+
+    result = []
+    for (track, direction, frame, mode, polarization, crid), by_date in groups.items():
+        if len(by_date) < min_dates:
+            continue
+        ordered = tuple(by_date[day] for day in sorted(by_date))
+        pairs = list(zip(ordered, ordered[1:]))
+        result.append(
+            Series(
+                id=f"T{track:03d}{direction}-F{frame:03d}-{mode}-{polarization}-{crid}",
+                track=track,
+                direction=direction,
+                frame=frame,
+                mode=mode,
+                polarization=polarization,
+                crid=crid,
+                granules=ordered,
+                contains_aoi=all(_contains(granule.footprint, bbox) for granule in ordered),
+                max_gap_days=max((b.start - a.start).days for a, b in pairs),
+                spans_data_gap=any(crosses_gap(a.start, b.start) for a, b in pairs),
+            )
+        )
+    return sorted(result, key=lambda series: (-series.contains_aoi, -len(series.granules), series.id))

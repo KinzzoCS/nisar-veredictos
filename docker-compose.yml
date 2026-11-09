@@ -1,0 +1,45 @@
+services:
+  # Genera datos sintéticos una vez; conserva lo que ya exista en ./data.
+  seed:
+    build: ./services/processor
+    command: ["python", "-m", "processor", "seed-synthetic"]
+    volumes:
+      - ./data:/data
+      - ./config/aois:/config/aois:ro
+
+  catalog:
+    build: ./services/catalog
+    environment:
+      AOI_DIR: /config/aois
+    volumes:
+      - ./config/aois:/config/aois:ro
+
+  verdicts:
+    build: ./services/verdicts
+    environment:
+      ARTIFACT_ROOT: /data/artifacts
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  tiles:
+    image: ghcr.io/developmentseed/titiler:2.4.0
+    command: ["uvicorn", "titiler.application.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    volumes:
+      - ./data:/data:ro
+    depends_on:
+      seed:
+        condition: service_completed_successfully
+
+  gateway:
+    image: nginx:1.29-alpine
+    ports:
+      - "8080:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - catalog
+      - verdicts
+      - tiles

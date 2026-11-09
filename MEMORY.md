@@ -1,0 +1,69 @@
+# Memoria del proyecto
+
+Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se comprobó cada hecho.
+
+## Estado
+
+- 2026-11-09: esqueleto completo con datos sintéticos. **Todavía no se ha abierto ningún gránulo real.**
+- Evento: 14 y 15 de noviembre de 2026, según una fuente secundaria. Falta confirmarlo.
+- Equipo: 3 backend y 2 frontend.
+
+## Decisiones
+
+| Fecha | Decisión | Motivo |
+|---|---|---|
+| 2026-11-09 | Producto GCOV, sin GUNW como eje | Menos riesgo técnico, y nadie del equipo declaró experiencia InSAR |
+| 2026-11-09 | Veredicto en tres estados con recibo de procedencia | Ninguna herramienta revisada convierte NISAR en información de cambio para no especialistas |
+| 2026-11-09 | Caso inicial: Hidalgo del Parral, Chihuahua | Elección del equipo; contexto local real |
+| 2026-11-09 | Servicios independientes con contratos | Tres backend trabajando sin pisarse |
+| 2026-11-09 | Artefactos precalculados; la demo no procesa en vivo | Evita depender de la red y del tiempo de lectura |
+| 2026-11-09 | COG por fecha, sin Zarr | Unas 10 fechas no lo justifican |
+
+## Datos verificados
+
+Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-06-17 al 2026-10-22.
+
+| Serie | Fechas | Tamaño medio | Fechas disponibles |
+|---|---|---|---|
+| T048 ascendente, marco 15, 40 MHz, DHDH, P05023 | 10 | ~6,9 GB | 06-17, 06-29, 07-11, 07-23, 08-16, 08-28, 09-09, 09-21, 10-03, 10-15 |
+| T171 descendente, marco 75, 40 MHz, DHDH, P05023 | 9 | ~6,7 GB | 06-26, 07-08, 07-20, 08-13, 08-25, 09-06, 09-18, 09-30, 10-12 |
+
+- Cada serie contiene por completo la zona de `config/aois/parral.yaml`.
+- El marco 15 de T048 también cubre la presa La Boquilla.
+- Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
+- Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
+
+## Especificación GCOV
+
+Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
+
+- Rutas en `/science/LSAR/GCOV/grids/frequencyA/`: `HHHH`, `HVHV` (Float32), `numberOfLooks` (Float32), `mask` y `inputDataExceptionMask` (UByte), `xCoordinates`, `yCoordinates`, y `projection` con el atributo `epsg_code`.
+- `mask`: 0 inválido o parcialmente enfocado, 1-5 válido con su subfranja, 255 fuera de la escena.
+- `inputDataExceptionMask`: 0 sin anomalía.
+- La especificación **no** menciona layover ni sombra. `identification/staticLayersDataAccess` podría llevar a capas estáticas útiles; falta investigarlo.
+
+## Caso de Parral
+
+- Tormenta del 1 de julio de 2026 con calles inundadas: cae entre las pasadas del 29 de junio y el 8 de julio. Es el ejemplo de `not_observable`. La noticia salió de extractos de búsqueda; hay que abrirla antes de usarla en la demo.
+- La cifra de lluvia es contradictoria entre fuentes (unos 30 mm frente a 228 mm): no usarla.
+- Pruebas previstas: tormenta (no observable), campo durante el monzón (cambio con causa ambigua) y jales de La Prieta (estabilidad).
+
+## Sin verificar
+
+- Reglas del reto: si se permite preparar código o preprocesar antes del evento, y el enunciado oficial de 2026.
+- Lista de recursos oficial del reto.
+- Lectura real de un gránulo: troceado HDF5, velocidad por HTTPS y si las mallas coinciden entre fechas. `processor` rechaza mallas distintas.
+- Harmony para extraer capas GCOV.
+- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION` y las firmas por polarización son valores iniciales sin calibrar con banda L.
+
+## Pendientes
+
+- Cuenta de Earthdata del equipo.
+- Conectar la lectura remota de gránulos: hoy `processor` solo lee archivos `.h5` locales.
+- Layover y sombra con DEM para zonas con relieve.
+- Contraste con OPERA DSWx-S1.
+- Elegir licencia abierta antes de publicar, porque el reto pide código abierto.
+
+## Investigación
+
+Informe completo con fuentes en `reports/Panorama herramientas SAR NISAR.md`.

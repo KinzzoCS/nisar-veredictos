@@ -1,0 +1,154 @@
+import json
+from pathlib import Path
+
+import h5py
+import jsonschema
+import numpy as np
+import pytest
+import rasterio
+from rasterio.transform import Affine
+
+from processor.change import (
+    CHANGE_PROBABLE,
+    INPUT_EXCEPTION,
+    INVALID_OR_PARTIAL,
+    LOW_LOOKS,
+    NO_CHANGE,
+    OUTSIDE_SCENE,
+    Params,
+    compare,
+    otsu,
+)
+from processor.gcov import GRID, GranuleError, GranuleMeta, Scene, read_scene
+from processor.pipeline import process_series
+from processor.synthetic import SeriesSpec, generate_series
+
+ROOT = Path(__file__).resolve().parents[3]
+BBOX = [-105.95, 26.70, -105.40, 27.15]
+AOI = {"id": "parral", "bbox": BBOX}
+SHAPE = (80, 80)
+
+
+def scene(hh=None, hv=None, mask=None, looks=None, exception=None, granule="a", rng=None) -> Scene:
+    rng = rng or np.random.default_rng(1)
+    speckle = rng.gamma(20, 1 / 20, SHAPE).astype(np.float32)
+    return Scene(
+        hh=(0.05 * speckle if hh is None else hh * speckle).astype(np.float32),
+        hv=(0.01 * speckle if hv is None else hv * speckle).astype(np.float32),
+        mask=np.ones(SHAPE, np.uint8) if mask is None else mask,
+        looks=np.full(SHAPE, 20.0, np.float32) if looks is None else looks,
+        exception=np.zeros(SHAPE, np.uint8) if exception is None else exception,
+        transform=Affine(200, 0, 0, 0, -200, 0),
+        crs="EPSG:32613",
+        meta=GranuleMeta(granule, "2026-06-17", 48, "A", 15, "4005", "DHDH", "P05023", "synthetic"),
+    )
+
+
+def test_stable_scene_reports_no_change():
+    result = compare(scene(rng=np.random.default_rng(1)), scene(rng=np.random.default_rng(2)))
+    assert result.stats["counts"]["change_probable"] == 0
+
+
+def test_injected_change_is_detected_with_sign():
+    after = np.full(SHAPE, 0.05, np.float32)
+    after[20:40, 20:40] = 0.05 * 10 ** (6 / 10)
+    result = compare(scene(rng=np.random.default_rng(1)), scene(hh=after, rng=np.random.default_rng(2)))
+    assert result.state[30, 30] == CHANGE_PROBABLE
+    assert result.state[70, 70] == NO_CHANGE
+    assert result.stats["mean_change_hh_db"] == pytest.approx(6, abs=1.5)
+    signatures = result.stats["signature_counts"]
+    assert signatures["hh_up_hv_stable"] == max(signatures.values())
+    assert sum(signatures.values()) == result.stats["counts"]["change_probable"]
+
+
+def test_every_unobservable_cause_is_kept_and_never_called_change():
+    mask = np.ones(SHAPE, np.uint8)
+    mask[0:10, :] = 255
+    mask[10:20, :] = 0
+    exception = np.zeros(SHAPE, np.uint8)
+    exception[20:30, :] = 2
+    looks = np.full(SHAPE, 20.0, np.float32)
+    looks[30:40, :] = 1
+    before = scene(rng=np.random.default_rng(1))
+    after = scene(hh=np.full(SHAPE, 1.0, np.float32), mask=mask, looks=looks, exception=exception, rng=np.random.default_rng(2))
+    state = compare(before, after).state
+    assert state[5, 5] == OUTSIDE_SCENE
+    assert state[15, 5] == INVALID_OR_PARTIAL
+    assert state[25, 5] == INPUT_EXCEPTION
+    assert state[35, 5] == LOW_LOOKS
+
+
+def test_small_clusters_are_removed():
+    after = np.full(SHAPE, 0.05, np.float32)
+    after[10:11, 10:11] = 5.0
+    result = compare(scene(rng=np.random.default_rng(1)), scene(hh=after, rng=np.random.default_rng(2)), Params(window=1))
+    assert result.state[10, 10] != CHANGE_PROBABLE
+
+
+def test_mismatched_grids_are_rejected():
+    other = scene()
+    other.transform = Affine(100, 0, 0, 0, -100, 0)
+    with pytest.raises(ValueError):
+        compare(scene(), other)
+
+
+def test_otsu_separates_two_groups():
+    values = np.concatenate([np.full(100, 1.0), np.full(100, 9.0)])
+    assert 1.0 <= otsu(values) < 9.0
+
+
+@pytest.fixture(scope="module")
+def series(tmp_path_factory):
+    root = tmp_path_factory.mktemp("synthetic")
+    spec = SeriesSpec(48, "A", 15, ("20260617", "20260723", "20260816", "20261015"))
+    return generate_series(spec, BBOX, root / "raw"), root
+
+
+def test_synthetic_file_follows_specification_paths(series):
+    paths, _ = series
+    with h5py.File(paths[0], "r") as handle:
+        for name in ("HHHH", "HVHV", "mask", "numberOfLooks", "inputDataExceptionMask", "xCoordinates", "yCoordinates"):
+            assert name in handle[GRID]
+        assert handle[GRID]["projection"].attrs["epsg_code"] == 32613
+        assert handle.attrs["data_kind"] == "synthetic"
+
+
+def test_read_scene_windows_to_aoi(series):
+    paths, _ = series
+    data = read_scene(paths[0], [-105.75, 26.87, -105.60, 26.98])
+    assert 0 < data.hh.shape[0] < 150 and data.meta.track == 48 and data.meta.direction == "A"
+
+
+def test_read_scene_outside_granule_fails(series):
+    paths, _ = series
+    with pytest.raises(GranuleError):
+        read_scene(paths[0], [10.0, 40.0, 10.1, 40.1])
+
+
+def test_pipeline_writes_valid_manifest_and_cogs(series):
+    paths, root = series
+    manifest = process_series(paths, AOI, "T048A-F015", root / "artifacts", "PROVISIONAL")
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+    assert manifest["data_kind"] == "synthetic"
+    assert any("SINTÉTICOS" in notice for notice in manifest["notices"])
+    assert [pair["kind"] for pair in manifest["pairs"]].count("full_window") == 1
+    gap = next(pair for pair in manifest["pairs"] if pair["id"] == "20260723_20260816")
+    assert gap["spans_data_gap"]
+    with rasterio.open(root / "artifacts" / gap["layers"]["state"]) as dataset:
+        assert dataset.profile["dtype"] == "uint8" and dataset.nodata == 255
+        assert dataset.tags(ns="IMAGE_STRUCTURE").get("LAYOUT") == "COG"
+
+
+def test_pipeline_finds_the_injected_wetting(series):
+    paths, root = series
+    manifest = process_series(paths, AOI, "T048A-F015", root / "artifacts", "PROVISIONAL")
+    full = next(pair for pair in manifest["pairs"] if pair["kind"] == "full_window")
+    assert full["stats"]["counts"]["change_probable"] > 0
+
+
+def test_pipeline_refuses_granules_from_another_series(series, tmp_path):
+    paths, _ = series
+    other = generate_series(SeriesSpec(171, "D", 75, ("20260626", "20260708")), BBOX, tmp_path)
+    with pytest.raises(GranuleError):
+        process_series([paths[0], other[0]], AOI, "mix", tmp_path / "out", "PROVISIONAL")

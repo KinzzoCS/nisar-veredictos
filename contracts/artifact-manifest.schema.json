@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Manifiesto de artefactos de una serie",
+  "description": "Frontera entre processor (escribe) y verdicts (lee). Las rutas son relativas a la raíz de artefactos.",
+  "type": "object",
+  "required": ["schema_version", "aoi", "series", "data_kind", "maturity", "crs", "bbox", "state_codes", "notices", "dates", "pairs"],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": { "const": 1 },
+    "aoi": { "type": "string" },
+    "series": {
+      "type": "object",
+      "required": ["id", "track", "direction", "frame", "mode", "polarization", "crid"],
+      "additionalProperties": false,
+      "properties": {
+        "id": { "type": "string" },
+        "track": { "type": "integer" },
+        "direction": { "enum": ["A", "D"] },
+        "frame": { "type": "integer" },
+        "mode": { "type": "string" },
+        "polarization": { "type": "string" },
+        "crid": { "type": "string" }
+      }
+    },
+    "data_kind": { "enum": ["real", "synthetic"] },
+    "maturity": { "type": "string" },
+    "crs": { "type": "string" },
+    "bbox": { "type": "array", "items": { "type": "number" }, "minItems": 4, "maxItems": 4 },
+    "state_codes": { "type": "object", "additionalProperties": { "type": "integer" } },
+    "notices": { "type": "array", "items": { "type": "string" } },
+    "dates": {
+      "type": "array",
+      "minItems": 2,
+      "items": {
+        "type": "object",
+        "required": ["date", "granule", "hh_db", "hv_db"],
+        "additionalProperties": false,
+        "properties": {
+          "date": { "type": "string", "format": "date" },
+          "granule": { "type": "string" },
+          "hh_db": { "type": "string" },
+          "hv_db": { "type": "string" }
+        }
+      }
+    },
+    "pairs": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["id", "from", "to", "kind", "spans_data_gap", "granules", "layers", "stats"],
+        "additionalProperties": false,
+        "properties": {
+          "id": { "type": "string", "pattern": "^\\d{8}_\\d{8}$" },
+          "from": { "type": "string", "format": "date" },
+          "to": { "type": "string", "format": "date" },
+          "kind": { "enum": ["consecutive", "full_window"] },
+          "spans_data_gap": { "type": "boolean" },
+          "granules": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+          "layers": {
+            "type": "object",
+            "required": ["state", "change_hh", "change_hv"],
+            "additionalProperties": false,
+            "properties": {
+              "state": { "type": "string" },
+              "change_hh": { "type": "string" },
+              "change_hv": { "type": "string" }
+            }
+          },
+          "stats": {
+            "type": "object",
+            "required": ["counts", "signature_counts", "threshold_hh_db", "threshold_hv_db", "mean_change_hh_db", "mean_change_hv_db"],
+            "additionalProperties": false,
+            "properties": {
+              "counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+              "signature_counts": { "type": "object", "additionalProperties": { "type": "integer", "minimum": 0 } },
+              "threshold_hh_db": { "type": ["number", "null"] },
+              "threshold_hv_db": { "type": ["number", "null"] },
+              "mean_change_hh_db": { "type": ["number", "null"] },
+              "mean_change_hv_db": { "type": ["number", "null"] }
+            }
+          }
+        }
+      }
+    }
+  }
+}

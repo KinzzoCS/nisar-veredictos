@@ -1,0 +1,19 @@
+# Series medidas en CMR el 2026-11-09. Las fechas candidatas salen del catálogo, no de este archivo.
+id: parral
+name: Hidalgo del Parral, Chihuahua
+bbox: [-105.95, 26.70, -105.40, 27.15]
+city_bbox: [-105.75, 26.87, -105.60, 26.98]
+collection: NISAR_L2_GCOV_PROVISIONAL_V1
+maturity: PROVISIONAL
+window:
+  start: "2026-06-17"
+  end: "2026-10-22"
+series:
+  - id: T048A-F015
+    track: 48
+    direction: A
+    frame: 15
+  - id: T171D-F075
+    track: 171
+    direction: D
+    frame: 75

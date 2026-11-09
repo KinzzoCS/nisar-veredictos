@@ -1,0 +1,165 @@
+"""Detección de cambio entre dos fechas y estados por píxel."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+
+import numpy as np
+from scipy import ndimage
+
+from .gcov import Scene
+
+NO_CHANGE = 0
+CHANGE_PROBABLE = 1
+OUTSIDE_SCENE = 10
+INVALID_OR_PARTIAL = 11
+INPUT_EXCEPTION = 12
+LOW_LOOKS = 13
+NO_DATA = 14
+# Reservado: GCOV no trae layover ni sombra; hay que calcularlos aparte.
+TERRAIN = 15
+STATE_NODATA = 255
+STABLE_DB = 2.0
+
+STATE_CODES = {
+    "no_change": NO_CHANGE,
+    "change_probable": CHANGE_PROBABLE,
+    "outside_scene": OUTSIDE_SCENE,
+    "invalid_or_partial": INVALID_OR_PARTIAL,
+    "input_exception": INPUT_EXCEPTION,
+    "low_looks": LOW_LOOKS,
+    "no_data": NO_DATA,
+    "terrain": TERRAIN,
+}
+
+
+@dataclass(frozen=True)
+class Params:
+    window: int = 5
+    min_looks: float = 4.0
+    # Otsu siempre encuentra un umbral, incluso sin cambio; este suelo evita marcar ruido.
+    min_threshold_db: float = 3.0
+    min_cluster_pixels: int = 4
+
+
+@dataclass
+class PairResult:
+    state: np.ndarray
+    change_hh: np.ndarray
+    change_hv: np.ndarray
+    stats: dict
+
+
+def observable(scene: Scene, min_looks: float) -> np.ndarray:
+    finite = np.isfinite(scene.hh) & np.isfinite(scene.hv) & (scene.hh > 0) & (scene.hv > 0)
+    return np.isin(scene.mask, [1, 2, 3, 4, 5]) & (scene.exception == 0) & finite & (scene.looks >= min_looks)
+
+
+def smooth(power: np.ndarray, valid: np.ndarray, size: int) -> np.ndarray:
+    """Promedia en potencia lineal usando solo píxeles válidos."""
+    numerator = ndimage.uniform_filter(np.where(valid, power, 0).astype(np.float64), size, mode="nearest")
+    denominator = ndimage.uniform_filter(valid.astype(np.float64), size, mode="nearest")
+    result = np.full(power.shape, np.nan, np.float32)
+    result[valid] = (numerator[valid] / denominator[valid]).astype(np.float32)
+    return result
+
+
+def to_db(power: np.ndarray) -> np.ndarray:
+    with np.errstate(divide="ignore", invalid="ignore"):
+        return (10 * np.log10(power)).astype(np.float32)
+
+
+def otsu(values: np.ndarray, bins: int = 256) -> float:
+    histogram, edges = np.histogram(values, bins)
+    centers = (edges[:-1] + edges[1:]) / 2
+    weight = np.cumsum(histogram).astype(np.float64)
+    mean = np.cumsum(histogram * centers)
+    total_weight, total_mean = weight[-1], mean[-1]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        between = (total_mean * weight - mean * total_weight) ** 2 / (weight * (total_weight - weight))
+    return float(centers[int(np.nanargmax(np.nan_to_num(between)))])
+
+
+def _state_for_unobservable(a: Scene, b: Scene, params: Params) -> np.ndarray:
+    state = np.full(a.hh.shape, NO_CHANGE, np.uint8)
+    for scene in (a, b):
+        state[scene.looks < params.min_looks] = LOW_LOOKS
+    for scene in (a, b):
+        state[~(np.isfinite(scene.hh) & np.isfinite(scene.hv) & (scene.hh > 0) & (scene.hv > 0))] = NO_DATA
+    for scene in (a, b):
+        state[scene.exception != 0] = INPUT_EXCEPTION
+    for scene in (a, b):
+        state[scene.mask == 0] = INVALID_OR_PARTIAL
+    for scene in (a, b):
+        state[scene.mask == 255] = OUTSIDE_SCENE
+    return state
+
+
+def _threshold(values: np.ndarray, params: Params) -> float | None:
+    if values.size < 2 or np.ptp(values) == 0:
+        return None
+    return max(otsu(values), params.min_threshold_db)
+
+
+def _mean(values: np.ndarray) -> float | None:
+    return float(np.mean(values)) if values.size else None
+
+
+def _signature_counts(hh: np.ndarray, hv: np.ndarray) -> dict[str, int]:
+    """Cuenta píxeles por firma: un promedio de la escena mezclaría causas distintas."""
+    hh_up, hh_down = hh >= STABLE_DB, hh <= -STABLE_DB
+    hv_up, hv_down = hv >= STABLE_DB, hv <= -STABLE_DB
+    hv_stable = ~hv_up & ~hv_down
+    classes = {
+        "hh_up_hv_stable": hh_up & hv_stable,
+        "hh_up_hv_up": hh_up & hv_up,
+        "hh_down_hv_down": hh_down & hv_down,
+        "hh_down_hv_stable": hh_down & hv_stable,
+    }
+    result = {name: int(np.count_nonzero(selected)) for name, selected in classes.items()}
+    result["other"] = int(hh.size - sum(result.values()))
+    return result
+
+
+def compare(a: Scene, b: Scene, params: Params = Params()) -> PairResult:
+    if a.hh.shape != b.hh.shape or a.transform != b.transform:
+        raise ValueError(f"Mallas distintas: {a.meta.granule_id} y {b.meta.granule_id}")
+
+    state = _state_for_unobservable(a, b, params)
+    both = observable(a, params.min_looks) & observable(b, params.min_looks)
+    state[~both & (state == NO_CHANGE)] = NO_DATA
+
+    change = {}
+    for name in ("hh", "hv"):
+        before = smooth(getattr(a, name), both, params.window)
+        after = smooth(getattr(b, name), both, params.window)
+        change[name] = to_db(after) - to_db(before)
+
+    thresholds = {name: _threshold(np.abs(change[name][both]), params) for name in change}
+    changed = np.zeros(state.shape, bool)
+    for name, value in change.items():
+        if thresholds[name] is not None:
+            changed |= both & (np.abs(value) > thresholds[name])
+
+    labels, count = ndimage.label(changed)
+    if count:
+        sizes = np.bincount(labels.ravel())
+        keep = sizes >= params.min_cluster_pixels
+        keep[0] = False
+        changed = keep[labels]
+    state[changed] = CHANGE_PROBABLE
+
+    counts = {name: int(np.count_nonzero(state == code)) for name, code in STATE_CODES.items()}
+    signatures = _signature_counts(change["hh"][changed], change["hv"][changed])
+    return PairResult(
+        state=state,
+        change_hh=change["hh"],
+        change_hv=change["hv"],
+        stats={
+            "counts": counts,
+            "signature_counts": signatures,
+            "threshold_hh_db": thresholds["hh"],
+            "threshold_hv_db": thresholds["hv"],
+            "mean_change_hh_db": _mean(change["hh"][changed]),
+            "mean_change_hv_db": _mean(change["hv"][changed]),
+        },
+    )

@@ -1,0 +1,124 @@
+"""Genera archivos HDF5 falsos con la estructura GCOV. Nunca representan la realidad."""
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import datetime
+from pathlib import Path
+
+import h5py
+import numpy as np
+from rasterio.warp import transform_bounds
+from scipy import ndimage
+
+from .gcov import GRID, IDENTIFICATION
+
+POSTING_M = 200.0
+LOOKS = 20.0
+EPSG = 32613
+
+
+@dataclass(frozen=True)
+class SeriesSpec:
+    track: int
+    direction: str
+    frame: int
+    dates: tuple[str, ...]
+
+
+# Fechas reales de CMR para Parral: la cadencia es verdadera, los valores no.
+PARRAL_SERIES = (
+    SeriesSpec(48, "A", 15, ("20260617", "20260629", "20260711", "20260723", "20260816",
+                             "20260828", "20260909", "20260921", "20261003", "20261015")),
+    SeriesSpec(171, "D", 75, ("20260626", "20260708", "20260720", "20260813", "20260825",
+                              "20260906", "20260918", "20260930", "20261012")),
+)
+
+
+def _background(rng: np.random.Generator, shape: tuple[int, int]) -> np.ndarray:
+    field = ndimage.gaussian_filter(rng.normal(size=shape), 12)
+    return -13 + 3 * field / field.std()
+
+
+def _disk(shape: tuple[int, int], row: float, col: float, radius: float) -> np.ndarray:
+    rows, cols = np.ogrid[: shape[0], : shape[1]]
+    return (rows - row) ** 2 + (cols - col) ** 2 <= radius**2
+
+
+def _write(path: Path, name: str, hh, hv, mask, looks, exception, x, y, day, spec: SeriesSpec) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with h5py.File(path, "w") as handle:
+        handle.attrs["data_kind"] = "synthetic"
+        identification = handle.create_group(IDENTIFICATION)
+        identification["granuleId"] = name
+        identification["trackNumber"] = spec.track
+        identification["frameNumber"] = spec.frame
+        identification["orbitPassDirection"] = "Ascending" if spec.direction == "A" else "Descending"
+        identification["zeroDopplerStartTime"] = datetime.strptime(day, "%Y%m%d").strftime("%Y-%m-%dT09:42:25")
+        identification["compositeReleaseId"] = "P05023"
+        grid = handle.create_group(GRID)
+        grid["xCoordinates"] = x
+        grid["yCoordinates"] = y
+        grid["HHHH"] = hh.astype(np.float32)
+        grid["HVHV"] = hv.astype(np.float32)
+        grid["mask"] = mask.astype(np.uint8)
+        grid["numberOfLooks"] = looks.astype(np.float32)
+        grid["inputDataExceptionMask"] = exception.astype(np.uint8)
+        grid["projection"] = EPSG
+        grid["projection"].attrs["epsg_code"] = EPSG
+
+
+def _speckle(rng: np.random.Generator, db: np.ndarray) -> np.ndarray:
+    return 10 ** (db / 10) * rng.gamma(LOOKS, 1 / LOOKS, db.shape)
+
+
+def generate_series(spec: SeriesSpec, bbox: list[float], out_dir: Path, seed: int = 7) -> list[Path]:
+    left, bottom, right, top = transform_bounds("EPSG:4326", f"EPSG:{EPSG}", *bbox)
+    margin = 4 * POSTING_M
+    x = np.arange(left - margin, right + margin, POSTING_M)
+    y = np.arange(top + margin, bottom - margin, -POSTING_M)
+    shape = (y.size, x.size)
+    rng = np.random.default_rng(seed + spec.track)
+
+    base_hh = _background(rng, shape)
+    base_hv = base_hh - 7
+    city = _disk(shape, shape[0] * 0.55, shape[1] * 0.5, shape[0] * 0.09)
+    base_hh[city] += 7
+    base_hv[city] += 5
+    wetting = _disk(shape, shape[0] * 0.28, shape[1] * 0.28, shape[0] * 0.14)
+    water_center = (shape[0] * 0.75, shape[1] * 0.75)
+
+    mask = np.ones(shape, np.uint8)
+    mask[:, shape[1] // 2 :] = 2
+    mask[: 3, :] = 255
+    mask[:, : 3] = 255
+    mask[:, shape[1] // 2 - 1 : shape[1] // 2 + 1] = 0
+    looks = np.full(shape, LOOKS, np.float32)
+    looks[_disk(shape, shape[0] * 0.2, shape[1] * 0.8, shape[0] * 0.06)] = 1.0
+
+    paths = []
+    for index, day in enumerate(spec.dates):
+        progress = index / max(len(spec.dates) - 1, 1)
+        hh, hv = base_hh.copy(), base_hv.copy()
+        if progress >= 0.4:  # humedecimiento ficticio a mitad de la serie
+            hh[wetting] += 5
+            hv[wetting] += 1
+        water = _disk(shape, *water_center, shape[0] * (0.16 - 0.08 * progress))
+        hh[water] = -24
+        hv[water] = -30
+
+        exception = np.zeros(shape, np.uint8)
+        if index == 2:
+            exception[_disk(shape, shape[0] * 0.5, shape[1] * 0.15, shape[0] * 0.05)] = 2
+
+        name = (
+            f"SYNTHETIC_NISAR_L2_PR_GCOV_{index + 1:03d}_{spec.track:03d}_{spec.direction}_{spec.frame:03d}"
+            f"_4005_DHDH_A_{day}T094225_{day}T094259_P05023_N_F_J_001"
+        )
+        hh_power = _speckle(rng, hh)
+        hv_power = _speckle(rng, hv)
+        hh_power[mask == 255] = np.nan
+        hv_power[mask == 255] = np.nan
+        path = out_dir / f"{name}.h5"
+        _write(path, name, hh_power, hv_power, mask, looks, exception, x, y, day, spec)
+        paths.append(path)
+    return paths
