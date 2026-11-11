@@ -39,6 +39,8 @@ class Params:
     # Otsu siempre encuentra un umbral, incluso sin cambio; este suelo evita marcar ruido.
     min_threshold_db: float = 3.0
     min_cluster_pixels: int = 4
+    # Umbral inicial sin calibrar con banda L: desviación de la mediana de una fecha respecto a la serie.
+    qa_outlier_db: float = 1.5
 
 
 @dataclass

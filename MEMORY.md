@@ -41,6 +41,7 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-10 | Conventional Commits con resumen en español y ámbito por rol, validado en CI | Historial legible y comprobable |
 | 2026-11-10 | Licencia GPL-3.0-only | Elección del equipo; el reto pide código abierto |
 | 2026-11-10 | La ingesta pasa a un servicio propio, `services/ingest` | Separar el trabajo de Antena del de Eco |
+| 2026-11-11 | El manifiesto añade `dates[].qa` como campo **opcional** (T-ECO-03) | Cambio aditivo: los manifiestos y las pruebas de `verdicts` sin `qa` siguen siendo válidos. `processor` siempre lo escribe |
 
 ## Datos verificados
 
@@ -78,7 +79,7 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - Lista de recursos oficial del reto.
 - Lectura real de un gránulo: troceado HDF5, velocidad por HTTPS y si las mallas coinciden entre fechas. `processor` rechaza mallas distintas.
 - Harmony para extraer capas GCOV.
-- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION` y las firmas por polarización son valores iniciales sin calibrar con banda L.
+- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION`, `qa_outlier_db` (1,5 dB) y las firmas por polarización son valores iniciales sin calibrar con banda L.
 
 ## Pendientes
 
