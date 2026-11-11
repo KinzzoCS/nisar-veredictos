@@ -1,50 +1,44 @@
 # Instrucciones para agentes y colaboradores
 
-Antes de trabajar, lee [MEMORY.md](MEMORY.md): tiene las decisiones, los hechos verificados y lo que sigue abierto.
+Antes de trabajar, lee en este orden:
+
+1. [specs/constitution.md](specs/constitution.md): principios no negociables.
+2. La especificación del rol que vas a tocar, en [specs/](specs/README.md).
+3. [MEMORY.md](MEMORY.md): decisiones, hechos verificados y lo que sigue abierto.
 
 ## Qué construimos
 
-Una aplicación para el reto NASA/ISRO NISAR. Convierte datos radar GCOV en **veredictos auditables** por zona y par de fechas, con tres estados: `change_probable`, `no_detectable_change` y `not_observable` con su causa. El centro del producto es decir también lo que no se sabe.
+Una aplicación abierta (GPL-3.0-only) para el reto NASA/ISRO NISAR. Convierte datos radar GCOV en **veredictos auditables** por zona y par de fechas, con tres estados: `change_probable`, `no_detectable_change` y `not_observable` con su causa. El centro del producto es decir también lo que no se sabe.
 
-## Mapa del repositorio
+## Roles y carpetas
 
-| Carpeta | Responsabilidad | Equipo |
+| Rol | Persona | Carpetas | Especificación |
+|---|---|---|---|
+| Antena: ingesta y tiempo | @KinzzoCS | `services/catalog`, `services/ingest`, `config/aois` | [01-antena](specs/01-antena/spec.md) |
+| Eco: señal y georreferencia | @TakoKami-dev | `services/processor` | [02-eco](specs/02-eco/spec.md) |
+| Balanza: interpretación y veracidad | @sanchezelvin69305 | `services/verdicts`, `gateway`, `docker-compose.yml`, `scripts` | [03-balanza](specs/03-balanza/spec.md) |
+| Atlas: mapa y representación web | @Fransomware | Módulo de mapa en `frontend/` | [04-atlas](specs/04-atlas/spec.md) |
+| Faro: relato y experiencia | @danielsanchez-033 | Resto de `frontend/` | [05-faro](specs/05-faro/spec.md) |
+
+## Reglas de trabajo para agentes
+
+- Trabaja solo dentro de las carpetas del rol que te pidieron. Para tocar otra, pide la aprobación de su dueño.
+- Si el cambio altera lo que el sistema promete, actualiza primero la especificación del rol.
+- Cita la tarea (`T-XXX-NN`) en el commit y en el PR, y márcala en `tasks.md` al terminarla.
+- Los servicios no importan código entre sí. Se comunican por HTTP o por los contratos de `contracts/`.
+- Nunca presentes datos sintéticos como reales ni escribas una afirmación que la API no sostenga.
+- No modifiques `frontend/` salvo que el equipo de frontend lo pida.
+
+## Contratos
+
+| Contrato | Dueño | Regenerar o validar |
 |---|---|---|
-| `services/catalog` | Busca en CMR y agrupa series comparables | Back 1 |
-| `services/processor` | Lee GCOV y genera COGs, estados y manifiesto | Back 2 |
-| `services/verdicts` | Decide veredictos y escribe los textos; API principal | Back 3 |
-| `gateway/`, `docker-compose.yml` | Entrada única e integración, incluida TiTiler | Back 3 |
-| `frontend/` | Libre para el equipo de frontend | Front 1 y 2 |
-| `contracts/` | Fronteras entre servicios | Acuerdo entre las partes afectadas |
-| `config/aois/` | Zonas de estudio | Back 1 |
+| `contracts/catalog.openapi.json` | Antena | `python -m catalog.export_openapi contracts/catalog.openapi.json` |
+| `contracts/gcov-subset.md` | Antena con Eco | Pruebas de `ingest` |
+| `contracts/artifact-manifest.schema.json` | Eco con Balanza | Pruebas de `processor` y `verdicts` |
+| `contracts/verdicts.openapi.json` | Balanza | `python -m verdicts.export_openapi contracts/verdicts.openapi.json` |
 
-## Límites entre servicios
-
-- Una rama toca una sola carpeta de servicio, salvo cambios acordados de contrato.
-- Los servicios no importan código entre sí. Se comunican solo por HTTP o por los artefactos descritos en `contracts/`.
-- `processor` escribe artefactos y `verdicts` los lee: ningún servicio escribe en el dominio de otro.
-- Los agentes no modifican `frontend/` salvo que el equipo de frontend lo pida.
-
-## Cambiar un contrato
-
-1. Avisa a quien lo consume antes de cambiarlo.
-2. Modifica `contracts/artifact-manifest.schema.json`, o los modelos de la API y regenera su OpenAPI:
-
-```bash
-python -m catalog.export_openapi contracts/catalog.openapi.json
-python -m verdicts.export_openapi contracts/verdicts.openapi.json
-```
-
-3. Las pruebas fallan si el contrato publicado no coincide con el código.
-
-## Reglas de datos que no se negocian
-
-- Solo se comparan fechas con la misma pista, dirección, marco, modo, polarización y CRID. Nunca se mezclan PROVISIONAL y VALIDATED.
-- `data_kind` viaja en cada respuesta. Lo sintético nunca se presenta como real, ni en texto ni en la demo.
-- Un píxel no observable se conserva con su causa. Nunca se borra ni se cuenta como "sin cambio".
-- Las hipótesis se redactan como hipótesis. No afirmamos causas, daños ni que NISAR supere a otro sistema si no se ha medido.
-- Solo se usan los términos diagonales `HHHH` y `HVHV`.
-- GCOV está en potencia gamma-0: se promedia en lineal y después se convierte a dB.
+Las pruebas fallan si el contrato publicado no coincide con el código. Los contratos se congelan el 13 de noviembre.
 
 ## Comandos
 
@@ -67,11 +61,12 @@ Prueba de humo con la pila levantada:
 bash scripts/smoke.sh
 ```
 
-## Flujo de Git
+## Git
 
-- Ramas `area/tema`, por ejemplo `verdicts/umbrales` o `front/mapa`.
-- Todo entra a `main` por pull request con CI en verde.
-- Nunca se suben datos, tokens ni archivos `.env`. El token de Earthdata va solo en `.env` local.
+- Ramas `<ámbito>/<tema>` y commits `tipo(ámbito): resumen` en español. Detalle en [CONTRIBUTING.md](CONTRIBUTING.md).
+- Validación local: `git config core.hooksPath .githooks`.
+- Todo entra a `main` por PR con fusión squash y CI en verde.
+- Nunca se suben datos, tokens ni archivos `.env`.
 
 ## Actualizar la memoria
 

@@ -29,17 +29,35 @@ curl "http://localhost:8080/api/verdicts/aois/parral/events?date=2026-07-01"
 ## Cómo fluye
 
 ```
-NASA CMR ──> catalog            series comparables
-GCOV .h5 ──> processor ──> data/artifacts (COG + manifiesto)
-                                  │
-                                  ├──> verdicts  veredictos y textos
-                                  └──> tiles     teselas de mapa
-              gateway ──> frontend
+Antena   NASA CMR / Earthdata ──> catalog + ingest ──> recortes GCOV
+Eco      recortes ──> processor ──> COG + manifiesto
+Balanza  manifiesto ──> verdicts + tiles + gateway ──> API
+Atlas    API ──> mapa
+Faro     API + mapa ──> experiencia y relato
 ```
 
 ## Equipo
 
-Cada servicio tiene un responsable y se prueba por separado. Las reglas están en [AGENTS.md](AGENTS.md), las decisiones y hechos en [MEMORY.md](MEMORY.md), y la guía de consumo de la API en [frontend/README.md](frontend/README.md).
+Trabajamos con desarrollo guiado por especificaciones: primero [la especificación](specs/README.md), después el código.
+
+| Rol | Persona | Se encarga de |
+|---|---|---|
+| Antena | @KinzzoCS | Ingesta, catálogo y cálculos de tiempo |
+| Eco | @TakoKami-dev | Control de calidad, cálculo de cambio y georreferencia |
+| Balanza | @sanchezelvin69305 | Interpretación, veracidad, contraste e integración |
+| Atlas | @Fransomware | Mapa y representación web |
+| Faro | @danielsanchez-033 | UI/UX, relato y demo |
+
+- Principios no negociables: [specs/constitution.md](specs/constitution.md).
+- Commits, ramas y PR: [CONTRIBUTING.md](CONTRIBUTING.md).
+- Decisiones y hechos verificados: [MEMORY.md](MEMORY.md).
+- Guía para agentes de IA: [AGENTS.md](AGENTS.md).
+
+## Licencia
+
+Copyright (C) 2026 colaboradores de NISAR Veredictos. Software libre bajo [GPL-3.0-only](LICENSE).
+
+Los datos NISAR son de NASA e ISRO. Cada fuente externa (OPERA, Copernicus Sentinel-2, DEM y mapa base) se atribuye donde se muestra.
 
 ## Datos reales
 
