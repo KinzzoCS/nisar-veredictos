@@ -22,7 +22,8 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 Acceso comprobado con la API de GitHub el 2026-11-10:
 
 - Balanza usa la cuenta `lospapulindos2-netizen`, que ya tiene acceso de escritura (confirmado por el equipo).
-- `Fransomware` tenía la invitación pendiente de aceptar. Hasta que la acepte, `CODEOWNERS` no puede pedirle revisión.
+- 2026-11-11: `Fransomware` ya aceptó la invitación y tiene acceso de escritura (API de colaboradores).
+- 2026-11-11: el repositorio es privado en un plan gratuito, así que GitHub **no** pide revisión automática a `CODEOWNERS` ni permite proteger `main` (la API de protección responde 403). Hasta hacerlo público, los revisores se añaden a mano en cada PR. Comprobado en el PR 5, que se abrió sin revisores asignados.
 - `sanchezelvin69305` tiene una invitación pendiente y ya no tiene rol.
 
 ## Decisiones
