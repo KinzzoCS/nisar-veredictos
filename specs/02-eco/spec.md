@@ -33,7 +33,7 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 
 ## Criterios de aceptación
 
-- [ ] Procesar 10 fechas reales de Parral con menos de 2 GB de RAM.
+- [ ] Procesar 10 fechas reales de Parral con menos de 2 GB de RAM. Con 10 fechas **sintéticas** a la resolución real se midieron 1510 MB (`bench/memoria.py`); falta confirmarlo con datos reales.
 - [x] Una fecha con su mediana desplazada más de 1,5 dB respecto a la serie aparece marcada en el control de calidad. Comprobado con datos sintéticos (+3 dB), no con datos reales.
 - [ ] Toda capa COG declara su CRS, y su extensión en WGS84 coincide con la del manifiesto.
 - [ ] Ningún píxel no observable cambia de estado por el procesamiento.

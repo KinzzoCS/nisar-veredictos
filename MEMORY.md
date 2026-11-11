@@ -85,7 +85,8 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 
 - Cuenta de Earthdata del equipo: el 2026-11-09 el equipo la reportó caída y no se pudo crear.
 - Probar `ingest fetch` con un token real. Se verificó con un servidor HTTP local (rangos, token, redirección a otro origen), no contra un gránulo NASA.
-- Vigilar memoria en `processor`: a 10 m, 10 fechas de la zona completa ocuparían unos 4 GB de RAM. Empezar con `--limit 2` (T-ECO-02).
+- Memoria de `processor` (T-ECO-02): desde el 2026-11-11 procesa por pares, con como máximo dos escenas en memoria, y suaviza en float32. Medido con `services/processor/bench/memoria.py` sobre 10 fechas **sintéticas** de 5022 × 5496 px (Windows, Python 3.14): 5048 MB y 715 s antes, 1510 MB y 516 s después, con conteos, umbrales y QA idénticos. Con las 2 fechas reales de T048 en Docker (`docker compose --profile real run process`), el pico del contenedor fue de 1586 MB (`memory.peak` del cgroup, que incluye la caché de archivos) y 52 s, frente a los 2,25 GB que midió Antena. Falta medirlo con las 10 fechas reales.
+- 2026-11-11, `numberOfLooks` en los recortes reales de T048 (iguales en las dos fechas): p1 1,88, p5 3,12, p15 3,99, mediana 4,52 y p95 6,14. Con `min_looks = 4` queda fuera el 15,2 %; por debajo de 3 solo el 4,3 % y por debajo de 2 el 1,2 %. La fracción baja de oeste a este (del 24-29 % al 6 %), lo que apunta al ángulo de incidencia, y esos píxeles son más brillantes en HH (mediana −7,9 dB frente a −11,1 dB), lo que apunta a laderas orientadas al sensor. Ambas son hipótesis. El umbral se aplica por píxel antes de promediar 5 × 5; la suma de looks en esa ventana baja de 25 solo en el 0,01 %. Decidir el criterio con Balanza (T-ECO-07).
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
