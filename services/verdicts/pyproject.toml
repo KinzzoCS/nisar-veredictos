@@ -1,11 +1,12 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "nisar-verdicts"
 version = "0.1.0"
 description = "Convierte artefactos de cambio en veredictos auditables en lenguaje llano."
+license = "GPL-3.0-only"
 requires-python = ">=3.10"
 dependencies = [
   "fastapi>=0.115,<1",

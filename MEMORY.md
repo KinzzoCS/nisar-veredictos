@@ -6,7 +6,24 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 
 - 2026-11-09: esqueleto completo con datos sintéticos. **Todavía no se ha abierto ningún gránulo real.**
 - Evento: 14 y 15 de noviembre de 2026, según una fuente secundaria. Falta confirmarlo.
-- Equipo: 3 backend y 2 frontend.
+- 2026-11-09: el equipo confirma que las reglas permiten llevar avances al evento.
+- 2026-11-10: roles asignados y especificaciones SDD en `specs/`.
+
+## Equipo
+
+| Rol | Persona |
+|---|---|
+| Antena: ingesta y tiempo | @KinzzoCS |
+| Eco: señal y georreferencia | @TakoKami-dev |
+| Balanza: interpretación y veracidad | PapuPro05 (@sanchezelvin69305) |
+| Atlas: mapa y representación web | @Fransomware |
+| Faro: relato y experiencia | @danielsanchez-033 |
+
+Acceso comprobado con la API de GitHub el 2026-11-10:
+
+- `PapuPro05` es el nombre visible de `sanchezelvin69305`. `CODEOWNERS` usa siempre el login.
+- `Fransomware` y `sanchezelvin69305` tenían la invitación pendiente de aceptar. Hasta que la acepten, `CODEOWNERS` no puede pedirles revisión.
+- `lospapulindos2-netizen` tiene acceso de escritura y no tiene rol asignado.
 
 ## Decisiones
 
@@ -15,9 +32,15 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 | 2026-11-09 | Producto GCOV, sin GUNW como eje | Menos riesgo técnico, y nadie del equipo declaró experiencia InSAR |
 | 2026-11-09 | Veredicto en tres estados con recibo de procedencia | Ninguna herramienta revisada convierte NISAR en información de cambio para no especialistas |
 | 2026-11-09 | Caso inicial: Hidalgo del Parral, Chihuahua | Elección del equipo; contexto local real |
-| 2026-11-09 | Servicios independientes con contratos | Tres backend trabajando sin pisarse |
+| 2026-11-09 | Servicios independientes con contratos | Varias personas trabajando sin pisarse |
 | 2026-11-09 | Artefactos precalculados; la demo no procesa en vivo | Evita depender de la red y del tiempo de lectura |
 | 2026-11-09 | COG por fecha, sin Zarr | Unas 10 fechas no lo justifican |
+| 2026-11-09 | Leer por HTTPS solo el recorte (`fsspec`, caché `background`, bloques de 16 MB, valores de la guía de ASF) | Evita bajar unos 69 GB por serie |
+| 2026-11-10 | Cinco roles por etapa del flujo de datos: Antena, Eco, Balanza, Atlas y Faro | Trabajo en paralelo con fronteras claras |
+| 2026-11-10 | Desarrollo guiado por especificaciones en `specs/` | Acordar qué se construye antes de escribir código |
+| 2026-11-10 | Conventional Commits con resumen en español y ámbito por rol, validado en CI | Historial legible y comprobable |
+| 2026-11-10 | Licencia GPL-3.0-only | Elección del equipo; el reto pide código abierto |
+| 2026-11-10 | La ingesta pasa a un servicio propio, `services/ingest` | Separar el trabajo de Antena del de Eco |
 
 ## Datos verificados
 
@@ -32,6 +55,7 @@ Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-0
 - El marco 15 de T048 también cubre la presa La Boquilla.
 - Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
 - Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
+- Cada gránulo tiene un enlace HTTPS directo en `nisar.asf.earthdatacloud.nasa.gov` (CMR, 2026-11-09). Sin token válido, NASA rechaza la lectura.
 
 ## Especificación GCOV
 
@@ -50,7 +74,7 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 
 ## Sin verificar
 
-- Reglas del reto: si se permite preparar código o preprocesar antes del evento, y el enunciado oficial de 2026.
+- Enunciado oficial de 2026.
 - Lista de recursos oficial del reto.
 - Lectura real de un gránulo: troceado HDF5, velocidad por HTTPS y si las mallas coinciden entre fechas. `processor` rechaza mallas distintas.
 - Harmony para extraer capas GCOV.
@@ -58,11 +82,10 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 
 ## Pendientes
 
-- Cuenta de Earthdata del equipo.
-- Conectar la lectura remota de gránulos: hoy `processor` solo lee archivos `.h5` locales.
-- Layover y sombra con DEM para zonas con relieve.
-- Contraste con OPERA DSWx-S1.
-- Elegir licencia abierta antes de publicar, porque el reto pide código abierto.
+- Cuenta de Earthdata del equipo: el 2026-11-09 el equipo la reportó caída y no se pudo crear.
+- Probar `ingest fetch` con un token real. Se verificó con un servidor HTTP local (rangos, token, redirección a otro origen), no contra un gránulo NASA.
+- Vigilar memoria en `processor`: a 10 m, 10 fechas de la zona completa ocuparían unos 4 GB de RAM. Empezar con `--limit 2` (T-ECO-02).
+- Hacer público el repositorio antes de la entrega.
 
 ## Investigación
 
