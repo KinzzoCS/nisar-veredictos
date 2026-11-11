@@ -16,7 +16,7 @@ Una aplicación abierta (GPL-3.0-only) para el reto NASA/ISRO NISAR. Convierte d
 |---|---|---|---|
 | Antena: ingesta y tiempo | @KinzzoCS | `services/catalog`, `services/ingest`, `config/aois` | [01-antena](specs/01-antena/spec.md) |
 | Eco: señal y georreferencia | @TakoKami-dev | `services/processor` | [02-eco](specs/02-eco/spec.md) |
-| Balanza: interpretación y veracidad | PapuPro05 (@sanchezelvin69305) | `services/verdicts`, `gateway`, `docker-compose.yml`, `scripts` | [03-balanza](specs/03-balanza/spec.md) |
+| Balanza: interpretación y veracidad | @lospapulindos2-netizen | `services/verdicts`, `gateway`, `docker-compose.yml`, `scripts` | [03-balanza](specs/03-balanza/spec.md) |
 | Atlas: mapa y representación web | @Fransomware | Módulo de mapa en `frontend/` | [04-atlas](specs/04-atlas/spec.md) |
 | Faro: relato y experiencia | @danielsanchez-033 | Resto de `frontend/` | [05-faro](specs/05-faro/spec.md) |
 
