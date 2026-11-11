@@ -4,6 +4,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
+from catalog.cmr import data_url
 from catalog.main import app as public_app
 from catalog.main import create_app
 from catalog.pairing import build_series, crosses_gap, parse_title
@@ -48,6 +49,20 @@ def test_partial_footprint_does_not_contain_aoi():
     small = ((-105.7, 26.8), (-105.5, 26.8), (-105.5, 27.0), (-105.7, 27.0))
     series = build_series([granule("20260617", footprint=small), granule("20260629", footprint=small)], BBOX)[0]
     assert not series.contains_aoi
+
+
+def test_data_url_picks_only_the_main_https_product():
+    prefix = "http://esipfed.org/ns/fedsearch/1.1"
+    entry = {
+        "links": [
+            {"rel": f"{prefix}/s3#", "href": "s3://bucket/product.h5"},
+            {"rel": f"{prefix}/metadata#", "href": "https://host/product_QA_STATS.h5"},
+            {"rel": f"{prefix}/data#", "href": "https://search.asf.alaska.edu/"},
+            {"rel": f"{prefix}/data#", "href": "https://host/product.h5"},
+        ]
+    }
+    assert data_url(entry) == "https://host/product.h5"
+    assert data_url({"links": []}) == ""
 
 
 class FakeSource:

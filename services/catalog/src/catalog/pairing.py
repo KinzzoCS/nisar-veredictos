@@ -29,6 +29,7 @@ class Granule:
     start: date
     size_mb: float
     footprint: tuple[Point, ...] = ()
+    download_url: str = ""
 
     @property
     def group_key(self) -> tuple:
@@ -55,7 +56,9 @@ class Series:
         return [granule.start for granule in self.granules]
 
 
-def parse_title(title: str, size_mb: float = 0.0, footprint: tuple[Point, ...] = ()) -> Granule | None:
+def parse_title(
+    title: str, size_mb: float = 0.0, footprint: tuple[Point, ...] = (), download_url: str = ""
+) -> Granule | None:
     match = _TITLE.search(title)
     if not match:
         return None
@@ -70,6 +73,7 @@ def parse_title(title: str, size_mb: float = 0.0, footprint: tuple[Point, ...] =
         start=datetime.strptime(match["start"], "%Y%m%d").date(),
         size_mb=size_mb,
         footprint=footprint,
+        download_url=download_url,
     )
 
 

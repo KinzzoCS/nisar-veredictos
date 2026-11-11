@@ -25,6 +25,15 @@ def _footprint(entry: dict) -> tuple[Point, ...]:
     return tuple((float(raw[i + 1]), float(raw[i])) for i in range(0, len(raw) - 1, 2))
 
 
+def data_url(entry: dict) -> str:
+    """Devuelve el enlace HTTPS del HDF5 principal, sin productos de calidad ni S3."""
+    for link in entry.get("links", []):
+        href = link.get("href", "")
+        if link.get("rel", "").endswith("/data#") and href.startswith("https://") and href.endswith(".h5"):
+            return href
+    return ""
+
+
 class CmrSource:
     def __init__(self, client: httpx.Client | None = None):
         self._client = client or httpx.Client(timeout=90, headers={"User-Agent": "nisar-veredictos"})
@@ -56,7 +65,9 @@ class CmrSource:
             response.raise_for_status()
             entries = response.json()["feed"]["entry"]
             for entry in entries:
-                granule = parse_title(entry["title"], float(entry.get("granule_size") or 0), _footprint(entry))
+                granule = parse_title(
+                    entry["title"], float(entry.get("granule_size") or 0), _footprint(entry), data_url(entry)
+                )
                 if granule:
                     result.append(granule)
             if len(entries) < PAGE_SIZE:

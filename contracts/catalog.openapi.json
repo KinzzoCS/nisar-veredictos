@@ -57,6 +57,10 @@
             "title": "Date",
             "type": "string"
           },
+          "download_url": {
+            "title": "Download Url",
+            "type": "string"
+          },
           "id": {
             "title": "Id",
             "type": "string"
@@ -69,7 +73,8 @@
         "required": [
           "id",
           "date",
-          "size_mb"
+          "size_mb",
+          "download_url"
         ],
         "title": "SeriesGranule",
         "type": "object"
