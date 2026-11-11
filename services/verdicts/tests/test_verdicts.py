@@ -1,7 +1,8 @@
 import json
-from datetime import date
+from datetime import date, datetime, timezone
 from pathlib import Path
 
+import httpx
 import jsonschema
 import numpy as np
 import pytest
@@ -9,7 +10,8 @@ import rasterio
 from fastapi.testclient import TestClient
 from rasterio.transform import from_origin
 
-from verdicts import rules
+from verdicts import narrative, rules
+from verdicts.catalog import CatalogUnavailable, HttpTimeline, PassTime
 from verdicts.main import app as public_app
 from verdicts.main import create_app
 
@@ -169,3 +171,159 @@ def test_unknown_resources_are_404(client, path):
 def test_contract_is_current():
     committed = json.loads((ROOT / "contracts" / "verdicts.openapi.json").read_text(encoding="utf-8"))
     assert committed == json.loads(json.dumps(public_app.openapi())), "Regenera el contrato con export_openapi"
+
+
+# --- T-BAL-02: interval_days y frescura -------------------------------------------------
+
+TODAY = datetime(2026, 11, 11, 18, 0, tzinfo=timezone.utc)
+VERDICT = "/aois/parral/series/T048A-F015/verdicts/20260629_20260711"
+
+
+def _clock():
+    return TODAY
+
+
+class FakeTimeline:
+    def __init__(self, passes=None, fail=False):
+        self.calls = 0
+        self.fail = fail
+        self.result = passes or {}
+
+    def passes(self, aoi):
+        self.calls += 1
+        if self.fail:
+            raise CatalogUnavailable(aoi)
+        return self.result
+
+
+def _as_real(manifest_root, **pair_changes):
+    path = manifest_root / "parral/T048A-F015/manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["data_kind"], manifest["notices"] = "real", []
+    manifest["pairs"][0].update(pair_changes)
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+REAL_PASSES = {
+    "G20260629": PassTime(datetime(2026, 6, 29, 0, 41, 12, tzinfo=timezone.utc),
+                          datetime(2026, 7, 1, 8, 11, tzinfo=timezone.utc), 55.5),
+    "G20260711": PassTime(datetime(2026, 7, 11, 0, 41, 30, tzinfo=timezone.utc),
+                          datetime(2026, 7, 12, 14, 0, tzinfo=timezone.utc), 37.3),
+}
+
+
+def test_verdict_reports_interval_and_age(manifest_root):
+    body = TestClient(create_app(manifest_root, clock=_clock)).get(VERDICT).json()
+    assert body["interval_days"] == 12
+    freshness = body["receipt"]["freshness"]
+    assert freshness["reference_date"] == "2026-11-11"
+    assert freshness["before"]["age_days"] == 135 and freshness["after"]["age_days"] == 123
+    assert "(12 días)" in body["summary"]["detected"]
+    assert "123 días" in body["summary"]["missing"]
+
+
+def test_synthetic_verdict_never_asks_catalog(manifest_root):
+    timeline = FakeTimeline(REAL_PASSES)
+    body = TestClient(create_app(manifest_root, timeline=timeline, clock=_clock)).get(VERDICT).json()
+    assert timeline.calls == 0
+    assert body["receipt"]["freshness"]["after"]["latency_status"] == "synthetic"
+    assert body["receipt"]["freshness"]["after"]["publication_latency_hours"] is None
+    assert "no aplica a datos sintéticos" in body["summary"]["missing"]
+
+
+def test_real_verdict_takes_latency_from_catalog(manifest_root):
+    _as_real(manifest_root)
+    client = TestClient(create_app(manifest_root, timeline=FakeTimeline(REAL_PASSES), clock=_clock))
+    body = client.get(VERDICT).json()
+    after = body["receipt"]["freshness"]["after"]
+    assert after["latency_status"] == "available" and after["publication_latency_hours"] == 37.3
+    assert after["acquired_at"].startswith("2026-07-11T00:41:30")
+    assert "37,3 horas" in body["summary"]["missing"]
+    english = client.get(VERDICT, params={"lang": "en"}).json()["summary"]["missing"]
+    assert "123 days old" in english and "37.3 hours" in english
+
+
+def test_catalog_down_does_not_break_the_verdict(manifest_root):
+    _as_real(manifest_root)
+    response = TestClient(create_app(manifest_root, timeline=FakeTimeline(fail=True), clock=_clock)).get(VERDICT)
+    assert response.status_code == 200
+    after = response.json()["receipt"]["freshness"]["after"]
+    assert after["latency_status"] == "catalog_unavailable" and after["acquired_at"] is None
+    assert "el catálogo no respondió" in response.json()["summary"]["missing"]
+
+
+def test_granule_missing_from_catalog_is_declared(manifest_root):
+    _as_real(manifest_root)
+    body = TestClient(create_app(manifest_root, timeline=FakeTimeline({}), clock=_clock)).get(VERDICT).json()
+    assert body["receipt"]["freshness"]["after"]["latency_status"] == "granule_not_in_catalog"
+
+
+def test_pair_across_august_gap_says_24_days_and_why(manifest_root):
+    _as_real(manifest_root, **{"from": "2026-07-23", "to": "2026-08-16", "spans_data_gap": True})
+    body = TestClient(create_app(manifest_root, clock=_clock)).get(VERDICT).json()
+    assert body["interval_days"] == 24
+    assert "(24 días)" in body["summary"]["detected"]
+    assert "separadas 24 días" in body["summary"]["missing"] and "hueco" in body["summary"]["missing"]
+
+
+def test_full_window_does_not_blame_the_gap_for_its_length(manifest_root):
+    _as_real(manifest_root, **{"from": "2026-06-17", "to": "2026-10-15", "kind": "full_window", "spans_data_gap": True})
+    client = TestClient(create_app(manifest_root, clock=_clock))
+    body = client.get(VERDICT).json()
+    assert body["interval_days"] == 120
+    assert "porque el par cruza el hueco" not in body["summary"]["missing"]
+    assert "primera y la última fecha" in body["summary"]["missing"] and "incluye el hueco" in body["summary"]["missing"]
+    english = client.get(VERDICT, params={"lang": "en"}).json()["summary"]["missing"]
+    assert "because the pair crosses" not in english and "first and last dates" in english
+
+
+def test_singular_day_in_both_languages():
+    assert narrative.freshness_text(1, None, "synthetic", "es").startswith("La imagen más reciente tiene 1 día.")
+    assert narrative.freshness_text(1, None, "synthetic", "en").startswith("The most recent image is 1 day old.")
+
+
+def _timeline_body():
+    return {"passes": [
+        {"granule_id": "G20260711.h5", "acquired_at": "2026-07-11T00:41:30Z",
+         "published_at": "2026-07-12T14:00:00Z", "latency_hours": 37.3},
+        {"granule_id": "G20260723", "acquired_at": "2026-07-23T00:41:30Z",
+         "published_at": None, "latency_hours": None},
+    ]}
+
+
+def test_http_timeline_parses_and_caches():
+    calls = []
+
+    def handler(request):
+        calls.append(request.url.path)
+        return httpx.Response(200, json=_timeline_body())
+
+    clock = [0.0]
+    source = HttpTimeline("http://catalog:8000/", httpx.Client(transport=httpx.MockTransport(handler)), lambda: clock[0])
+    passes = source.passes("parral")
+    assert calls == ["/aois/parral/timeline"]
+    assert passes["G20260711"].latency_hours == 37.3 and passes["G20260723"].published_at is None
+    source.passes("parral")
+    assert len(calls) == 1
+    clock[0] = 10_000
+    source.passes("parral")
+    assert len(calls) == 2
+
+
+def test_http_timeline_failure_is_cached_briefly():
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(404)
+
+    clock = [0.0]
+    source = HttpTimeline("http://catalog:8000", httpx.Client(transport=httpx.MockTransport(handler)), lambda: clock[0])
+    for _ in range(2):
+        with pytest.raises(CatalogUnavailable):
+            source.passes("parral")
+    assert len(calls) == 1
+    clock[0] = 120
+    with pytest.raises(CatalogUnavailable):
+        source.passes("parral")
+    assert len(calls) == 2

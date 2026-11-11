@@ -179,6 +179,35 @@
         "title": "Evidence",
         "type": "object"
       },
+      "Freshness": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/PassFreshness"
+          },
+          "before": {
+            "$ref": "#/components/schemas/PassFreshness"
+          },
+          "published_at_basis": {
+            "const": "cmr_updated",
+            "default": "cmr_updated",
+            "title": "Published At Basis",
+            "type": "string"
+          },
+          "reference_date": {
+            "description": "Fecha UTC con la que se calcula age_days (hoy, al responder).",
+            "format": "date",
+            "title": "Reference Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "reference_date",
+          "before",
+          "after"
+        ],
+        "title": "Freshness",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -213,6 +242,85 @@
           "change_hv"
         ],
         "title": "Layers",
+        "type": "object"
+      },
+      "PassFreshness": {
+        "properties": {
+          "acquired_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Inicio de la adquisición en UTC, según la línea de tiempo de catalog. null si no se conoce.",
+            "title": "Acquired At"
+          },
+          "age_days": {
+            "description": "Días entre la fecha de la pasada y reference_date.",
+            "title": "Age Days",
+            "type": "integer"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "granule": {
+            "title": "Granule",
+            "type": "string"
+          },
+          "latency_status": {
+            "description": "Por qué hay o no hay latencia: dato real disponible, dato sintético, catalog sin respuesta, gránulo ausente del catálogo o gránulo sin fecha de publicación.",
+            "enum": [
+              "available",
+              "synthetic",
+              "catalog_unavailable",
+              "granule_not_in_catalog",
+              "not_published"
+            ],
+            "title": "Latency Status",
+            "type": "string"
+          },
+          "publication_latency_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Horas entre la adquisición y published_at, tal como las da catalog. null si no se conoce.",
+            "title": "Publication Latency Hours"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fecha 'updated' de CMR en UTC: aproxima la publicación. null si no se conoce.",
+            "title": "Published At"
+          }
+        },
+        "required": [
+          "date",
+          "granule",
+          "acquired_at",
+          "published_at",
+          "publication_latency_hours",
+          "latency_status",
+          "age_days"
+        ],
+        "title": "PassFreshness",
         "type": "object"
       },
       "PixelChange": {
@@ -353,6 +461,9 @@
             "title": "Frame",
             "type": "integer"
           },
+          "freshness": {
+            "$ref": "#/components/schemas/Freshness"
+          },
           "granules": {
             "items": {
               "type": "string"
@@ -404,7 +515,8 @@
           "crid",
           "granules",
           "spans_data_gap",
-          "notices"
+          "notices",
+          "freshness"
         ],
         "title": "Receipt",
         "type": "object"
@@ -563,6 +675,11 @@
             "title": "Id",
             "type": "string"
           },
+          "interval_days": {
+            "description": "Días entre from_date y to_date.",
+            "title": "Interval Days",
+            "type": "integer"
+          },
           "kind": {
             "enum": [
               "consecutive",
@@ -606,6 +723,7 @@
           "kind",
           "from_date",
           "to_date",
+          "interval_days",
           "state",
           "cause",
           "cause_label",

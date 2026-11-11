@@ -50,39 +50,117 @@ HYPOTHESES = {
 SYNTHETIC_PREFIX = {"es": "[DATOS SINTÉTICOS] ", "en": "[SYNTHETIC DATA] "}
 
 
-def pair_summary(decision: rules.Decision, start: str, end: str, spans_gap: bool, lang: Lang, synthetic: bool) -> dict:
+LATENCY_UNKNOWN = {
+    "es": {
+        "synthetic": "La latencia de publicación no aplica a datos sintéticos.",
+        "catalog_unavailable": "No se conoce la latencia de publicación: el catálogo no respondió.",
+        "granule_not_in_catalog": "No se conoce la latencia de publicación: el gránulo no aparece en el catálogo.",
+        "not_published": "No se conoce la latencia de publicación: el catálogo no da fecha de publicación.",
+    },
+    "en": {
+        "synthetic": "Publication latency does not apply to synthetic data.",
+        "catalog_unavailable": "Publication latency is unknown: the catalog did not respond.",
+        "granule_not_in_catalog": "Publication latency is unknown: the granule is not in the catalog.",
+        "not_published": "Publication latency is unknown: the catalog gives no publication date.",
+    },
+}
+
+
+def _days(count: int, lang: Lang) -> str:
+    if lang == "es":
+        return f"{count} día" if count == 1 else f"{count} días"
+    return f"{count} day" if count == 1 else f"{count} days"
+
+
+def _hours(value: float, lang: Lang) -> str:
+    # Se muestra el valor de catalog tal cual (un decimal), sin redondear más.
+    text = f"{value:.1f}"
+    return text.replace(".", ",") if lang == "es" else text
+
+
+def freshness_text(age_days: int, latency_hours: float | None, latency_status: str, lang: Lang) -> str:
+    """Edad de la imagen más reciente y latencia de publicación, o por qué no se conoce."""
+    if lang == "es":
+        age = f"La imagen más reciente tiene {_days(age_days, lang)}."
+        if latency_status == "available" and latency_hours is not None:
+            latency = (
+                f"Se publicó {_hours(latency_hours, lang)} horas después de adquirirse "
+                "(aproximación con la fecha de actualización de CMR)."
+            )
+        else:
+            latency = LATENCY_UNKNOWN[lang][latency_status]
+    else:
+        age = f"The most recent image is {_days(age_days, lang)} old."
+        if latency_status == "available" and latency_hours is not None:
+            latency = (
+                f"It was published {_hours(latency_hours, lang)} hours after acquisition "
+                "(approximated with the CMR update date)."
+            )
+        else:
+            latency = LATENCY_UNKNOWN[lang][latency_status]
+    return f"{age} {latency}"
+
+
+def pair_summary(
+    decision: rules.Decision,
+    start: str,
+    end: str,
+    spans_gap: bool,
+    lang: Lang,
+    synthetic: bool,
+    *,
+    interval_days: int,
+    age_days: int,
+    latency_hours: float | None,
+    latency_status: str,
+    kind: str = "consecutive",
+) -> dict:
     observed = f"{decision.observed_fraction:.0%}"
     changed = f"{decision.changed_fraction:.1%}"
+    span = _days(interval_days, lang)
     if lang == "es":
         if decision.state == rules.CHANGE_PROBABLE:
-            detected = f"Entre {start} y {end} cambió la señal de radar en el {changed} de la superficie observada."
+            detected = f"Entre {start} y {end} ({span}) cambió la señal de radar en el {changed} de la superficie observada."
             limits = "No identifica la causa ni mide daños; la explicación requiere otra fuente o verificación en campo."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
-            detected = f"Entre {start} y {end} no detectamos cambios sobre el umbral en el {observed} observado de la zona."
+            detected = f"Entre {start} y {end} ({span}) no detectamos cambios sobre el umbral en el {observed} observado de la zona."
             limits = "No demuestra que nada cambiara: lo pequeño, lo breve o lo ocurrido entre pasadas puede no aparecer."
         else:
-            detected = f"No podemos afirmar nada entre {start} y {end}: solo se observó el {observed} de la zona ({CAUSES[lang][decision.cause]})."
+            detected = f"No podemos afirmar nada entre {start} y {end} ({span}): solo se observó el {observed} de la zona ({CAUSES[lang][decision.cause]})."
             limits = "La ausencia de resultado no significa que no haya pasado nada."
-        missing = (
-            "Este par cruza el hueco de datos de julio-agosto de 2026, así que cubre un intervalo más largo."
-            if spans_gap
-            else "Falta contrastar con una fuente independiente."
-        )
+        if kind == "full_window":
+            context = f"Este par compara la primera y la última fecha de la serie, separadas {span}; resume todo el periodo, no un cambio puntual."
+            if spans_gap:
+                context += " El periodo incluye el hueco sin adquisiciones del 27 de julio al 10 de agosto de 2026."
+        elif spans_gap:
+            context = (
+                f"Las imágenes están separadas {span} porque el par cruza el hueco sin adquisiciones del "
+                "27 de julio al 10 de agosto de 2026; lo ocurrido en ese tiempo puede no verse."
+            )
+        else:
+            context = "Falta contrastar con una fuente independiente."
     else:
         if decision.state == rules.CHANGE_PROBABLE:
-            detected = f"Between {start} and {end}, the radar signal changed over {changed} of the observed surface."
+            detected = f"Between {start} and {end} ({span}), the radar signal changed over {changed} of the observed surface."
             limits = "It does not identify the cause or measure damage; explaining it needs another source or field checks."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
-            detected = f"Between {start} and {end}, we detected no change above the threshold in the {observed} of the area observed."
+            detected = f"Between {start} and {end} ({span}), we detected no change above the threshold in the {observed} of the area observed."
             limits = "It does not prove nothing changed: small, brief or between-pass changes may not appear."
         else:
-            detected = f"We cannot say anything between {start} and {end}: only {observed} of the area was observed ({CAUSES[lang][decision.cause]})."
+            detected = f"We cannot say anything between {start} and {end} ({span}): only {observed} of the area was observed ({CAUSES[lang][decision.cause]})."
             limits = "The lack of a result does not mean nothing happened."
-        missing = (
-            "This pair crosses the July-August 2026 data gap, so it covers a longer interval."
-            if spans_gap
-            else "It still needs checking against an independent source."
-        )
+        if kind == "full_window":
+            context = f"This pair compares the first and last dates of the series, {span} apart; it sums up the whole period, not a single change."
+            if spans_gap:
+                context += " The period includes the acquisition gap from 27 July to 10 August 2026."
+        elif spans_gap:
+            context = (
+                f"The images are {span} apart because the pair crosses the acquisition gap from "
+                "27 July to 10 August 2026; what happened in that time may not show."
+            )
+        else:
+            context = "It still needs checking against an independent source."
+    missing = f"{context} {freshness_text(age_days, latency_hours, latency_status, lang)}"
     prefix = SYNTHETIC_PREFIX[lang] if synthetic else ""
     return {"detected": prefix + detected, "does_not_prove": limits, "missing": missing}
 

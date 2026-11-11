@@ -3,7 +3,7 @@
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
 | T-BAL-01 | Veredictos, eventos, serie por píxel y gateway | — | — | hecha |
-| T-BAL-02 | [P] `interval_days` y frescura en el veredicto y en los textos | P0 | — | pendiente |
+| T-BAL-02 | [P] `interval_days` y frescura en el veredicto y en los textos | P0 | — | hecha |
 | T-BAL-03 | [P] Prueba de lenguaje prohibido en ES y EN | P0 | — | pendiente |
 | T-BAL-04 | Contraste óptico Sentinel-2 en el veredicto y ampliación del gateway | P0 | T-ANT-05 | pendiente |
 | T-BAL-05 | Prueba de humo con todas las rutas nuevas | P0 | T-ANT-04, T-BAL-04 | pendiente |

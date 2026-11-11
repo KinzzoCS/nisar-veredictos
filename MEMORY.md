@@ -46,6 +46,7 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-10 | La ingesta pasa a un servicio propio, `services/ingest` | Separar el trabajo de Antena del de Eco |
 | 2026-11-11 | El manifiesto añade `dates[].qa` como campo **opcional** (T-ECO-03) | Cambio aditivo: los manifiestos y las pruebas de `verdicts` sin `qa` siguen siendo válidos. `processor` siempre lo escribe |
 | 2026-11-12 | Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC), no el 13. Hasta entonces cualquier cambio de contrato sigue el proceso de la constitución (VI.2); después solo cambios aditivos. Aprobado por las cinco personas el 2026-11-12 | El evento es el 14 y 15, y varios PR que tocan contratos (16, 22, 23 y 25) seguían en revisión |
+| 2026-11-11 | `verdicts` toma la hora UTC y la latencia de la línea de tiempo de catalog por HTTP, no del manifiesto (T-BAL-02) | No cambia el contrato de Eco; si catalog cae, el veredicto sale y declara `latency_status` |
 
 ## Datos verificados
 
