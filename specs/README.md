@@ -19,7 +19,7 @@ Aquí se decide **qué** se construye y **por qué** antes de escribir código. 
 |---|---|---|
 | Antena — ingesta y tiempo | @KinzzoCS | [01-antena](01-antena/spec.md) |
 | Eco — señal y georreferencia | @TakoKami-dev | [02-eco](02-eco/spec.md) |
-| Balanza — interpretación y veracidad | PapuPro05 (@sanchezelvin69305) | [03-balanza](03-balanza/spec.md) |
+| Balanza — interpretación y veracidad | @lospapulindos2-netizen | [03-balanza](03-balanza/spec.md) |
 | Atlas — mapa y representación web | @Fransomware | [04-atlas](04-atlas/spec.md) |
 | Faro — relato y experiencia | @danielsanchez-033 | [05-faro](05-faro/spec.md) |
 

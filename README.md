@@ -44,7 +44,7 @@ Trabajamos con desarrollo guiado por especificaciones: primero [la especificaci�
 |---|---|---|
 | Antena | @KinzzoCS | Ingesta, catálogo y cálculos de tiempo |
 | Eco | @TakoKami-dev | Control de calidad, cálculo de cambio y georreferencia |
-| Balanza | PapuPro05 (@sanchezelvin69305) | Interpretación, veracidad, contraste e integración |
+| Balanza | @lospapulindos2-netizen | Interpretación, veracidad, contraste e integración |
 | Atlas | @Fransomware | Mapa y representación web |
 | Faro | @danielsanchez-033 | UI/UX, relato y demo |
 

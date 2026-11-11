@@ -3,30 +3,30 @@
 *                                         @KinzzoCS
 
 # Gobierno común: cualquier cambio lo ven las cinco personas
-/specs/constitution.md                    @KinzzoCS @TakoKami-dev @sanchezelvin69305 @Fransomware @danielsanchez-033
-/specs/00-sistema/                        @KinzzoCS @TakoKami-dev @sanchezelvin69305 @Fransomware @danielsanchez-033
-/AGENTS.md                                @KinzzoCS @TakoKami-dev @sanchezelvin69305 @Fransomware @danielsanchez-033
+/specs/constitution.md                    @KinzzoCS @TakoKami-dev @lospapulindos2-netizen @Fransomware @danielsanchez-033
+/specs/00-sistema/                        @KinzzoCS @TakoKami-dev @lospapulindos2-netizen @Fransomware @danielsanchez-033
+/AGENTS.md                                @KinzzoCS @TakoKami-dev @lospapulindos2-netizen @Fransomware @danielsanchez-033
 
 # Antena
 /services/catalog/                        @KinzzoCS
 /services/ingest/                         @KinzzoCS
 /config/aois/                             @KinzzoCS
 /specs/01-antena/                         @KinzzoCS
-/contracts/catalog.openapi.json           @KinzzoCS @sanchezelvin69305 @Fransomware
+/contracts/catalog.openapi.json           @KinzzoCS @lospapulindos2-netizen @Fransomware
 /contracts/gcov-subset.md                 @KinzzoCS @TakoKami-dev
 
 # Eco
 /services/processor/                      @TakoKami-dev
 /specs/02-eco/                            @TakoKami-dev
-/contracts/artifact-manifest.schema.json  @TakoKami-dev @sanchezelvin69305
+/contracts/artifact-manifest.schema.json  @TakoKami-dev @lospapulindos2-netizen
 
 # Balanza
-/services/verdicts/                       @sanchezelvin69305
-/gateway/                                 @sanchezelvin69305
-/docker-compose.yml                       @sanchezelvin69305
-/scripts/                                 @sanchezelvin69305
-/specs/03-balanza/                        @sanchezelvin69305
-/contracts/verdicts.openapi.json          @sanchezelvin69305 @Fransomware @danielsanchez-033
+/services/verdicts/                       @lospapulindos2-netizen
+/gateway/                                 @lospapulindos2-netizen
+/docker-compose.yml                       @lospapulindos2-netizen
+/scripts/                                 @lospapulindos2-netizen
+/specs/03-balanza/                        @lospapulindos2-netizen
+/contracts/verdicts.openapi.json          @lospapulindos2-netizen @Fransomware @danielsanchez-033
 
 # Frontend: Atlas (mapa) y Faro (resto)
 /frontend/                                @danielsanchez-033 @Fransomware

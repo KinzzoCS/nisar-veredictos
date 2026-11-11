@@ -15,15 +15,15 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 |---|---|
 | Antena: ingesta y tiempo | @KinzzoCS |
 | Eco: señal y georreferencia | @TakoKami-dev |
-| Balanza: interpretación y veracidad | PapuPro05 (@sanchezelvin69305) |
+| Balanza: interpretación y veracidad | @lospapulindos2-netizen |
 | Atlas: mapa y representación web | @Fransomware |
 | Faro: relato y experiencia | @danielsanchez-033 |
 
 Acceso comprobado con la API de GitHub el 2026-11-10:
 
-- `PapuPro05` es el nombre visible de `sanchezelvin69305`. `CODEOWNERS` usa siempre el login.
-- `Fransomware` y `sanchezelvin69305` tenían la invitación pendiente de aceptar. Hasta que la acepten, `CODEOWNERS` no puede pedirles revisión.
-- `lospapulindos2-netizen` tiene acceso de escritura y no tiene rol asignado.
+- Balanza usa la cuenta `lospapulindos2-netizen`, que ya tiene acceso de escritura (confirmado por el equipo).
+- `Fransomware` tenía la invitación pendiente de aceptar. Hasta que la acepte, `CODEOWNERS` no puede pedirle revisión.
+- `sanchezelvin69305` tiene una invitación pendiente y ya no tiene rol.
 
 ## Decisiones
 

@@ -1,6 +1,6 @@
 # Balanza — interpretación y veracidad: especificación
 
-- **Responsable:** PapuPro05 (@sanchezelvin69305)
+- **Responsable:** @lospapulindos2-netizen
 - **Estado:** aprobada para el hackathon
 
 ## Misión

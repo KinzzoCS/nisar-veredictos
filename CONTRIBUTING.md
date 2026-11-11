@@ -18,7 +18,7 @@ git config core.hooksPath .githooks
 |---|---|---|
 | Antena | @KinzzoCS | `services/catalog`, `services/ingest`, `config/aois` |
 | Eco | @TakoKami-dev | `services/processor` |
-| Balanza | PapuPro05 (@sanchezelvin69305) | `services/verdicts`, `gateway`, `docker-compose.yml`, `scripts` |
+| Balanza | @lospapulindos2-netizen | `services/verdicts`, `gateway`, `docker-compose.yml`, `scripts` |
 | Atlas | @Fransomware | Módulo de mapa en `frontend/` |
 | Faro | @danielsanchez-033 | Resto de `frontend/` |
 
