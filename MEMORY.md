@@ -79,6 +79,7 @@ Medido en el equipo de Antena (Windows, Python 3.10, fuera de Docker) con `inges
 - `mask`: 99,99 % con valor 1 y 0,01 % con valor 0. `inputDataExceptionMask` vale 0 en todo el recorte.
 - `HHHH` en dB (p5/p50/p95): -17,3/-10,6/-4,0 el 06-17 y -18,5/-11,4/-4,7 el 06-29.
 - Par 06-17 a 06-29 con los umbrales sin calibrar: 3,5 % `change_probable`, y 15 % de los píxeles marcados como `low_looks` (código 13). Eco y Balanza deben revisar ese 15 %.
+- Identificador del gránulo, comprobado el 2026-11-11 en los dos recortes: el `granule_id` de catalog (campo `title` de CMR), el nombre del archivo que escribe `ingest` y el texto del gránulo dentro del HDF5 son idénticos, sin extensión ni sufijos. Se comprobó buscando el identificador en los bytes de cada archivo: aparece un único identificador `NISAR_L2_PR_GCOV_…`, tres veces, igual al nombre. No se leyó `identification/granuleId` con h5py, y falta comprobarlo en T171.
 
 ## Especificación GCOV
 
@@ -105,7 +106,7 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 
 ## Pendientes
 
-- 2026-11-11: Antena creó la cuenta de Earthdata. El token vive solo en el `.env` local, que git ignora. Quien necesite traer datos reales debe pedirlo por un canal privado, nunca por el repositorio.
+- 2026-11-11: Antena creó la cuenta de Earthdata. El token vive solo en el `.env` local, que git ignora, y **no se comparte**. Antena trae los recortes y los pasa como archivos. Si otra persona necesita leer de NASA, crea su propia cuenta de Earthdata (gratuita) y su propio token.
 - Vigilar memoria en `processor`: con 2 fechas reales usó 2,25 GB, más de lo que se estimaba (unos 4 GB para 10 fechas). Con las 10 fechas cargadas a la vez probablemente no cabe; conviene procesar por pares (T-ECO-02).
 - Hacer público el repositorio antes de la entrega.
 
