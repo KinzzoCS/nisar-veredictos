@@ -50,6 +50,32 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "NextPassEstimate": {
+        "properties": {
+          "basis": {
+            "const": "12-day cycle",
+            "title": "Basis",
+            "type": "string"
+          },
+          "expected_at": {
+            "description": "Estimación, no plan de observación: última pasada más N ciclos.",
+            "format": "date-time",
+            "title": "Expected At",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "expected_at",
+          "basis"
+        ],
+        "title": "NextPassEstimate",
+        "type": "object"
+      },
       "SeriesGranule": {
         "properties": {
           "date": {
@@ -148,6 +174,180 @@
           "granules"
         ],
         "title": "SeriesOut",
+        "type": "object"
+      },
+      "TimelineGap": {
+        "properties": {
+          "end": {
+            "description": "Último día sin adquisiciones, incluido.",
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "start": {
+            "description": "Primer día sin adquisiciones, incluido.",
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "source"
+        ],
+        "title": "TimelineGap",
+        "type": "object"
+      },
+      "TimelineInterval": {
+        "properties": {
+          "crosses_gap": {
+            "description": "El intervalo atraviesa un hueco de adquisición conocido.",
+            "title": "Crosses Gap",
+            "type": "boolean"
+          },
+          "days": {
+            "description": "Días entre dos pasadas consecutivas de la misma serie.",
+            "title": "Days",
+            "type": "integer"
+          },
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "start",
+          "end",
+          "days",
+          "crosses_gap"
+        ],
+        "title": "TimelineInterval",
+        "type": "object"
+      },
+      "TimelineOut": {
+        "properties": {
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineGap"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "intervals": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineInterval"
+            },
+            "title": "Intervals",
+            "type": "array"
+          },
+          "next_pass_estimates": {
+            "items": {
+              "$ref": "#/components/schemas/NextPassEstimate"
+            },
+            "title": "Next Pass Estimates",
+            "type": "array"
+          },
+          "passes": {
+            "items": {
+              "$ref": "#/components/schemas/TimelinePass"
+            },
+            "title": "Passes",
+            "type": "array"
+          },
+          "published_at_basis": {
+            "const": "cmr_updated",
+            "description": "published_at es la fecha 'updated' de CMR, una aproximación a la publicación real.",
+            "title": "Published At Basis",
+            "type": "string"
+          }
+        },
+        "required": [
+          "aoi",
+          "published_at_basis",
+          "passes",
+          "intervals",
+          "gaps",
+          "next_pass_estimates"
+        ],
+        "title": "TimelineOut",
+        "type": "object"
+      },
+      "TimelinePass": {
+        "properties": {
+          "acquired_at": {
+            "description": "Inicio de la adquisición, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "contains_aoi": {
+            "description": "La huella de la serie contiene la zona completa.",
+            "title": "Contains Aoi",
+            "type": "boolean"
+          },
+          "granule_id": {
+            "title": "Granule Id",
+            "type": "string"
+          },
+          "latency_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Horas entre la adquisición y published_at.",
+            "title": "Latency Hours"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Última actualización del gránulo en CMR, en UTC. Aproxima la publicación.",
+            "title": "Published At"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "granule_id",
+          "acquired_at",
+          "published_at",
+          "latency_hours",
+          "contains_aoi"
+        ],
+        "title": "TimelinePass",
         "type": "object"
       },
       "ValidationError": {
@@ -272,6 +472,45 @@
           }
         },
         "summary": "Series"
+      }
+    },
+    "/aois/{aoi_id}/timeline": {
+      "get": {
+        "operationId": "timeline_aois__aoi_id__timeline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi_id",
+            "required": true,
+            "schema": {
+              "title": "Aoi Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Timeline"
       }
     },
     "/health": {

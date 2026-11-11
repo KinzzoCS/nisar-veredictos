@@ -55,6 +55,7 @@ Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-0
 - El marco 15 de T048 también cubre la presa La Boquilla.
 - Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
 - Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
+- Latencia de publicación medida el 2026-11-10 con `GET /aois/parral/timeline` contra CMR: entre 40 y 533 horas en las 19 pasadas. Se usa el campo `updated` de CMR, que en la revisión 1 coincide con la fecha `Insert` de UMM-G (comprobado en `G4240430318-ASF`). Si ASF reprocesa un gránulo, esa fecha se desplaza.
 - Cada gránulo tiene un enlace HTTPS directo en `nisar.asf.earthdatacloud.nasa.gov` (CMR, 2026-11-09). Sin token válido, NASA rechaza la lectura.
 
 ## Especificación GCOV

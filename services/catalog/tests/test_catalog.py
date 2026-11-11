@@ -87,3 +87,107 @@ def test_unknown_aoi_is_404():
 def test_contract_is_current():
     committed = json.loads((ROOT / "contracts" / "catalog.openapi.json").read_text(encoding="utf-8"))
     assert committed == json.loads(json.dumps(public_app.openapi())), "Regenera el contrato con export_openapi"
+
+
+# --- Línea de tiempo (T-ANT-04) ---
+
+from datetime import datetime, timezone
+
+import httpx
+
+from catalog.cmr import updated_at
+from catalog.timeline import build_timeline
+
+# Fechas de T048 ascendente medidas en CMR el 2026-11-09 (MEMORY.md).
+T048_DATES = ["20260617", "20260629", "20260711", "20260723", "20260816",
+              "20260828", "20260909", "20260921", "20261003", "20261015"]
+NOW = datetime(2026, 11, 10, tzinfo=timezone.utc)
+
+
+def published(day: str, crid: str = "P05023", when: datetime | None = None):
+    return parse_title(TITLE.format(d=day, c=crid), 7000.0, BIG, "", when)
+
+
+class ListSource:
+    def __init__(self, granules):
+        self._granules = granules
+
+    def granules(self, collection, bbox, start, end):
+        return self._granules
+
+
+class BrokenSource:
+    def granules(self, collection, bbox, start, end):
+        raise httpx.ConnectError("sin red")
+
+
+def timeline_client(source):
+    return TestClient(create_app(ROOT / "config" / "aois", source, clock=lambda: NOW))
+
+
+def test_parse_title_keeps_acquisition_time_in_utc():
+    parsed = granule("20260617")
+    assert parsed.acquired_at == datetime(2026, 6, 17, 9, 42, 25, tzinfo=timezone.utc)
+
+
+def test_updated_at_reads_cmr_utc_timestamp():
+    assert updated_at({"updated": "2026-07-09T03:32:43.193Z"}) == datetime(
+        2026, 7, 9, 3, 32, 43, 193000, tzinfo=timezone.utc
+    )
+    assert updated_at({}) is None
+
+
+def test_parral_timeline_shows_gap_and_24_day_interval():
+    body = timeline_client(ListSource([granule(d) for d in T048_DATES])).get("/aois/parral/timeline").json()
+    assert body["gaps"] == [{"start": "2026-07-27", "end": "2026-08-10", "source": "ASF"}]
+    crossing = [item for item in body["intervals"] if item["crosses_gap"]]
+    assert len(crossing) == 1
+    assert crossing[0]["days"] == 24
+    assert crossing[0]["start"].startswith("2026-07-23") and crossing[0]["end"].startswith("2026-08-16")
+    assert {item["days"] for item in body["intervals"] if not item["crosses_gap"]} == {12}
+    assert len(body["passes"]) == 10
+
+
+def test_timeline_times_are_utc_iso8601():
+    body = timeline_client(ListSource([granule("20260617"), granule("20260629")])).get("/aois/parral/timeline").json()
+    stamps = [p["acquired_at"] for p in body["passes"]] + [i["start"] for i in body["intervals"]]
+    stamps += [e["expected_at"] for e in body["next_pass_estimates"]]
+    assert stamps and all(s.endswith("Z") for s in stamps)
+    assert body["passes"][0]["acquired_at"] == "2026-06-17T09:42:25Z"
+
+
+def test_timeline_reports_publication_latency_or_null():
+    known = published("20260617", when=datetime(2026, 7, 9, 3, 32, 43, tzinfo=timezone.utc))
+    body = timeline_client(ListSource([known, granule("20260629")])).get("/aois/parral/timeline").json()
+    first, second = body["passes"]
+    assert first["published_at"] == "2026-07-09T03:32:43Z"
+    assert first["latency_hours"] == 521.8
+    assert second["published_at"] is None and second["latency_hours"] is None
+    assert body["published_at_basis"] == "cmr_updated"
+
+
+def test_next_pass_is_an_estimate_after_now():
+    body = timeline_client(ListSource([granule(d) for d in T048_DATES])).get("/aois/parral/timeline").json()
+    assert body["next_pass_estimates"] == [
+        {"series": "T048A-F015-4005-DHDH-P05023", "expected_at": "2026-11-20T09:42:25Z", "basis": "12-day cycle"}
+    ]
+
+
+def test_single_pass_series_appears_without_intervals():
+    body = timeline_client(ListSource([granule("20260617", "P05036")])).get("/aois/parral/timeline").json()
+    assert len(body["passes"]) == 1 and body["intervals"] == []
+
+
+def test_timeline_cmr_failure_is_502():
+    response = timeline_client(BrokenSource()).get("/aois/parral/timeline")
+    assert response.status_code == 502
+    assert "CMR" in response.json()["detail"]
+
+
+def test_timeline_unknown_aoi_is_404():
+    assert timeline_client(ListSource([])).get("/aois/nope/timeline").status_code == 404
+
+
+def test_gap_outside_window_is_not_reported():
+    result = build_timeline([], datetime(2026, 9, 1).date(), datetime(2026, 10, 1).date(), NOW)
+    assert result.gaps == []

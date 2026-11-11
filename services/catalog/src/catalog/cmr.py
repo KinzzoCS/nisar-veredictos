@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from datetime import datetime
 from typing import Protocol
 
 import httpx
@@ -23,6 +24,18 @@ def _footprint(entry: dict) -> tuple[Point, ...]:
         return ()
     raw = polygons[0][0].split()  # CMR entrega "lat lon lat lon ..."
     return tuple((float(raw[i + 1]), float(raw[i])) for i in range(0, len(raw) - 1, 2))
+
+
+def updated_at(entry: dict) -> datetime | None:
+    """Fecha de última actualización del gránulo en CMR, en UTC.
+
+    Comprobado el 2026-11-10: en la revisión 1 coincide con la fecha `Insert` de UMM-G,
+    unos minutos después de la producción. Si ASF reprocesa el gránulo, se desplaza.
+    """
+    raw = entry.get("updated")
+    if not raw:
+        return None
+    return datetime.fromisoformat(raw.replace("Z", "+00:00"))
 
 
 def data_url(entry: dict) -> str:
@@ -66,7 +79,11 @@ class CmrSource:
             entries = response.json()["feed"]["entry"]
             for entry in entries:
                 granule = parse_title(
-                    entry["title"], float(entry.get("granule_size") or 0), _footprint(entry), data_url(entry)
+                    entry["title"],
+                    float(entry.get("granule_size") or 0),
+                    _footprint(entry),
+                    data_url(entry),
+                    updated_at(entry),
                 )
                 if granule:
                     result.append(granule)

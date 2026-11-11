@@ -2,16 +2,19 @@
 from __future__ import annotations
 
 import os
-from datetime import date
+from collections.abc import Callable
+from datetime import date, datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 import httpx
 import yaml
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from .cmr import CmrSource, GranuleSource
-from .pairing import build_series
+from .pairing import Granule, build_series
+from .timeline import build_timeline
 
 
 class Aoi(BaseModel):
@@ -44,6 +47,48 @@ class SeriesOut(BaseModel):
     granules: list[SeriesGranule]
 
 
+class TimelinePass(BaseModel):
+    series: str
+    granule_id: str
+    acquired_at: datetime = Field(description="Inicio de la adquisición, en UTC.")
+    published_at: datetime | None = Field(
+        description="Última actualización del gránulo en CMR, en UTC. Aproxima la publicación."
+    )
+    latency_hours: float | None = Field(description="Horas entre la adquisición y published_at.")
+    contains_aoi: bool = Field(description="La huella de la serie contiene la zona completa.")
+
+
+class TimelineInterval(BaseModel):
+    series: str
+    start: datetime
+    end: datetime
+    days: int = Field(description="Días entre dos pasadas consecutivas de la misma serie.")
+    crosses_gap: bool = Field(description="El intervalo atraviesa un hueco de adquisición conocido.")
+
+
+class TimelineGap(BaseModel):
+    start: date = Field(description="Primer día sin adquisiciones, incluido.")
+    end: date = Field(description="Último día sin adquisiciones, incluido.")
+    source: str
+
+
+class NextPassEstimate(BaseModel):
+    series: str
+    expected_at: datetime = Field(description="Estimación, no plan de observación: última pasada más N ciclos.")
+    basis: Literal["12-day cycle"]
+
+
+class TimelineOut(BaseModel):
+    aoi: str
+    published_at_basis: Literal["cmr_updated"] = Field(
+        description="published_at es la fecha 'updated' de CMR, una aproximación a la publicación real."
+    )
+    passes: list[TimelinePass]
+    intervals: list[TimelineInterval]
+    gaps: list[TimelineGap]
+    next_pass_estimates: list[NextPassEstimate]
+
+
 def _load_aois(aoi_dir: Path) -> dict[str, dict]:
     result = {}
     for path in sorted(aoi_dir.glob("*.yaml")):
@@ -52,9 +97,14 @@ def _load_aois(aoi_dir: Path) -> dict[str, dict]:
     return result
 
 
-def create_app(aoi_dir: Path | None = None, source: GranuleSource | None = None) -> FastAPI:
+def create_app(
+    aoi_dir: Path | None = None,
+    source: GranuleSource | None = None,
+    clock: Callable[[], datetime] | None = None,
+) -> FastAPI:
     directory = aoi_dir or Path(os.environ.get("AOI_DIR", "/config/aois"))
     granule_source = source or CmrSource()
+    now = clock or (lambda: datetime.now(timezone.utc))
     app = FastAPI(title="NISAR catalog", version="0.1.0")
 
     def aoi_or_404(aoi_id: str) -> dict:
@@ -62,6 +112,14 @@ def create_app(aoi_dir: Path | None = None, source: GranuleSource | None = None)
         if aoi is None:
             raise HTTPException(404, f"Zona desconocida: {aoi_id}")
         return aoi
+
+    def granules_for(aoi: dict) -> list[Granule]:
+        try:
+            return granule_source.granules(
+                aoi["collection"], aoi["bbox"], aoi["window"]["start"], aoi["window"]["end"]
+            )
+        except httpx.HTTPError as exc:
+            raise HTTPException(502, "El catálogo CMR no respondió") from exc
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -74,12 +132,7 @@ def create_app(aoi_dir: Path | None = None, source: GranuleSource | None = None)
     @app.get("/aois/{aoi_id}/series", response_model=list[SeriesOut])
     def series(aoi_id: str, min_dates: int = Query(2, ge=2)) -> list[SeriesOut]:
         aoi = aoi_or_404(aoi_id)
-        try:
-            granules = granule_source.granules(
-                aoi["collection"], aoi["bbox"], aoi["window"]["start"], aoi["window"]["end"]
-            )
-        except httpx.HTTPError as exc:
-            raise HTTPException(502, "El catálogo CMR no respondió") from exc
+        granules = granules_for(aoi)
         return [
             SeriesOut(
                 id=item.id,
@@ -100,6 +153,26 @@ def create_app(aoi_dir: Path | None = None, source: GranuleSource | None = None)
             )
             for item in build_series(granules, aoi["bbox"], min_dates)
         ]
+
+    @app.get("/aois/{aoi_id}/timeline", response_model=TimelineOut)
+    def timeline(aoi_id: str) -> TimelineOut:
+        aoi = aoi_or_404(aoi_id)
+        # Una sola pasada también cuenta: dice cuándo se pudo observar la zona.
+        series_list = build_series(granules_for(aoi), aoi["bbox"], min_dates=1)
+        result = build_timeline(
+            series_list,
+            date.fromisoformat(aoi["window"]["start"]),
+            date.fromisoformat(aoi["window"]["end"]),
+            now(),
+        )
+        return TimelineOut(
+            aoi=aoi["id"],
+            published_at_basis="cmr_updated",
+            passes=[TimelinePass(**vars(item)) for item in result.passes],
+            intervals=[TimelineInterval(**vars(item)) for item in result.intervals],
+            gaps=[TimelineGap(**vars(item)) for item in result.gaps],
+            next_pass_estimates=[NextPassEstimate(**vars(item)) for item in result.next_pass_estimates],
+        )
 
     return app
 
