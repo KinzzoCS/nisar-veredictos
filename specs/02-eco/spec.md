@@ -52,4 +52,5 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 ## Preguntas abiertas
 
 - ¿Coinciden píxel a píxel las mallas de un mismo marco entre fechas? Hoy se rechazan si difieren.
-- ¿Trae `identification/staticLayersDataAccess` capas de geometría útiles para layover y sombra?
+- ¿Trae el producto `NISAR_L2_STATIC` capas de geometría útiles para layover y sombra? En los gránulos reales, `identification/staticLayersDataAccess` apunta a él (comprobado el 2026-11-11), pero aún no se ha abierto ninguno.
+- El recorte no copia el ancho de banda de la fuente, y `listOfObservationModes` llega como `(NOT SPECIFIED)`. Hoy el código de ancho de banda (`4005`) sale del nombre tras comprobarlo con `listOfFrequencies`. ¿Lo copia Antena en el recorte?

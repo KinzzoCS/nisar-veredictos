@@ -65,7 +65,9 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - Rutas en `/science/LSAR/GCOV/grids/frequencyA/`: `HHHH`, `HVHV` (Float32), `numberOfLooks` (Float32), `mask` y `inputDataExceptionMask` (UByte), `xCoordinates`, `yCoordinates`, y `projection` con el atributo `epsg_code`.
 - `mask`: 0 inválido o parcialmente enfocado, 1-5 válido con su subfranja, 255 fuera de la escena.
 - `inputDataExceptionMask`: 0 sin anomalía.
-- La especificación **no** menciona layover ni sombra. `identification/staticLayersDataAccess` podría llevar a capas estáticas útiles; falta investigarlo.
+- En los recortes reales de T048 (2026-11-11): `listOfObservationModes = ["(NOT SPECIFIED)"]`, `isMixedMode = "False"`, `listOfFrequencies = [A, B]`, `isGeocoded = "True"`; los booleanos son texto, no enteros. El recorte no trae el ancho de banda ni `listOfPolarizations`. Desde T-ECO-04, `processor` deduce la polarización de A por las capas presentes, rechaza modo mixto, productos sin HH+HV y nombres que contradicen capas o frecuencias, y solo toma del nombre el código de ancho de banda.
+- `identification/staticLayersDataAccess` apunta a un producto aparte, `NISAR_L2_STATIC`, del mismo gránulo. Falta abrir uno.
+- La especificación **no** menciona layover ni sombra.
 
 ## Caso de Parral
 
