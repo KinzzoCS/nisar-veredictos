@@ -43,8 +43,18 @@ Cada servicio tiene un responsable y se prueba por separado. Las reglas están e
 
 ## Datos reales
 
-Con gránulos `.h5` ya descargados en una carpeta:
+Crea un token en tu perfil de [Earthdata](https://urs.earthdata.nasa.gov/) y guárdalo en `.env` como `EARTHDATA_TOKEN` (copia `.env.example`). Nunca lo subas al repositorio.
+
+Primero una prueba con dos fechas. `fetch` lee por HTTPS solo el recorte de la zona y guarda archivos pequeños; si se interrumpe, al repetirlo continúa donde iba.
 
 ```bash
-python -m processor --aoi-dir config/aois --data-dir data run --aoi parral --series T048A-F015 --input RUTA
+docker compose run --rm fetch --aoi parral --series T048A-F015 --limit 2
 ```
+
+Después se generan los artefactos. Esto reemplaza los sintéticos de esa serie:
+
+```bash
+docker compose run --rm process --aoi parral --series T048A-F015 --input /data/raw/real/parral/T048A-F015
+```
+
+Para volver a sintéticos, borra `data/artifacts/parral/T048A-F015` y levanta la pila otra vez.

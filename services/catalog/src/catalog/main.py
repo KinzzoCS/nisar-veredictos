@@ -26,6 +26,7 @@ class SeriesGranule(BaseModel):
     id: str
     date: date
     size_mb: float
+    download_url: str
 
 
 class SeriesOut(BaseModel):
@@ -92,7 +93,10 @@ def create_app(aoi_dir: Path | None = None, source: GranuleSource | None = None)
                 contains_aoi=item.contains_aoi,
                 max_gap_days=item.max_gap_days,
                 spans_data_gap=item.spans_data_gap,
-                granules=[SeriesGranule(id=g.id, date=g.start, size_mb=g.size_mb) for g in item.granules],
+                granules=[
+                    SeriesGranule(id=g.id, date=g.start, size_mb=g.size_mb, download_url=g.download_url)
+                    for g in item.granules
+                ],
             )
             for item in build_series(granules, aoi["bbox"], min_dates)
         ]

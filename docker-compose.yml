@@ -7,6 +7,31 @@ services:
       - ./data:/data
       - ./config/aois:/config/aois:ro
 
+  # Datos reales, bajo demanda: docker compose run --rm fetch --aoi parral --series T048A-F015
+  fetch:
+    profiles: ["real"]
+    build: ./services/ingest
+    entrypoint: ["python", "-m", "ingest", "fetch"]
+    env_file:
+      - path: .env
+        required: false
+    environment:
+      CATALOG_URL: http://catalog:8000
+    volumes:
+      - ./data:/data
+      - ./config/aois:/config/aois:ro
+    depends_on:
+      - catalog
+
+  # Reemplaza los artefactos sintéticos de esa serie por los reales.
+  process:
+    profiles: ["real"]
+    build: ./services/processor
+    entrypoint: ["python", "-m", "processor", "run"]
+    volumes:
+      - ./data:/data
+      - ./config/aois:/config/aois:ro
+
   catalog:
     build: ./services/catalog
     environment:
