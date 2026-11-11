@@ -4,9 +4,9 @@
 |---|---|---|---|---|
 | T-ANT-01 | Series comparables desde CMR | — | — | hecha |
 | T-ANT-02 | Servicio `ingest` con lectura por recorte | P0 | — | hecha (PR 2) |
-| T-ANT-03 | Prueba real con `--limit 2`: medir MB, segundos y RAM, y anotarlo en MEMORY | P0 | Cuenta de Earthdata, T-ANT-02 | pendiente |
+| T-ANT-03 | Prueba real con `--limit 2`: medir MB, segundos y RAM, y anotarlo en MEMORY | P0 | Cuenta de Earthdata, T-ANT-02 | hecha |
 | T-ANT-04 | [P] `GET /aois/{id}/timeline` con pasadas UTC, intervalos, huecos y latencia | P0 | — | en revisión |
-| T-ANT-05 | [P] `GET /aois/{id}/references/optical` con Sentinel-2 L2A de Earth Search | P1 | — | pendiente |
+| T-ANT-05 | [P] `GET /aois/{id}/references/optical` con Sentinel-2 L2A de Earth Search | P1 | — | en revisión |
 | T-ANT-06 | [P] `GET /aois/{id}/references/opera` con DSWx-S1 a ±7 días | P1 | — | pendiente |
 | T-ANT-07 | Registro de ingesta por serie (`ingest.json`) | P1 | T-ANT-02 | pendiente |
 | T-ANT-08 | Ingesta de la serie T171 descendente | P1 | T-ANT-03 | pendiente |

@@ -1,4 +1,4 @@
-"""API del catálogo: qué zonas hay y qué series comparables existen para cada una."""
+"""API del catálogo: zonas, series comparables, línea de tiempo y referencias externas."""
 from __future__ import annotations
 
 import os
@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .cmr import CmrSource, GranuleSource
+from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, group_acquisitions, window
 from .pairing import Granule, build_series
 from .timeline import build_timeline
 
@@ -89,6 +90,39 @@ class TimelineOut(BaseModel):
     next_pass_estimates: list[NextPassEstimate]
 
 
+class OpticalTile(BaseModel):
+    id: str
+    tile: str = Field(description="Tesela MGRS de unos 110 km de lado.")
+    acquired_at: datetime
+    cloud_cover: float = Field(description="Porcentaje de nubes de la tesela completa, no de la zona.")
+    visual_url: str = Field(description="COG en color verdadero (TCI), legible por HTTPS sin cuenta.")
+
+
+class OpticalAcquisition(BaseModel):
+    platform: str
+    acquired_at: datetime = Field(description="Hora UTC de la primera tesela de la adquisición.")
+    days_from_date: int = Field(description="Días respecto a la fecha pedida; negativo si es anterior.")
+    covers_aoi: bool = Field(description="Las teselas juntas cubren toda la zona.")
+    max_cloud_cover: float = Field(description="Mayor nubosidad entre sus teselas. Es de la tesela, no de la zona.")
+    tiles: list[OpticalTile]
+
+
+class OpticalOut(BaseModel):
+    aoi: str
+    date: date
+    days: int
+    max_cloud: float
+    source: str
+    collection: str
+    license: str
+    license_url: str
+    attribution: str = Field(description="Texto de atribución que debe mostrarse junto a la imagen.")
+    cloud_cover_basis: Literal["tile"] = Field(
+        description="La nubosidad es la de cada tesela MGRS completa; la zona puede estar más o menos nublada."
+    )
+    acquisitions: list[OpticalAcquisition]
+
+
 def _load_aois(aoi_dir: Path) -> dict[str, dict]:
     result = {}
     for path in sorted(aoi_dir.glob("*.yaml")):
@@ -101,9 +135,11 @@ def create_app(
     aoi_dir: Path | None = None,
     source: GranuleSource | None = None,
     clock: Callable[[], datetime] | None = None,
+    optical_source: SceneSource | None = None,
 ) -> FastAPI:
     directory = aoi_dir or Path(os.environ.get("AOI_DIR", "/config/aois"))
     granule_source = source or CmrSource()
+    scene_source = optical_source or EarthSearchSource()
     now = clock or (lambda: datetime.now(timezone.utc))
     app = FastAPI(title="NISAR catalog", version="0.1.0")
 
@@ -172,6 +208,56 @@ def create_app(
             intervals=[TimelineInterval(**vars(item)) for item in result.intervals],
             gaps=[TimelineGap(**vars(item)) for item in result.gaps],
             next_pass_estimates=[NextPassEstimate(**vars(item)) for item in result.next_pass_estimates],
+        )
+
+    @app.get("/aois/{aoi_id}/references/optical", response_model=OpticalOut)
+    def optical(
+        aoi_id: str,
+        date: date = Query(description="Fecha de referencia, normalmente la de una pasada NISAR."),
+        days: int = Query(7, ge=0, le=30, description="Días antes y después de la fecha."),
+        max_cloud: float = Query(
+            30, ge=0, le=100, description="Nubosidad máxima por tesela, en %. Valor inicial sin calibrar."
+        ),
+    ) -> OpticalOut:
+        aoi = aoi_or_404(aoi_id)
+        start, end = window(date, days)
+        try:
+            scenes = scene_source.scenes(aoi["bbox"], start, end)
+        except httpx.HTTPError as exc:
+            raise HTTPException(502, "Earth Search no respondió; no hay escenas ópticas") from exc
+        acquisitions = group_acquisitions(scenes, aoi["bbox"], date, max_cloud)
+        years = sorted({acq.acquired_at.year for acq in acquisitions}) or [date.year]
+        return OpticalOut(
+            aoi=aoi["id"],
+            date=date,
+            days=days,
+            max_cloud=max_cloud,
+            source="Earth Search v1 (Element 84)",
+            collection=COLLECTION,
+            license="Datos Copernicus Sentinel: acceso libre con atribución",
+            license_url=LICENSE_URL,
+            attribution=f"Contiene datos modificados de Copernicus Sentinel {', '.join(map(str, years))}",
+            cloud_cover_basis="tile",
+            acquisitions=[
+                OpticalAcquisition(
+                    platform=acq.platform,
+                    acquired_at=acq.acquired_at,
+                    days_from_date=acq.days_from_date,
+                    covers_aoi=acq.covers_aoi,
+                    max_cloud_cover=acq.max_cloud_cover,
+                    tiles=[
+                        OpticalTile(
+                            id=tile.id,
+                            tile=tile.tile,
+                            acquired_at=tile.acquired_at,
+                            cloud_cover=tile.cloud_cover,
+                            visual_url=tile.visual_url,
+                        )
+                        for tile in acq.tiles
+                    ],
+                )
+                for acq in acquisitions
+            ],
         )
 
     return app
