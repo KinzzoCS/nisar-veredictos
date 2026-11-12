@@ -26,7 +26,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 | RF-BAL-01 | Veredicto en tres estados con recibo, evidencia y textos ES/EN | Hecho |
 | RF-BAL-02 | Cada veredicto informa `interval_days` y la frescura del dato (edad y latencia), y los textos lo mencionan | Hecho |
 | RF-BAL-03 | Prueba automática de lenguaje: ninguna plantilla afirma causas, daños ni confirmaciones | Hecho |
-| RF-BAL-04 | Contraste óptico: escena Sentinel-2 anterior y posterior más cercana, con URL de tesela y licencia | P0 |
+| RF-BAL-04 | Contraste óptico: escena Sentinel-2 anterior y posterior más cercana, con URL de tesela y licencia | Hecho |
 | RF-BAL-05 | La prueba de humo cubre todas las rutas nuevas, incluidas las de Antena | P0 |
 | RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | P1 |
 | RF-BAL-07 | Contraste con OPERA DSWx-S1: acuerdo o desacuerdo sobre agua, presentado como desacuerdo y no como error | P1 |
@@ -37,7 +37,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 
 - [x] Un par que cruza el hueco de agosto dice "24 días" y lo explica.
 - [x] La prueba de lenguaje falla si una plantilla contiene "confirmado", "causado por" o "daño".
-- [ ] El gateway solo deja pasar a TiTiler artefactos propios y el host público de COG de Sentinel-2.
+- [x] El gateway solo deja pasar a TiTiler artefactos propios y el host público de COG de Sentinel-2.
 - [ ] Ningún veredicto se emite sin `data_kind`.
 
 ## Interfaces
@@ -53,4 +53,4 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 ## Preguntas abiertas
 
 - ¿Qué persistencia suponemos para una tormenta urbana frente a una crecida de río? Debe declararse en la respuesta.
-- ¿Qué hacemos si el óptico más cercano está a más de 10 días o muy nublado?
+- ~~¿Qué hacemos si el óptico más cercano está a más de 10 días o muy nublado?~~ Resuelta en T-BAL-04: a más de 10 días no se muestra y se dice (`none_in_window`); muy nublado se muestra la menos nublada con su nubosidad (`cloudy`).

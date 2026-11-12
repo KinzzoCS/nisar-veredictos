@@ -48,6 +48,7 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-12 | Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC), no el 13. Hasta entonces cualquier cambio de contrato sigue el proceso de la constitución (VI.2); después solo cambios aditivos. Aprobado por las cinco personas el 2026-11-12 | El evento es el 14 y 15, y varios PR que tocan contratos (16, 22, 23 y 25) seguían en revisión |
 | 2026-11-11 | La prueba de lenguaje prohíbe la palabra aunque vaya en negación ("ni mide daños" pasa a "ni mide sus consecuencias"); excepciones solo en `ALLOWED` con motivo (T-BAL-03) | Más fácil de auditar; la lista vive en `services/verdicts/tests/test_language.py` y Faro puede reutilizarla |
 | 2026-11-11 | `verdicts` toma la hora UTC y la latencia de la línea de tiempo de catalog por HTTP, no del manifiesto (T-BAL-02) | No cambia el contrato de Eco; si catalog cae, el veredicto sale y declara `latency_status` |
+| 2026-11-11 | Contraste óptico (T-BAL-04): escena Sentinel-2 a ±10 días, ≤ 30 % de nubes por tesela; si no hay, se muestra la menos nublada y se dice. Se busca también con radar sintético | Responde la pregunta abierta de Balanza sin ocultar datos; las escenas son reales y lo declaran |
 
 ## Datos verificados
 
@@ -63,6 +64,7 @@ Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-0
 - Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
 - Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
 - Latencia de publicación medida el 2026-11-10 con `GET /aois/parral/timeline` contra CMR: entre 40 y 533 horas en las 19 pasadas. Se usa el campo `updated` de CMR, que en la revisión 1 coincide con la fecha `Insert` de UMM-G (comprobado en `G4240430318-ASF`). Si ASF reprocesa un gránulo, esa fecha se desplaza.
+- 2026-11-11, T-BAL-04 con la pila de Docker y Earth Search real: los 10 pares de T048 reciben escena de antes y de después, todas de las 17:46 UTC y con las 4 teselas. Solo dos lados quedan `cloudy` (la del 2026-07-03, con 39 %); el resto, `clear`. Una tesela TCI pedida por el gateway (`/tiles/cog/...url=https%3A%2F%2Fsentinel-cogs...`) devolvió PNG; fuera de la huella de su tesela MGRS, TiTiler responde 404.
 - Sentinel-2 en Earth Search, consultado el 2026-11-11 con `GET /aois/parral/references/optical`: la zona cae en 4 teselas MGRS (13RCK, 13RDK, 13RCL y 13RDL). Las pasadas de las 17:46 UTC la cubren entera; las de las 17:56 UTC, solo en parte. Para la tormenta del 1 de julio, con nubosidad de hasta 30 % por tesela, solo hay imagen previa (2026-06-28, 26,6 %). La primera posterior que cubre la zona es la del 2026-07-03, con 39 %.
 - Cada gránulo tiene un enlace HTTPS directo en `nisar.asf.earthdatacloud.nasa.gov` (CMR, 2026-11-09). Sin token válido, NASA rechaza la lectura.
 
