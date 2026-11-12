@@ -13,12 +13,12 @@ import rasterio.shutil
 from .change import STATE_CODES, STATE_NODATA, Params, compare, smooth, observable, to_db
 from .gcov import GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from .qa import finalize_qa, scene_stats
+from .terrain import terrain_mask
 
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 BASE_NOTICES = [
     "Datos PROVISIONAL: se reprocesarán a VALIDATED en 2027 y no deben mezclarse con otra versión.",
     "Hueco permanente de adquisición del 2026-07-27 al 2026-08-10.",
-    "Layover y sombra no vienen en GCOV y todavía no se calculan.",
     "Umbrales estimados sobre la propia escena: indicador del modelo, no error calibrado.",
 ]
 QA_NOTICE = (
@@ -26,6 +26,11 @@ QA_NOTICE = (
     "Ese umbral no está calibrado y la marca es una advertencia, no una exclusión."
 )
 GDAL_CACHE_MB = 128
+TERRAIN_NOTICE = (
+    "Layover y sombra (estado terrain) calculados con el DEM Copernicus GLO-30 y la geometría radarGrid de la "
+    "primera fecha ({detail}), con un criterio local por pendiente: no incluye sombras proyectadas por crestas."
+)
+NO_TERRAIN_NOTICE = "Layover y sombra no se marcaron: {reason}. Las laderas empinadas pueden aparecer como cambio o sin cambio."
 SYNTHETIC_NOTICE = "DATOS SINTÉTICOS: sirven para probar el sistema y no describen ningún lugar real."
 
 
@@ -77,9 +82,11 @@ def _write_date(scene: Scene, prefix: str, artifact_root: Path, params: Params) 
     return {"date": scene.meta.date, "granule": scene.meta.granule_id, **layers}
 
 
-def _write_pair(before: Scene, after: Scene, kind: str, prefix: str, artifact_root: Path, params: Params) -> dict:
+def _write_pair(
+    before: Scene, after: Scene, kind: str, prefix: str, artifact_root: Path, params: Params, terrain=None
+) -> dict:
     pair_id = f"{_stamp(before.meta)}_{_stamp(after.meta)}"
-    result = compare(before, after, params)
+    result = compare(before, after, params, terrain)
     layers = {
         "state": f"{prefix}/pairs/{pair_id}/state.tif",
         "change_hh": f"{prefix}/pairs/{pair_id}/change_hh.tif",
@@ -101,7 +108,13 @@ def _write_pair(before: Scene, after: Scene, kind: str, prefix: str, artifact_ro
 
 
 def process_series(
-    paths: list[Path], aoi: dict, series_id: str, artifact_root: Path, maturity: str, params: Params = Params()
+    paths: list[Path],
+    aoi: dict,
+    series_id: str,
+    artifact_root: Path,
+    maturity: str,
+    params: Params = Params(),
+    dem_sources: list[Path | str] | None = None,
 ) -> dict:
     """Procesa la serie con como máximo dos escenas en memoria, sea cual sea el número de fechas."""
     ordered = sorted(((read_meta_path(path), path) for path in paths), key=lambda item: item[0].date)
@@ -116,20 +129,26 @@ def process_series(
     dates, stats, pairs = [], [], []
     crs = None
     previous: Scene | None = None
-    for _, path in ordered:
+    terrain, terrain_detail = None, "no hay DEM"
+    for index, (_, path) in enumerate(ordered):
         scene = read_scene(path, aoi["bbox"])
         crs = crs or scene.crs
+        if index == 0 and dem_sources:
+            # La geometría casi no cambia entre pasadas de la misma órbita: basta la primera fecha.
+            terrain, terrain_detail = terrain_mask(
+                path, list(dem_sources), scene.crs, scene.transform, scene.hh.shape, reference.direction
+            )
         dates.append(_write_date(scene, prefix, artifact_root, params))
         stats.append(scene_stats(scene, params))
         if previous is not None:
-            pairs.append(_write_pair(previous, scene, "consecutive", prefix, artifact_root, params))
+            pairs.append(_write_pair(previous, scene, "consecutive", prefix, artifact_root, params, terrain))
         previous = scene
         del scene
 
     if len(ordered) > 2:
         # La primera fecha se vuelve a leer: guardarla toda la serie costaría una escena más de RAM.
         first = read_scene(ordered[0][1], aoi["bbox"])
-        pairs.append(_write_pair(first, previous, "full_window", prefix, artifact_root, params))
+        pairs.append(_write_pair(first, previous, "full_window", prefix, artifact_root, params, terrain))
         del first
     del previous
 
@@ -139,6 +158,11 @@ def process_series(
     notices = (
         ([SYNTHETIC_NOTICE] if reference.data_kind == "synthetic" else [])
         + BASE_NOTICES
+        + [
+            TERRAIN_NOTICE.format(detail=terrain_detail)
+            if terrain is not None
+            else NO_TERRAIN_NOTICE.format(reason=terrain_detail)
+        ]
         + [QA_NOTICE.format(params.qa_outlier_db)]
     )
     manifest = {
