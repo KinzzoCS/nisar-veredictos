@@ -551,3 +551,59 @@ def test_http_optical_failure_is_cached_briefly():
         with pytest.raises(CatalogUnavailable):
             source.scenes("parral", JUNE_29, 10)
     assert len(calls) == 1
+
+
+# --- Eventos en horas UTC (revisión de Antena: el corte llegaba 24 h antes) -----------------
+
+from datetime import time as dtime  # noqa: E402
+
+STORM_PASSES = [date(2026, 6, 26), date(2026, 6, 29), date(2026, 7, 8), date(2026, 7, 11)]
+STORM = date(2026, 7, 1)
+
+
+@pytest.mark.parametrize("hours, state, cause", [
+    (144, "not_observable", "no_acquisition_during_event"),  # ni empezando a las 23:59 llega al 07-08
+    (145, "not_observable", "timing_uncertain"),  # antes salía "observable"
+    (168, "not_observable", "timing_uncertain"),
+    (191, "not_observable", "timing_uncertain"),
+    (192, "observable", None),  # cubre el 07-08 entero aunque empiece a las 00:00 del 07-01
+])
+def test_event_without_times_counts_hours_and_declares_doubt(hours, state, cause):
+    status = rules.event_status(STORM_PASSES, STORM, hours)
+    assert (status.state, status.cause, status.next_pass) == (state, cause, date(2026, 7, 8))
+
+
+@pytest.mark.parametrize("hours, state", [(169, "not_observable"), (170, "observable")])
+def test_event_with_known_times_cuts_at_the_pass(hours, state):
+    times = {date(2026, 7, 8): datetime(2026, 7, 8, 13, 10, tzinfo=timezone.utc)}
+    status = rules.event_status(STORM_PASSES, STORM, hours, dtime(12, 0), times)
+    assert status.state == state  # 12:00 del 07-01 a 13:10 del 07-08 son 169 h 10 min
+    assert status.cause in (None, "no_acquisition_during_event")
+
+
+def test_same_day_pass_before_the_event_is_the_previous_one():
+    times = {date(2026, 7, 1): datetime(2026, 7, 1, 0, 41, tzinfo=timezone.utc)}
+    status = rules.event_status([date(2026, 7, 1), date(2026, 7, 8)], STORM, 24, dtime(18, 0), times)
+    assert status.previous_pass == date(2026, 7, 1) and status.next_pass == date(2026, 7, 8)
+    assert status.cause == "no_acquisition_during_event"
+
+
+def test_event_endpoint_declares_doubt_and_takes_time(client):
+    body = client.get("/aois/parral/events", params={"date": "2026-07-01", "persistence_hours": 230}).json()  # pasada: 07-11
+    assert body["state"] == "not_observable" and body["cause"] == "timing_uncertain"
+    assert body["event_time"] is None and body["next_pass_acquired_at"] is None
+    assert "parámetro time" in body["summary"]["missing"]
+    timed = client.get("/aois/parral/events", params={"date": "2026-07-01", "persistence_hours": 300, "time": "12:00"})
+    assert timed.json()["event_time"] == "12:00:00" and timed.json()["state"] == "observable"
+
+
+def test_real_event_uses_pass_times_from_catalog(manifest_root):
+    _as_real(manifest_root)
+    # Pasadas del fixture: 06-29 00:41:12 y 07-11 00:41:30 UTC.
+    client = TestClient(create_app(manifest_root, timeline=FakeTimeline(REAL_PASSES), clock=_clock))
+    params = {"date": "2026-07-01", "time": "00:00"}
+    body = client.get("/aois/parral/events", params={**params, "persistence_hours": 240}).json()
+    assert body["next_pass_acquired_at"].startswith("2026-07-11T00:41:30")
+    assert body["state"] == "not_observable" and body["cause"] == "no_acquisition_during_event"
+    body = client.get("/aois/parral/events", params={**params, "persistence_hours": 241}).json()
+    assert body["state"] == "observable"

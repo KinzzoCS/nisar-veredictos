@@ -17,6 +17,7 @@ CAUSES = {
         "terrain": "relieve que oculta o distorsiona la señal",
         "no_acquisition_during_event": "no hubo ninguna pasada mientras duraba el evento",
         "outside_series_window": "el evento queda fuera del periodo con datos",
+        "timing_uncertain": "sin la hora UTC del evento o de la pasada no se sabe si la pasada cayó mientras duraba",
     },
     "en": {
         "outside_scene": "the area falls outside the pass",
@@ -27,6 +28,7 @@ CAUSES = {
         "terrain": "terrain hides or distorts the signal",
         "no_acquisition_during_event": "no pass occurred while the event lasted",
         "outside_series_window": "the event falls outside the period with data",
+        "timing_uncertain": "without the UTC time of the event or the pass, it is unknown whether the pass fell while it lasted",
     },
 }
 
@@ -168,24 +170,34 @@ def pair_summary(
 def event_summary(status: rules.EventStatus, event: str, lang: Lang, synthetic: bool) -> dict:
     previous = status.previous_pass.isoformat() if status.previous_pass else "-"
     following = status.next_pass.isoformat() if status.next_pass else "-"
+    seen = status.seen_by.isoformat() if status.seen_by else following
+    uncertain = status.cause == "timing_uncertain"
     if lang == "es":
         if status.state == rules.OBSERVABLE:
-            detected = f"Hubo una pasada el {following}, dentro de la duración indicada del evento del {event}."
+            detected = f"Hubo una pasada el {seen}, dentro de la duración indicada del evento del {event}."
             limits = "Que haya pasada no garantiza que el evento se vea; hay que consultar el veredicto de ese par."
             missing = "Revisar el par que incluye esa fecha."
         else:
             detected = f"El evento del {event} no es observable: {CAUSES[lang][status.cause]}. Pasada anterior: {previous}; siguiente: {following}."
-            limits = "Esto no indica que el evento no ocurriera; indica que el radar no pudo registrarlo."
-            missing = "Haría falta una fuente con mayor frecuencia o reportes locales."
+            if uncertain:
+                limits = "La pasada pudo caer dentro del evento o fuera; con estos datos no se puede afirmar ninguna de las dos."
+                missing = "Indicar la hora UTC de inicio del evento (parámetro time) permite decidirlo."
+            else:
+                limits = "Esto no indica que el evento no ocurriera; indica que el radar no pudo registrarlo."
+                missing = "Haría falta una fuente con mayor frecuencia o reportes locales."
     else:
         if status.state == rules.OBSERVABLE:
-            detected = f"A pass occurred on {following}, within the stated duration of the {event} event."
+            detected = f"A pass occurred on {seen}, within the stated duration of the {event} event."
             limits = "A pass does not guarantee the event is visible; check that pair's verdict."
             missing = "Review the pair that includes that date."
         else:
             detected = f"The {event} event is not observable: {CAUSES[lang][status.cause]}. Previous pass: {previous}; next: {following}."
-            limits = "This does not mean the event did not happen; the radar could not record it."
-            missing = "It would need a more frequent source or local reports."
+            if uncertain:
+                limits = "The pass may have fallen inside or outside the event; these data cannot tell which."
+                missing = "Giving the event's UTC start time (time parameter) makes it decidable."
+            else:
+                limits = "This does not mean the event did not happen; the radar could not record it."
+                missing = "It would need a more frequent source or local reports."
     prefix = SYNTHETIC_PREFIX[lang] if synthetic else ""
     return {"detected": prefix + detected, "does_not_prove": limits, "missing": missing}
 
