@@ -35,9 +35,9 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 
 - [x] Procesar 10 fechas reales de Parral con menos de 2 GB de RAM. Comprobado el 2026-11-12 con las 10 fechas reales de T048 en Docker: 1611 MB de pico del contenedor (`memory.peak`, incluye caché de archivos) y 389 s.
 - [x] Una fecha con su mediana desplazada más de 1,5 dB respecto a la serie aparece marcada en el control de calidad. Comprobado con datos sintéticos (+3 dB), no con datos reales.
-- [ ] Toda capa COG declara su CRS, y su extensión en WGS84 coincide con la del manifiesto.
-- [ ] Ningún píxel no observable cambia de estado por el procesamiento.
-- [ ] Las pruebas sintéticas siguen pasando.
+- [x] Toda capa COG declara su CRS, y su extensión en WGS84 coincide con la del manifiesto. Prueba `test_every_cog_declares_the_crs_and_covers_the_manifest_bbox`: cada COG cubre el `bbox` y lo excede menos de 0,01°. En las 36 capas reales de Parral (T048 y T171, 2026-11-12) el exceso máximo es 0,004°, por recortar en UTM.
+- [x] Ningún píxel no observable cambia de estado por el procesamiento. Prueba `test_unobservable_pixels_keep_their_cause_in_the_written_state`: en cada `state.tif` escrito, los píxeles no observables conservan su causa y nunca valen `no_change` ni `change_probable`.
+- [x] Las pruebas sintéticas siguen pasando (28 en `processor`, 2026-11-12).
 
 ## Interfaces
 

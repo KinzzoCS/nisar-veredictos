@@ -8,6 +8,7 @@ import numpy as np
 import pytest
 import rasterio
 from rasterio.transform import Affine
+from rasterio.warp import transform_bounds
 
 from processor.change import (
     CHANGE_PROBABLE,
@@ -16,8 +17,11 @@ from processor.change import (
     LOW_LOOKS,
     NO_CHANGE,
     OUTSIDE_SCENE,
+    NO_DATA,
     Params,
+    _state_for_unobservable,
     compare,
+    observable,
     otsu,
 )
 from processor.gcov import GRID, IDENTIFICATION, GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
@@ -171,6 +175,51 @@ def test_pipeline_writes_valid_manifest_and_cogs(series):
     with rasterio.open(root / "artifacts" / gap["layers"]["state"]) as dataset:
         assert dataset.profile["dtype"] == "uint8" and dataset.nodata == 255
         assert dataset.tags(ns="IMAGE_STRUCTURE").get("LAYOUT") == "COG"
+
+
+
+def _layers(manifest):
+    for item in manifest["dates"]:
+        yield item["hh_db"]
+        yield item["hv_db"]
+    for pair in manifest["pairs"]:
+        yield from pair["layers"].values()
+
+
+def test_every_cog_declares_the_crs_and_covers_the_manifest_bbox(series):
+    paths, root = series
+    manifest = process_series(paths, AOI, "T048A-F015", root / "artifacts", "PROVISIONAL")
+    west, south, east, north = manifest["bbox"]
+    layers = list(_layers(manifest))
+    assert len(layers) == 2 * len(manifest["dates"]) + 3 * len(manifest["pairs"])
+    for layer in layers:
+        with rasterio.open(root / "artifacts" / layer) as dataset:
+            assert dataset.crs is not None and dataset.crs.to_string() == manifest["crs"], layer
+            left, bottom, right, top = transform_bounds(dataset.crs, "EPSG:4326", *dataset.bounds, densify_pts=21)
+        # Cubre la zona entera y la excede como mucho por el recorte en UTM (en Parral real, 0,004°).
+        margins = (west - left, south - bottom, right - east, top - north)
+        assert all(-1e-6 <= margin < 0.01 for margin in margins), (layer, margins)
+
+
+def test_unobservable_pixels_keep_their_cause_in_the_written_state(series):
+    paths, root = series
+    params = Params()
+    manifest = process_series(paths, AOI, "T048A-F015", root / "artifacts", "PROVISIONAL", params)
+    by_date = {path.name.split("_DHDH_A_")[1][:8]: path for path in paths}
+    checked = 0
+    for pair in manifest["pairs"]:
+        a = read_scene(by_date[pair["from"].replace("-", "")], BBOX)
+        b = read_scene(by_date[pair["to"].replace("-", "")], BBOX)
+        hidden = ~(observable(a, params.min_looks) & observable(b, params.min_looks))
+        expected = _state_for_unobservable(a, b, params)
+        expected[hidden & (expected == NO_CHANGE)] = NO_DATA
+        with rasterio.open(root / "artifacts" / pair["layers"]["state"]) as dataset:
+            state = dataset.read(1)
+        assert hidden.any()
+        assert np.array_equal(state[hidden], expected[hidden]), pair["id"]
+        assert not np.isin(state[hidden], [NO_CHANGE, CHANGE_PROBABLE]).any()
+        checked += 1
+    assert checked == len(manifest["pairs"])
 
 
 def test_pipeline_writes_qa_and_flags_a_shifted_granule(series, tmp_path):
