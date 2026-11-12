@@ -50,10 +50,78 @@ def _text(value) -> str:
     return value.decode() if isinstance(value, bytes) else str(value)
 
 
+# Capas de covarianza de la diagonal -> código de polarización de la frecuencia A.
+_POLARIZATIONS = {
+    frozenset({"HHHH"}): "SH",
+    frozenset({"VVVV"}): "SV",
+    frozenset({"HHHH", "HVHV"}): "DH",
+    frozenset({"VVVV", "VHVH"}): "DV",
+    frozenset({"HHHH", "HVHV", "VHVH", "VVVV"}): "QP",
+}
+_NEEDED = {"HHHH", "HVHV"}
+
+
+def _flag(identification: h5py.Group, name: str) -> bool | None:
+    if name not in identification:
+        return None
+    return _text(identification[name][()]).strip().lower() == "true"
+
+
+def _texts(identification: h5py.Group, name: str) -> list[str]:
+    if name not in identification:
+        return []
+    return [_text(value).strip() for value in np.atleast_1d(identification[name][()])]
+
+
+def _frequency_a_polarization(handle: h5py.File) -> str:
+    """Código de polarización según las capas presentes, no según el nombre."""
+    grid = handle[GRID]
+    if "listOfPolarizations" in grid:
+        pols = {_text(value).strip().upper() for value in np.atleast_1d(grid["listOfPolarizations"][()])}
+        terms = {pol + pol for pol in pols}
+    else:
+        terms = {name for name in ("HHHH", "HVHV", "VHVH", "VVVV") if name in grid}
+    if not _NEEDED <= terms:
+        raise GranuleError(f"La frecuencia A no trae HH y HV (tiene {sorted(terms) or 'ninguna'})")
+    return _POLARIZATIONS.get(frozenset(terms), "+".join(sorted(terms)))
+
+
 def read_meta(handle: h5py.File) -> GranuleMeta:
+    """Lee la identificación y comprueba el modo con los metadatos del producto.
+
+    El recorte no trae el ancho de banda y en los gránulos reales `listOfObservationModes`
+    vale "(NOT SPECIFIED)", así que el código de ancho de banda (p. ej. 4005) sale del nombre,
+    pero solo después de comprobar con los metadatos que el nombre no contradice al producto.
+    """
     identification = handle[IDENTIFICATION]
     granule_id = _text(identification["granuleId"][()])
-    mode = _MODE.search(granule_id)
+
+    if _flag(identification, "isMixedMode"):
+        raise GranuleError(f"{granule_id}: modo mixto, el ancho de banda cambia dentro del marco")
+    if _flag(identification, "isGeocoded") is False:
+        raise GranuleError(f"{granule_id}: el producto no está geocodificado")
+    if "productType" in identification and _text(identification["productType"][()]).strip() != "GCOV":
+        raise GranuleError(f"{granule_id}: no es un producto GCOV")
+    frequencies = [value.upper() for value in _texts(identification, "listOfFrequencies")]
+    if frequencies and "A" not in frequencies:
+        raise GranuleError(f"{granule_id}: no trae la frecuencia A")
+
+    polarization = _frequency_a_polarization(handle)
+    named = _MODE.search(granule_id)
+    if named:
+        mode, named_polarization = named.groups()
+        if named_polarization[:2] != polarization:
+            raise GranuleError(
+                f"{granule_id}: el nombre dice {named_polarization[:2]} pero las capas son {polarization}"
+            )
+        has_b = mode[2:] != "00"
+        if frequencies and has_b != ("B" in frequencies):
+            raise GranuleError(f"{granule_id}: el nombre ({mode}) no coincide con las frecuencias {frequencies}")
+        # El código del nombre también describe la frecuencia B; la A ya quedó comprobada.
+        polarization = named_polarization
+    else:
+        mode = "unknown"
+
     direction = _text(identification["orbitPassDirection"][()]).strip().upper()[0]
     return GranuleMeta(
         granule_id=granule_id,
@@ -61,8 +129,8 @@ def read_meta(handle: h5py.File) -> GranuleMeta:
         track=int(identification["trackNumber"][()]),
         direction=direction,
         frame=int(identification["frameNumber"][()]),
-        mode=mode.group(1) if mode else "unknown",
-        polarization=mode.group(2) if mode else "unknown",
+        mode=mode,
+        polarization=polarization,
         crid=_text(identification["compositeReleaseId"][()]),
         data_kind=_text(handle.attrs.get("data_kind", "real")),
     )

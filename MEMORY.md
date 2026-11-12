@@ -106,6 +106,7 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - Rutas en `/science/LSAR/GCOV/grids/frequencyA/`: `HHHH`, `HVHV` (Float32), `numberOfLooks` (Float32), `mask` y `inputDataExceptionMask` (UByte), `xCoordinates`, `yCoordinates`, y `projection` con el atributo `epsg_code`.
 - `mask`: 0 inválido o parcialmente enfocado, 1-5 válido con su subfranja, 255 fuera de la escena.
 - `inputDataExceptionMask`: 0 sin anomalía.
+- En los recortes reales de T048 (2026-11-11): `listOfObservationModes = ["(NOT SPECIFIED)"]`, `isMixedMode = "False"`, `listOfFrequencies = [A, B]`, `isGeocoded = "True"`; los booleanos son texto, no enteros. El recorte no trae el ancho de banda ni `listOfPolarizations`. Desde T-ECO-04, `processor` deduce la polarización de A por las capas presentes, rechaza modo mixto, productos sin HH+HV y nombres que contradicen capas o frecuencias, y solo toma del nombre el código de ancho de banda.
 - La especificación **no** menciona layover ni sombra.
 - Capas estáticas (`NISAR_L2_STATIC`): **todavía no se publican.** Comprobado el 2026-11-11 de dos formas. Primero, `identification/staticLayersDataAccess` apunta a `nisar-services.earthdata.nasa.gov/redirect/NISAR_L2_STATIC/<granule_id>.h5`, que responde 200 con una página que dice que no están disponibles. Segundo, CMR no tiene ninguna colección `NISAR*STATIC*`. Las colecciones L2 publicadas son GCOV, GSLC, GUNW y GOFF.
 
@@ -133,7 +134,10 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - El umbral de Otsu nunca supera el mínimo: los 10 pares quedan en 3,0 dB, así que hoy el umbral es fijo en la práctica.
   - El QA marca solo el 2026-10-15 (+1,89 dB en HH); el 2026-09-09 queda cerca (+1,37 dB).
   - Hipótesis, sin verificar: humedad del suelo por lluvias del monzón, que sube toda la escena. También podría ser radiométrico. Hasta resolverlo, un "cambio" en esos pares no debe leerse como cambio local. Opciones para T-ECO-07 con Balanza: medir el cambio respecto al desplazamiento de la escena, o avisar en los pares con desplazamiento grande.
-  - Las 9 fechas de T171 y el recorte de La Boquilla están en `data/raw/real/`, sin procesar.
+- 2026-11-12, serie real completa de T171 (9 fechas), mismo método que T048: 1611 MB y 389 s en T048, **1782 MB y 393 s en T171**. Las dos series quedan por debajo de 2 GB.
+- 2026-11-12, T171 del 2026-08-13 (defecto del producto; la evidencia está en la nota de Antena, PR 22). Efecto en `processor`: el QA lo marcaba con +6,4 dB en HH y en HV, pero la marca es solo un aviso, y los pares 07-20→08-13 y 08-13→08-25 salían con un 46 % y un 50 % de `change_probable` falso. Se apartó a `data/raw/cuarentena/parral/T171D-F075/` (no se borró) y T171 se reprocesó con 8 fechas (1806 MB, 359 s). El par consecutivo pasa a ser 07-20→08-25, que cruza el hueco de adquisición y da un 8,8 % de cambio.
+- Desplazamiento entre fechas, medido con correlación de fase en 3 ventanas (2026-11-12): en T171, todas las fechas (también las `_F_F_J_001`) se desplazan unos 0,8 px en filas respecto al 06-26; en T048, las 10 fechas coinciden con el 06-17 con menos de 0,4 px de diferencia.
+- En T171, el QA también marca el 2026-09-30 (+1,59 dB), y el par 09-18→09-30 da un 24,9 % de cambio con HH y HV subiendo a la vez: el mismo patrón de desplazamiento de toda la escena que en T048.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación

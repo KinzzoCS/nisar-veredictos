@@ -55,6 +55,12 @@ def _write(path: Path, name: str, hh, hv, mask, looks, exception, x, y, day, spe
         identification["orbitPassDirection"] = "Ascending" if spec.direction == "A" else "Descending"
         identification["zeroDopplerStartTime"] = datetime.strptime(day, "%Y%m%d").strftime("%Y-%m-%dT09:42:25")
         identification["compositeReleaseId"] = "P05023"
+        # Mismos campos y formato que los gránulos reales (texto en bytes, listas como arreglos).
+        identification["productType"] = "GCOV"
+        identification["isGeocoded"] = "True"
+        identification["isMixedMode"] = "False"
+        identification["listOfFrequencies"] = np.array([b"A", b"B"])
+        identification["listOfObservationModes"] = np.array([b"(NOT SPECIFIED)"])
         grid = handle.create_group(GRID)
         grid["xCoordinates"] = x
         grid["yCoordinates"] = y

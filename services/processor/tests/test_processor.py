@@ -1,4 +1,5 @@
 import json
+import shutil
 from pathlib import Path
 
 import h5py
@@ -19,7 +20,7 @@ from processor.change import (
     compare,
     otsu,
 )
-from processor.gcov import GRID, GranuleError, GranuleMeta, Scene, read_scene
+from processor.gcov import GRID, IDENTIFICATION, GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from processor.pipeline import process_series
 from processor.qa import RADIOMETRIC_OUTLIER, date_qa
 from processor.synthetic import SeriesSpec, generate_series
@@ -246,3 +247,59 @@ def test_pipeline_refuses_granules_from_another_series(series, tmp_path):
     with pytest.raises(GranuleError):
         process_series([paths[0], other[0]], AOI, "mix", tmp_path / "out", "PROVISIONAL")
 
+
+def _altered(series, tmp_path, identification=None, drop=()):
+    """Copia el primer gránulo sintético cambiando campos de identificación o quitando capas."""
+    paths, _ = series
+    copy = tmp_path / paths[0].name
+    shutil.copy(paths[0], copy)
+    with h5py.File(copy, "r+") as handle:
+        group = handle[IDENTIFICATION]
+        for name, value in (identification or {}).items():
+            del group[name]
+            group[name] = value
+        for name in drop:
+            del handle[GRID][name]
+    return copy
+
+
+def test_mode_and_polarization_come_from_the_product(series):
+    meta = read_meta_path(series[0][0])
+    assert (meta.mode, meta.polarization) == ("4005", "DHDH")
+
+
+def test_polarization_without_a_readable_name_comes_from_the_layers(series, tmp_path):
+    meta = read_meta_path(_altered(series, tmp_path, {"granuleId": "recorte_renombrado"}))
+    assert (meta.mode, meta.polarization) == ("unknown", "DH")
+
+
+def test_a_name_that_contradicts_the_layers_is_rejected(series, tmp_path):
+    name = read_meta_path(series[0][0]).granule_id.replace("_DHDH_", "_DVDV_")
+    with pytest.raises(GranuleError, match="las capas son DH"):
+        read_meta_path(_altered(series, tmp_path, {"granuleId": name}))
+
+
+def test_a_name_that_contradicts_the_frequencies_is_rejected(series, tmp_path):
+    name = read_meta_path(series[0][0]).granule_id.replace("_4005_", "_4000_")
+    with pytest.raises(GranuleError, match="frecuencias"):
+        read_meta_path(_altered(series, tmp_path, {"granuleId": name}))
+
+
+def test_mixed_mode_granules_are_rejected(series, tmp_path):
+    with pytest.raises(GranuleError, match="modo mixto"):
+        read_meta_path(_altered(series, tmp_path, {"isMixedMode": "True"}))
+
+
+def test_granules_without_hv_are_rejected_before_reading_layers(series, tmp_path):
+    with pytest.raises(GranuleError, match="HH y HV"):
+        read_meta_path(_altered(series, tmp_path, drop=("HVHV",)))
+
+
+REAL = sorted((ROOT / "data" / "raw" / "real" / "parral" / "T048A-F015").glob("*.h5"))
+
+
+@pytest.mark.skipif(not REAL, reason="sin recortes reales en data/raw/real")
+def test_real_granules_agree_with_their_names():
+    for path in REAL:
+        meta = read_meta_path(path)
+        assert (meta.mode, meta.polarization, meta.track, meta.frame) == ("4005", "DHDH", 48, 15)
