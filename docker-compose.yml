@@ -43,11 +43,15 @@ services:
     build: ./services/verdicts
     environment:
       ARTIFACT_ROOT: /data/artifacts
+      # Línea de tiempo de Antena: hora UTC de adquisición y latencia de publicación (T-BAL-02).
+      CATALOG_URL: http://catalog:8000
     volumes:
       - ./data:/data:ro
     depends_on:
       seed:
         condition: service_completed_successfully
+      catalog:
+        condition: service_started
 
   tiles:
     image: ghcr.io/developmentseed/titiler:2.4.0

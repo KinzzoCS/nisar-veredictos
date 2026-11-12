@@ -21,6 +21,9 @@ echo "$event" | grep -q '"next_pass":"2026-07-08"'
 verdicts=$(curl -fsS "$BASE/api/verdicts/aois/parral/series/T048A-F015/verdicts")
 echo "$verdicts" | grep -q '"data_kind":"synthetic"'
 echo "$verdicts" | grep -q '"state":"change_probable"'
+# T-BAL-02: días entre fechas y frescura del dato en cada veredicto.
+echo "$verdicts" | grep -q '"interval_days":'
+echo "$verdicts" | grep -q '"latency_status":"synthetic"'
 
 curl -fsS "$BASE/api/verdicts/aois/parral/series/T048A-F015/pixel?lon=-105.67&lat=26.93" | grep -q '"values"'
 
