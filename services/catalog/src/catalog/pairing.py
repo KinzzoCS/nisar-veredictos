@@ -4,14 +4,14 @@ from __future__ import annotations
 import re
 from collections import defaultdict
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 # Hueco permanente de adquisición publicado por ASF.
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 
 _TITLE = re.compile(
     r"GCOV_(?P<cycle>\d+)_(?P<track>\d+)_(?P<direction>[AD])_(?P<frame>\d+)_(?P<mode>\w{4})_(?P<polarization>\w{4})_"
-    r"\w_(?P<start>\d{8})T\d{6}_\d{8}T\d{6}_(?P<crid>[A-Z]\d+)_"
+    r"\w_(?P<start>\d{8}T\d{6})_\d{8}T\d{6}_(?P<crid>[A-Z]\d+)_"
 )
 
 Point = tuple[float, float]
@@ -27,9 +27,11 @@ class Granule:
     polarization: str
     crid: str
     start: date
+    acquired_at: datetime  # Inicio de la adquisición en UTC, tomado del nombre del gránulo.
     size_mb: float
     footprint: tuple[Point, ...] = ()
     download_url: str = ""
+    published_at: datetime | None = None  # Última actualización en CMR; aproxima la publicación.
 
     @property
     def group_key(self) -> tuple:
@@ -57,11 +59,16 @@ class Series:
 
 
 def parse_title(
-    title: str, size_mb: float = 0.0, footprint: tuple[Point, ...] = (), download_url: str = ""
+    title: str,
+    size_mb: float = 0.0,
+    footprint: tuple[Point, ...] = (),
+    download_url: str = "",
+    published_at: datetime | None = None,
 ) -> Granule | None:
     match = _TITLE.search(title)
     if not match:
         return None
+    acquired_at = datetime.strptime(match["start"], "%Y%m%dT%H%M%S").replace(tzinfo=timezone.utc)
     return Granule(
         id=title,
         track=int(match["track"]),
@@ -70,10 +77,12 @@ def parse_title(
         mode=match["mode"],
         polarization=match["polarization"],
         crid=match["crid"],
-        start=datetime.strptime(match["start"], "%Y%m%d").date(),
+        start=acquired_at.date(),
+        acquired_at=acquired_at,
         size_mb=size_mb,
         footprint=footprint,
         download_url=download_url,
+        published_at=published_at,
     )
 
 
@@ -117,7 +126,7 @@ def build_series(granules: list[Granule], bbox: list[float], min_dates: int = 2)
                 crid=crid,
                 granules=ordered,
                 contains_aoi=all(_contains(granule.footprint, bbox) for granule in ordered),
-                max_gap_days=max((b.start - a.start).days for a, b in pairs),
+                max_gap_days=max(((b.start - a.start).days for a, b in pairs), default=0),
                 spans_data_gap=any(crosses_gap(a.start, b.start) for a, b in pairs),
             )
         )
