@@ -105,6 +105,11 @@ def _event_statuses() -> list[rules.EventStatus]:
     ]
 
 
+# T-BAL-06: cada origen de la persistencia supuesta, con cada tipo de evento.
+PERSISTENCES = [None, rules.persistence(None, None), rules.persistence(None, 30)] + [
+    rules.persistence(kind, None) for kind in rules.PERSISTENCE_BY_EVENT_TYPE
+]
+
 LATENCIES = [("available", 37.3)] + [(status, None) for status in narrative.LATENCY_UNKNOWN["es"]]
 
 
@@ -120,9 +125,10 @@ def rendered_texts() -> list[tuple[str, dict]]:
                 age_days=days, latency_hours=hours, latency_status=status, kind=kind,
             )
             found.append((f"pair {lang} {decision.state}/{decision.cause} {kind} gap={gap} {status}", summary))
-        for status in _event_statuses():
-            summary = narrative.event_summary(status, "2026-07-01", lang, synthetic)
-            found.append((f"event {lang} {status.state}/{status.cause}", summary))
+        for status, assumed in itertools.product(_event_statuses(), PERSISTENCES):
+            summary = narrative.event_summary(status, "2026-07-01", lang, synthetic, assumed)
+            source = assumed.source if assumed else "none"
+            found.append((f"event {lang} {status.state}/{status.cause} {source}/{assumed and assumed.event_type}", summary))
     for lang, before, after in itertools.product(("es", "en"), OPTICAL_SIDES, OPTICAL_SIDES):
         text = narrative.optical_text(before, after, lang, max_cloud=30.0, search_days=10)
         found.append((f"optical {lang} {before[0]}/{after[0]}", {"optical": text}))
@@ -142,8 +148,9 @@ OPTICAL_SIDES = [
 
 def test_rendering_covers_every_cause_and_latency_in_both_languages():
     # Si alguien añade una causa o un estado de latencia, debe aparecer en las plantillas de ambos idiomas.
-    for table in (narrative.CAUSES, narrative.HYPOTHESES, narrative.LATENCY_UNKNOWN):
+    for table in (narrative.CAUSES, narrative.HYPOTHESES, narrative.LATENCY_UNKNOWN, narrative.EVENT_TYPES):
         assert table["es"].keys() == table["en"].keys()
+    assert narrative.EVENT_TYPES["es"].keys() == rules.PERSISTENCE_BY_EVENT_TYPE.keys()
     assert set(rules.UNOBSERVABLE_CAUSES) <= narrative.CAUSES["es"].keys()
     assert set(rules.SIGNATURE_HYPOTHESIS.values()) == narrative.HYPOTHESES["es"].keys()
 

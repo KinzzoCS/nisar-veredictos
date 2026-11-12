@@ -607,3 +607,49 @@ def test_real_event_uses_pass_times_from_catalog(manifest_root):
     assert body["state"] == "not_observable" and body["cause"] == "no_acquisition_during_event"
     body = client.get("/aois/parral/events", params={**params, "persistence_hours": 241}).json()
     assert body["state"] == "observable"
+
+
+# --- T-BAL-06: persistencias por tipo de evento, declaradas como supuestos ------------------
+
+@pytest.mark.parametrize("event_type, hours", [(None, None), ("urban_storm", None), (None, 30), ("wildfire", 30)])
+def test_persistence_says_where_the_hours_come_from(event_type, hours):
+    assumed = rules.persistence(event_type, hours)
+    expected = hours or rules.PERSISTENCE_BY_EVENT_TYPE.get(event_type) or rules.DEFAULT_PERSISTENCE_HOURS
+    source = "user" if hours else ("event_type" if event_type else "default")
+    assert (assumed.hours, assumed.source, assumed.event_type) == (expected, source, event_type)
+
+
+def test_persistence_table_matches_the_plan():
+    assert rules.PERSISTENCE_BY_EVENT_TYPE == {"urban_storm": 6, "river_flood": 72, "wildfire": 240}
+
+
+@pytest.mark.parametrize("event_type, hours, cause", [
+    ("urban_storm", 6, "no_acquisition_during_event"),
+    ("river_flood", 72, "no_acquisition_during_event"),
+    # 240 h desde el 07-01 llegan al 07-11, pero sin horas no se sabe si cubren la pasada.
+    ("wildfire", 240, "timing_uncertain"),
+])
+def test_event_type_sets_the_assumed_persistence(client, event_type, hours, cause):
+    body = client.get("/aois/parral/events", params={"date": "2026-07-01", "event_type": event_type}).json()
+    assert body["event_type"] == event_type and body["persistence_hours"] == hours
+    assert body["state"] == "not_observable" and body["cause"] == cause
+    assumption = body["assumption"]
+    assert assumption["source"] == "event_type" and assumption["persistence_hours"] == hours
+    assert assumption["calibrated"] is False
+    assert assumption["hours_by_event_type"] == rules.PERSISTENCE_BY_EVENT_TYPE
+    assert assumption["text"].startswith("Supuesto:") and f"{hours} h" in assumption["text"]
+    assert assumption["text"] in body["summary"]["does_not_prove"]
+
+
+def test_explicit_hours_win_over_event_type_and_default_is_declared(client):
+    both = client.get("/aois/parral/events", params={"date": "2026-07-01", "event_type": "urban_storm",
+                                                     "persistence_hours": 30, "lang": "en"}).json()
+    assert both["persistence_hours"] == 30 and both["assumption"]["source"] == "user"
+    assert both["assumption"]["text"].startswith("Assumption:")
+    plain = client.get("/aois/parral/events", params={"date": "2026-07-01"}).json()
+    assert plain["persistence_hours"] == 24 and plain["event_type"] is None
+    assert plain["assumption"]["source"] == "default" and "event_type" in plain["assumption"]["text"]
+
+
+def test_unknown_event_type_is_rejected(client):
+    assert client.get("/aois/parral/events", params={"date": "2026-07-01", "event_type": "tornado"}).status_code == 422

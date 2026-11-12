@@ -28,7 +28,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 | RF-BAL-03 | Prueba automática de lenguaje: ninguna plantilla afirma causas, daños ni confirmaciones | Hecho |
 | RF-BAL-04 | Contraste óptico: escena Sentinel-2 anterior y posterior más cercana, con URL de tesela y licencia | Hecho |
 | RF-BAL-05 | La prueba de humo cubre todas las rutas nuevas, incluidas las de Antena | Hecho |
-| RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | P1 |
+| RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | Hecho |
 | RF-BAL-07 | Contraste con OPERA DSWx-S1: acuerdo o desacuerdo sobre agua, presentado como desacuerdo y no como error | P1 |
 | RF-BAL-08 | Calibrar reglas con datos reales junto a Eco | P1 |
 | RF-BAL-09 | Las fechas con bandera de calidad de Eco se reflejan en el texto y en el recibo | P1 |
@@ -52,5 +52,5 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 
 ## Preguntas abiertas
 
-- ¿Qué persistencia suponemos para una tormenta urbana frente a una crecida de río? Debe declararse en la respuesta.
+- ~~¿Qué persistencia suponemos para una tormenta urbana frente a una crecida de río?~~ Resuelta en T-BAL-06: tormenta urbana 6 h, crecida de río 72 h e incendio 240 h, valores iniciales sin calibrar; cada respuesta de eventos los declara en `assumption` y en `summary.does_not_prove`.
 - ~~¿Qué hacemos si el óptico más cercano está a más de 10 días o muy nublado?~~ Resuelta en T-BAL-04: a más de 10 días no se muestra y se dice (`none_in_window`); muy nublado se muestra la menos nublada con su nubosidad (`cloudy`).
