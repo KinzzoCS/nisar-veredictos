@@ -30,6 +30,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 | RF-ANT-05 | Listar escenas Sentinel-2 L2A por fecha, dentro de ±N días y con nubosidad máxima configurable | Hecho (T-ANT-05) |
 | RF-ANT-06 | Listar productos OPERA DSWx-S1 a ±7 días de cada fecha NISAR | P1 |
 | RF-ANT-07 | Dejar un registro de ingesta por serie: gránulo, bytes, segundos y fecha de publicación | P1 |
+| RF-ANT-09 | Copiar al recorte `metadata/radarGrid`, si el gránulo lo trae, recortado a los nodos que cubren la ventana más 2 por lado, con todas las alturas y sin cambiar valores (`contracts/gcov-subset.md`) | Hecho (T-ANT-11) |
 
 ## Criterios de aceptación
 
