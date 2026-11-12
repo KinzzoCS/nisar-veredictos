@@ -145,12 +145,15 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - Las máscaras difieren en área, no en posición: el radar ve oscuras zonas fuera del agua óptica, posiblemente orillas expuestas o suelo liso, y el óptico ve agua en el brazo del este que el radar no ve oscuro. Los umbrales se eligieron mirando esta misma escena y no están calibrados para otras.
   - La correlación de fase de las máscaras no sirvió (picos de 0,02 e inconsistentes) y se descartó.
   - Entre órbitas, T048 (06-17) frente a T171 (06-26 y 07-08) en Parral, la correlación de fase en 4 ventanas da 0,5-1,1 px en filas y menos de 0,6 px en columnas, de forma consistente. Se pueden cruzar las dos series con ese margen.
-- 2026-11-12, **layover y sombra (T-ECO-05)**: el código está listo, pero falta la geometría.
-  - El recorte no trae la geometría del radar, y el rango de incidencia no aparece en las páginas de ASF ni de la NASA consultadas. La NASA sí publica que NISAR mira a la izquierda y que la inclinación es de 98,4°.
-  - El GCOV completo trae los cubos `metadata/radarGrid` (`incidenceAngle`, `losUnitVectorX/Y`). El PR 23 propone a Antena copiarlos en el recorte; las rutas exactas salen de la página de metadatos de ASF y falta comprobarlas en un gránulo real.
+- 2026-11-12, **layover y sombra (T-ECO-05)**, probado con geometría real.
+  - El recorte copia `metadata/radarGrid` desde el PR 25 de Antena (contrato en el PR 23). Probado con T048 del 06-17 y T171 del 06-26 de "data v3/radargrid" en Drive: cubos 21 × 106 × 116, EPSG:32613, nodos cada 500 m. Incidencia a 0 m: 38,0-41,8° en T048 y 39,5-43,2° en T171, creciendo hacia el alcance lejano. `losUnitVector` va del suelo al sensor (X medio +0,62 en T048 y −0,63 en T171); el código no depende de ese signo.
+  - Resultado (par 06-17→06-29 en T048 y 06-26→07-08 en T171): layover 0,05 % y 0,06 %; sombra 0,01 % y 0,00 %. Unos 45 s por par.
+  - Comprobación física: en T048 (sensor al este) el 100 % del layover está en laderas que miran al este y el 100 % de la sombra en laderas que miran al oeste; en T171, al revés. La pendiente media en layover es de unos 46°, por encima de la incidencia.
+  - El 98-99 % del layover ya salía como `low_looks`; ahora queda con la causa `terrain`. El layover no explica el 15 % de `low_looks` (son unos 15 000 de unos 4 millones de píxeles), que sigue pendiente para T-ECO-07.
+  - La sombra sale muy brillante en HH (+6 a +7 dB de mediana, frente a unos −11 dB de la escena). Hipótesis sin verificar: la corrección radiométrica de relieve de GCOV divide por un área iluminada casi nula.
   - `processor run` usa `radarGrid` y el DEM de `data/dem/<zona>/` (`processor fetch-dem --aoi parral`: 2 teselas GLO-30, 77 MB, sin cuenta). Si falta alguno de los dos, no marca relieve y lo avisa en el manifiesto.
   - Criterio local por pendiente en la dirección de alcance: layover si la ladera sube más que la incidencia; sombra si baja más que 90° menos la incidencia. No incluye sombras proyectadas por crestas.
-  - Medido con 2 fechas reales de T048, el DEM real y un `radarGrid` **supuesto** (33-47°): +112 MB (1760 frente a 1648 MB de `ru_maxrss`) y unos 9 s más. Con esa geometría supuesta saldría un 0,02 % de layover y un 0,02 % de sombra; no es un resultado.
+  - Coste medido con 2 fechas reales de T048, el DEM real y un `radarGrid` supuesto: +112 MB (1760 frente a 1648 MB de `ru_maxrss`) y unos 9 s más.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación

@@ -76,7 +76,8 @@ def _write(path: Path, name: str, hh, hv, mask, looks, exception, x, y, day, spe
 def write_radar_grid(path: Path, x: np.ndarray, y: np.ndarray, direction: str, incidence=(33.0, 47.0)) -> None:
     """Añade un radarGrid falso: incidencia que crece hacia el alcance lejano y visión a la izquierda.
 
-    El vector de visión se escribe del sensor al suelo (convenio supuesto); processor no depende del signo.
+    El vector de visión va del suelo al sensor, como en los gránulos reales (comprobado el 2026-11-12:
+    losUnitVectorX medio de +0,62 en T048 ascendente y de −0,63 en T171 descendente). processor no depende del signo.
     """
     xs = np.linspace(x.min() - 2000, x.max() + 2000, 12)
     ys = np.linspace(y.max() + 2000, y.min() - 2000, 10)
@@ -84,7 +85,7 @@ def write_radar_grid(path: Path, x: np.ndarray, y: np.ndarray, direction: str, i
     near_to_far = (xs.max() - xs) / np.ptp(xs) if direction == "A" else (xs - xs.min()) / np.ptp(xs)
     inc = incidence[0] + (incidence[1] - incidence[0]) * near_to_far
     cube = np.broadcast_to(inc[None, None, :], (heights.size, ys.size, xs.size)).astype(np.float32)
-    look_east = -1.0 if direction == "A" else 1.0  # del sensor al suelo: hacia el oeste en ascendente
+    look_east = 1.0 if direction == "A" else -1.0  # del suelo al sensor: el sensor queda al este en ascendente
     with h5py.File(path, "a") as handle:
         group = handle.require_group("/science/LSAR/GCOV/metadata/radarGrid")
         group["xCoordinates"] = xs
