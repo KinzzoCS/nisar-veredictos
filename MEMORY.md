@@ -95,6 +95,14 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - El QA marca solo el 2026-10-15 (+1,89 dB en HH); el 2026-09-09 queda cerca (+1,37 dB).
   - Hipótesis, sin verificar: humedad del suelo por lluvias del monzón, que sube toda la escena. También podría ser radiométrico. Hasta resolverlo, un "cambio" en esos pares no debe leerse como cambio local. Opciones para T-ECO-07 con Balanza: medir el cambio respecto al desplazamiento de la escena, o avisar en los pares con desplazamiento grande.
   - Las 9 fechas de T171 y el recorte de La Boquilla están en `data/raw/real/`, sin procesar.
+- 2026-11-12, serie real completa de T171 (9 fechas), mismo método que T048: 1611 MB y 389 s en T048, **1782 MB y 393 s en T171**. Las dos series quedan por debajo de 2 GB.
+- 2026-11-12, **T171 del 2026-08-13 no es utilizable.** Sus metadatos son normales (marco 75, órbita 5460, `boundingPolygon` como el de las demás fechas), pero los píxeles no muestran Parral:
+  - la vista rápida enseña sierra con relieve, sin la ciudad ni los ríos que se ven el 07-20 y el 08-25;
+  - la correlación de fase con las demás fechas da un pico de 0,01, frente a 0,2-0,3 entre fechas buenas;
+  - la mediana de HH es −5,0 dB, unos 6 dB por encima del resto.
+  El QA lo marca (+6,4 dB en HH y en HV), pero la marca es solo un aviso: los pares 07-20→08-13 y 08-13→08-25 salen con un 46 % y un 50 % de `change_probable` falso. No se sabe si el fallo es del producto de NASA o del recorte de `ingest`; para saberlo hay que comparar con el gránulo original. Hasta entonces, no usar esa fecha. El 2026-11-12 se apartó a `data/raw/cuarentena/parral/T171D-F075/` (no se borró) y T171 se reprocesó con 8 fechas (1806 MB, 359 s). El par consecutivo pasa a ser 07-20→08-25, que cruza el hueco de adquisición y da un 8,8 % de cambio.
+- Letra después del CRID en el nombre (`_N_F_J_001` frente a `_F_F_J_001`): según la guía de ASF (`nisar-docs.asf.alaska.edu/gcov/`, consultada el 2026-11-12) es la precisión de la órbita y del apuntamiento: P precisa, M media, N casi en tiempo real, F pronóstico. La segunda letra es la cobertura (F completa, P parcial), J es JPL y 001 el contador. Medido con correlación de fase en 3 ventanas: el 09-18 y el 10-12 de T171 (F) se desplazan lo mismo que las fechas N, unos 0,8 px en filas respecto al 06-26. En T048, las 10 fechas coinciden con el 06-17 con menos de 0,4 px de diferencia.
+- En T171, el QA también marca el 2026-09-30 (+1,59 dB), y el par 09-18→09-30 da un 24,9 % de cambio con HH y HV subiendo a la vez: el mismo patrón de desplazamiento de toda la escena que en T048.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
