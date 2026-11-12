@@ -2,8 +2,9 @@
 import * as maplibregl from "maplibre-gl";
 import { RDBU } from "./leyenda";
 import { crearMapa } from "./mapa";
-import { registrarCargador } from "./protocolo";
+import { ErrorHttp, registrarCargador } from "./protocolo";
 import type { Bbox, CapaRadar } from "./tipos";
+import type { EstadoOptico, VistaOptica } from "../types/map";
 
 const GATEWAY = import.meta.env.VITE_GATEWAY ?? "http://localhost:8080";
 
@@ -20,6 +21,33 @@ interface VeredictoApi {
   layers: Record<CapaRadar, string>;
   cause_label: string | null;
   receipt: { data_kind: "real" | "synthetic" };
+  /** Llega con el PR 19 de Balanza; antes no existe. */
+  evidence?: { optical?: { before: LadoOpticoApi; after: LadoOpticoApi } };
+}
+interface LadoOpticoApi {
+  status: EstadoOptico;
+  scene: {
+    acquired_at: string;
+    days_from_radar: number;
+    covers_aoi: boolean;
+    max_cloud_cover: number;
+    attribution: string;
+    tiles: { tile_url: string }[];
+  } | null;
+}
+
+/** Lo mismo que hará Faro: un lado de evidence.optical a VistaOptica (specs/04-atlas/plan.md). */
+function vistaDesdeApi(l: LadoOpticoApi): VistaOptica {
+  if (!l.scene) return { status: l.status, tiles: [] };
+  return {
+    status: l.status,
+    tiles: l.scene.tiles.map((t) => GATEWAY + t.tile_url),
+    attribution: l.scene.attribution,
+    cloudCover: l.scene.max_cloud_cover,
+    acquiredAt: l.scene.acquired_at,
+    daysFromRadar: l.scene.days_from_radar,
+    coversAoi: l.scene.covers_aoi,
+  };
 }
 
 async function json<T>(ruta: string): Promise<T> {
@@ -38,7 +66,10 @@ async function main() {
     const layers = Object.fromEntries(
       Object.entries(v.layers).map(([k, t]) => [k, GATEWAY + t]),
     ) as Record<CapaRadar, string>;
-    aviso.textContent = `Veredicto ${v.id} de la serie ${serie.id}, desde ${GATEWAY}.`;
+    const optica = v.evidence?.optical;
+    aviso.textContent =
+      `Veredicto ${v.id} de la serie ${serie.id}, desde ${GATEWAY}.` +
+      (optica ? "" : " La API aún no trae evidence.optical (PR 19): sin comparador.");
     crearMapa(document.getElementById("mapa")!, {
       aoi: serie.bbox,
       nombreZona: "Hidalgo del Parral",
@@ -46,6 +77,8 @@ async function main() {
       layers,
       causaNoObservable: v.cause_label ?? undefined,
       pixelUrl: `${GATEWAY}/api/verdicts/aois/parral/series/${serie.id}/pixel`,
+      optical: optica && { before: vistaDesdeApi(optica.before), after: vistaDesdeApi(optica.after) },
+      compare: "swipe",
       onPointSelected: (p) => console.debug("onPointSelected", p),
       onViewChanged: (vista) => console.debug("onViewChanged", vista),
       onLayerChanged: (c) => console.debug("onLayerChanged", c),
@@ -66,6 +99,20 @@ async function main() {
       },
       causaNoObservable: "muy pocas muestras de radar por píxel (texto de prueba)",
       pixelUrl: RUTA_PIXEL_PRUEBA,
+      // Óptico de PRUEBA: dibujos generados en el navegador, no una escena Sentinel-2.
+      optical: {
+        before: {
+          status: "clear",
+          tiles: ["atlas-prueba-optico://oeste/{z}/{x}/{y}", "atlas-prueba-optico://este/{z}/{x}/{y}"],
+          attribution: "PRUEBA: imagen generada en el navegador, no es Sentinel-2",
+          cloudCover: 12.5,
+          acquiredAt: "2026-06-28T17:46:21Z",
+          daysFromRadar: -1,
+          coversAoi: true,
+        },
+        after: { status: "none_in_window", tiles: [] },
+      },
+      compare: "swipe",
       onPointSelected: (p) => console.debug("onPointSelected", p),
       onViewChanged: (vista) => console.debug("onViewChanged", vista),
       onLayerChanged: (c) => console.debug("onLayerChanged", c),
@@ -150,7 +197,33 @@ function interceptarPixelPrueba(bbox: Bbox) {
   };
 }
 
+/**
+ * Óptico de prueba en dos "teselas" (mitad oeste y mitad este de la zona). Fuera de su
+ * mitad responde 404, como TiTiler fuera de la huella MGRS, para probar la tesela vacía.
+ */
+function registrarOpticoPrueba([o, s, e, n]: Bbox) {
+  const mitad = (o + e) / 2;
+  registrarCargador("atlas-prueba-optico", async (url) => {
+    const [parte, z, x, y] = url.split("://")[1].split("/");
+    const [zi, xi, yi] = [z, x, y].map(Number);
+    const huella: Bbox = parte === "oeste" ? [o - 0.05, s, mitad, n] : [mitad, s, e + 0.05, n];
+    // ¿La tesela XYZ toca la huella? Si no, 404.
+    const [lo1, la1] = lonLat(zi, xi, yi, 0, 256);
+    const [lo2, la2] = lonLat(zi, xi, yi, 256, 0);
+    if (lo2 < huella[0] || lo1 > huella[2] || la2 < huella[1] || la1 > huella[3]) {
+      throw new ErrorHttp(404, url);
+    }
+    return teselaPng(`x://${zi}/${xi}/${yi}`, (ll) => {
+      if (!dentro(ll, huella)) return [0, 0, 0, 0];
+      if (codigoPrueba(ll) === 1) return [40, 90, 150, 255]; // "agua" donde el radar ve cambio
+      const v = Math.sin(ll[0] * 90) * Math.cos(ll[1] * 70);
+      return v > 0 ? [120, 140, 80, 255] : [170, 150, 110, 255];
+    });
+  });
+}
+
 function registrarTeselasPrueba(bbox: Bbox) {
+  registrarOpticoPrueba(bbox);
   interceptarPixelPrueba(bbox);
   // Igual que la API con la paleta de Atlas: código en el canal rojo, nodata transparente.
   registrarCargador("atlas-prueba", (url) =>

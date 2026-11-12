@@ -1,7 +1,9 @@
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./mapa.css";
+import { crearComparador, type Comparador } from "./comparador";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
+import { ladoDisponible } from "./optico";
 import { contornoZona, estiloMapaBase, textoExtension, validarBbox } from "./mapaBase";
 import { OPACIDAD_MINIMA_TRAMA } from "./estado";
 import { plantillaEstado } from "./protocolo";
@@ -41,6 +43,8 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     opacidad: 0.85,
     pixelUrl: opciones.pixelUrl,
     punto: null as { lon: number; lat: number } | null,
+    optical: opciones.optical,
+    compare: opciones.compare ?? "off",
   };
 
   contenedor.classList.add("atlas-mapa");
@@ -255,6 +259,25 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     aplicarCapas();
   });
 
+  // Comparador óptico (T-ATL-07): solo con compare "swipe" y al menos un lado con datos.
+  let comparador: Comparador | null = null;
+
+  function aplicarComparador() {
+    const activo = estado.compare === "swipe" && ladoDisponible(estado.optical, "after") !== null;
+    if (activo && !comparador) {
+      comparador = crearComparador(contenedor, map, {
+        optical: estado.optical,
+        idioma: estado.idioma,
+        aoi: estado.aoi,
+      });
+    } else if (activo && comparador) {
+      comparador.actualizar({ optical: estado.optical, idioma: estado.idioma, aoi: estado.aoi });
+    } else if (!activo && comparador) {
+      comparador.destruir();
+      comparador = null;
+    }
+  }
+
   map.on("moveend", () => {
     if (!opciones.onViewChanged) return;
     const b = map.getBounds();
@@ -264,6 +287,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
 
   redibujarTextos();
   redibujarLeyenda();
+  aplicarComparador();
 
   return {
     actualizar(c: CambiosMapa) {
@@ -294,11 +318,16 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       } else if (cambiaSerie && !estado.pixelUrl) {
         ventana.remove();
       }
+      if ("optical" in c) estado.optical = c.optical;
+      if (c.compare) estado.compare = c.compare;
+      if ("optical" in c || c.compare || c.idioma || c.aoi) aplicarComparador();
     },
     fijarOpacidad,
     encuadrar: () => map.fitBounds(estado.aoi, { padding: 32 }),
     destruir: () => {
       peticion?.abort();
+      comparador?.destruir();
+      comparador = null;
       map.remove();
       contenedor.replaceChildren();
       contenedor.classList.remove("atlas-mapa");

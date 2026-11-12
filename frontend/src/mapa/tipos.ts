@@ -49,6 +49,8 @@ export type CambiosMapa = Partial<
     | "dataKind"
     | "idioma"
     | "pixelUrl"
+    | "optical"
+    | "compare"
   >
 >;
 

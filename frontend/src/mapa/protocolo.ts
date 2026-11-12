@@ -5,9 +5,18 @@ const PROTOCOLO = "atlas-estado";
 
 type Cargador = (url: string, senal: AbortSignal) => Promise<Blob>;
 
+/** Respuesta HTTP no satisfactoria; guarda el código para poder tratar el 404 aparte. */
+export class ErrorHttp extends Error {
+  readonly status: number;
+  constructor(status: number, url: string) {
+    super(`HTTP ${status} en ${url}`);
+    this.status = status;
+  }
+}
+
 const cargadorHttp: Cargador = async (url, senal) => {
   const r = await fetch(url, { signal: senal });
-  if (!r.ok) throw new Error(`HTTP ${r.status} en ${url}`);
+  if (!r.ok) throw new ErrorHttp(r.status, url);
   return r.blob();
 };
 
@@ -15,6 +24,12 @@ const cargadorHttp: Cargador = async (url, senal) => {
 const cargadores = new Map<string, Cargador>();
 export function registrarCargador(esquema: string, cargador: Cargador): void {
   cargadores.set(esquema, cargador);
+}
+
+/** Descarga una tesela con el cargador de su esquema, o por HTTP si no hay ninguno. */
+export function descargar(url: string, senal: AbortSignal): Promise<Blob> {
+  const esquema = url.slice(0, url.indexOf(":"));
+  return (cargadores.get(esquema) ?? cargadorHttp)(url, senal);
 }
 
 let registrado = false;
@@ -27,8 +42,7 @@ function registrarProtocolo(): void {
     const corte = resto.indexOf("/");
     const modo = resto.slice(0, corte) as ModoEstado;
     const url = resto.slice(corte + 1);
-    const esquema = url.slice(0, url.indexOf(":"));
-    const blob = await (cargadores.get(esquema) ?? cargadorHttp)(url, abort.signal);
+    const blob = await descargar(url, abort.signal);
 
     // Sin gestión de color ni alfa premultiplicado: el canal rojo es el código.
     const img = await createImageBitmap(blob, {

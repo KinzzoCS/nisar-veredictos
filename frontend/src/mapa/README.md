@@ -49,6 +49,19 @@ Para la trama, el mapa sustituye el `colormap` de la plantilla `state` por uno q
 - Con `pixelUrl`, abre una ventana con la historia del punto: gráfica de HH (línea continua) y HV (discontinua), el resultado de cada par consecutivo y la tabla de valores. Si la API responde 404, dice que el punto queda fuera de la zona con datos.
 - Escape cierra la ventana y quita el marcador.
 
+## Comparador óptico
+
+Con `compare: "swipe"` y `optical` con al menos un lado (`VistaOptica`, ver [`src/types/map.ts`](../types/map.ts)), el mapa monta un deslizador: a la izquierda el radar y a la derecha la escena Sentinel-2.
+
+- La escena se pinta en un segundo mapa MapLibre, sin interacción propia, que sigue la cámara del principal ([`comparador.ts`](comparador.ts)).
+- Una capa por tesela MGRS. Fuera de su huella TiTiler responde 404, que se pinta como tesela vacía.
+- Un panel elige antes o después y muestra la fecha UTC, los días respecto a la pasada de radar, la nubosidad (de la tesela, no de la zona) y la atribución. Con `cloudy`, `partial_coverage`, `none_in_window` o `catalog_unavailable` dice por qué ([`optico.ts`](optico.ts)).
+- El deslizador se arrastra o se mueve con el teclado: flechas, Re Pág, Av Pág, Inicio y Fin.
+
+```ts
+mapa.actualizar({ optical: { before, after }, compare: "swipe" }); // "off" lo quita
+```
+
 ## Estado
 
 | Parte | Tarea | Estado |
@@ -58,7 +71,7 @@ Para la trama, el mapa sustituye el `colormap` de la plantilla `state` por uno q
 | Selección de punto y serie por píxel | T-ATL-04 | Hecho; falta probarlo con la API real |
 | Distintivo de sintético y atribución de NISAR solo con datos reales | — | Hecho |
 | Teclado: mapa (flechas, + y −, Enter, Escape), selector de capa y opacidad | — | Hecho |
-| `optical` y `compare` | T-ATL-07 | Pendiente |
+| Comparador óptico (`optical` y `compare`) | T-ATL-07 | En curso: probado solo con teselas de prueba; falta la API con el PR 19 y comprobar La Boquilla |
 
 ## Desarrollo
 

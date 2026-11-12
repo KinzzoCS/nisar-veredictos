@@ -36,6 +36,20 @@ interface Textos {
   graficaAria: string;
   ayudaTeclado: string;
   cerrar: string;
+  // Comparador óptico (T-ATL-07)
+  comparador: string;
+  antes: string;
+  despues: string;
+  radar: string;
+  optico: string;
+  deslizador: string;
+  escenaDel: (fechaHora: string) => string;
+  diasRadar: (dias: number) => string;
+  nubes: (porcentaje: string) => string;
+  estadosOpticos: Record<
+    "cloudy" | "partial_coverage" | "none_in_window" | "catalog_unavailable",
+    string
+  >;
   /** Igual que CAUSES de services/verdicts/src/verdicts/narrative.py. */
   causas: Record<string, string>;
 }
@@ -97,6 +111,24 @@ export const TEXTOS: Record<Idioma, Textos> = {
     graficaAria: "Brillo del radar HH y HV en este punto a lo largo del tiempo",
     ayudaTeclado: "Enter: ver la historia del punto central",
     cerrar: "Cerrar",
+    comparador: "Imagen óptica",
+    antes: "Antes",
+    despues: "Después",
+    radar: "Radar",
+    optico: "Óptico Sentinel-2",
+    deslizador: "Deslizador entre radar (izquierda) e imagen óptica (derecha)",
+    escenaDel: (f) => `Escena del ${f} UTC`,
+    diasRadar: (d) =>
+      d === 0
+        ? "el mismo día que la pasada de radar"
+        : `${Math.abs(d)} ${Math.abs(d) === 1 ? "día" : "días"} ${d < 0 ? "antes" : "después"} de la pasada de radar`,
+    nubes: (p) => `Nubes: ${p} % de la tesela completa, no de la zona`,
+    estadosOpticos: {
+      cloudy: "Escena nublada: supera el límite de nubes, puede ocultar el suelo",
+      partial_coverage: "La escena no cubre toda la zona",
+      none_in_window: "No hay escena Sentinel-2 cercana a esta fecha",
+      catalog_unavailable: "El catálogo de imágenes ópticas no respondió",
+    },
     causas: CAUSAS_ES,
   },
   en: {
@@ -136,6 +168,24 @@ export const TEXTOS: Record<Idioma, Textos> = {
     graficaAria: "HH and HV radar brightness at this point over time",
     ayudaTeclado: "Enter: show the history of the center point",
     cerrar: "Close",
+    comparador: "Optical image",
+    antes: "Before",
+    despues: "After",
+    radar: "Radar",
+    optico: "Sentinel-2 optical",
+    deslizador: "Slider between radar (left) and optical image (right)",
+    escenaDel: (f) => `Scene of ${f} UTC`,
+    diasRadar: (d) =>
+      d === 0
+        ? "same day as the radar pass"
+        : `${Math.abs(d)} ${Math.abs(d) === 1 ? "day" : "days"} ${d < 0 ? "before" : "after"} the radar pass`,
+    nubes: (p) => `Clouds: ${p} % of the whole tile, not of the area`,
+    estadosOpticos: {
+      cloudy: "Cloudy scene: above the cloud limit, it may hide the ground",
+      partial_coverage: "The scene does not cover the whole area",
+      none_in_window: "No Sentinel-2 scene close to this date",
+      catalog_unavailable: "The optical image catalog did not respond",
+    },
     causas: CAUSAS_EN,
   },
 };

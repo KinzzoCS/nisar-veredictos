@@ -293,3 +293,147 @@
   cursor: pointer;
   margin-top: 4px;
 }
+
+/* ---- Comparador óptico (T-ATL-07) ---- */
+
+/* El mapa óptico va encima del radar, recortado a la derecha del deslizador
+   (clip-path en comparador.ts). Los controles de MapLibre (z-index 2) y los
+   paneles de Atlas quedan por encima; el ratón y el teclado los recibe el radar. */
+.atlas-optico {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* El marcador y la ventana del punto se ven también sobre el lado óptico. */
+.atlas-mapa .maplibregl-marker,
+.atlas-mapa .maplibregl-popup {
+  z-index: 3;
+}
+
+.atlas-divisor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 0;
+  border-left: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(27, 31, 59, 0.6);
+  pointer-events: none;
+}
+
+.atlas-divisor-asa {
+  position: absolute;
+  top: 50%;
+  left: -1px;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+/* Flechas ◀ ▶ dibujadas con bordes, sin depender de una fuente. */
+.atlas-divisor-asa::before,
+.atlas-divisor-asa::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  margin-top: -5px;
+  border: 5px solid transparent;
+}
+
+.atlas-divisor-asa::before {
+  left: 2px;
+  border-right-color: #ffffff;
+}
+
+.atlas-divisor-asa::after {
+  right: 2px;
+  border-left-color: #ffffff;
+}
+
+.atlas-divisor-asa:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+.atlas-divisor-etiqueta {
+  position: absolute;
+  top: calc(50% + 22px);
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(27, 31, 59, 0.9);
+  color: #ffffff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.atlas-divisor-radar {
+  right: 6px;
+}
+
+.atlas-divisor-optico {
+  left: 6px;
+}
+
+.atlas-optico-panel {
+  position: absolute;
+  left: 10px;
+  bottom: 44px;
+  z-index: 2;
+  width: 240px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.atlas-optico-panel p {
+  margin: 2px 0 0;
+}
+
+.atlas-optico-lados {
+  margin: 0 0 4px;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.atlas-optico-lados legend {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.atlas-optico-lados label {
+  cursor: pointer;
+}
+
+.atlas-optico-lados input:focus-visible {
+  outline: 2px solid #1b1f3b;
+  outline-offset: 2px;
+}
+
+.atlas-optico-aviso {
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.atlas-optico-atribucion {
+  display: block;
+  margin-top: 4px;
+  color: #4b5563;
+}

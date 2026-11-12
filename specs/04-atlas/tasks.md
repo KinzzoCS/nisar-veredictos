@@ -8,5 +8,5 @@
 | T-ATL-04 | [P] Selección de punto con 5 decimales y serie por píxel | P0 | T-ATL-02 | hecha, sin fusionar (rama `atlas/mapa-base`); falta probarla con la API real |
 | T-ATL-05 | Publicar la interfaz del mapa para Faro | P0 | T-ATL-03 | pendiente |
 | T-ATL-06 | Línea de tiempo de pasadas, hueco y eventos | P1 | T-ANT-04 | pendiente |
-| T-ATL-07 | Comparador deslizante radar frente a óptico | P1 | T-BAL-04 | pendiente |
+| T-ATL-07 | Comparador deslizante radar frente a óptico | P1 | T-BAL-04 | en curso (rama `atlas/mapa-base`): deslizador y panel hechos con teselas de prueba; falta la API con el PR 19 |
 | T-ATL-08 | Límites de zoom y rendimiento | P2 | T-ATL-03 | pendiente |
