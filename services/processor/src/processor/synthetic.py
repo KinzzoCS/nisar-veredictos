@@ -55,6 +55,12 @@ def _write(path: Path, name: str, hh, hv, mask, looks, exception, x, y, day, spe
         identification["orbitPassDirection"] = "Ascending" if spec.direction == "A" else "Descending"
         identification["zeroDopplerStartTime"] = datetime.strptime(day, "%Y%m%d").strftime("%Y-%m-%dT09:42:25")
         identification["compositeReleaseId"] = "P05023"
+        # Mismos campos y formato que los gránulos reales (texto en bytes, listas como arreglos).
+        identification["productType"] = "GCOV"
+        identification["isGeocoded"] = "True"
+        identification["isMixedMode"] = "False"
+        identification["listOfFrequencies"] = np.array([b"A", b"B"])
+        identification["listOfObservationModes"] = np.array([b"(NOT SPECIFIED)"])
         grid = handle.create_group(GRID)
         grid["xCoordinates"] = x
         grid["yCoordinates"] = y
@@ -71,11 +77,13 @@ def _speckle(rng: np.random.Generator, db: np.ndarray) -> np.ndarray:
     return 10 ** (db / 10) * rng.gamma(LOOKS, 1 / LOOKS, db.shape)
 
 
-def generate_series(spec: SeriesSpec, bbox: list[float], out_dir: Path, seed: int = 7) -> list[Path]:
+def generate_series(
+    spec: SeriesSpec, bbox: list[float], out_dir: Path, seed: int = 7, posting_m: float = POSTING_M
+) -> list[Path]:
     left, bottom, right, top = transform_bounds("EPSG:4326", f"EPSG:{EPSG}", *bbox)
-    margin = 4 * POSTING_M
-    x = np.arange(left - margin, right + margin, POSTING_M)
-    y = np.arange(top + margin, bottom - margin, -POSTING_M)
+    margin = 4 * posting_m
+    x = np.arange(left - margin, right + margin, posting_m)
+    y = np.arange(top + margin, bottom - margin, -posting_m)
     shape = (y.size, x.size)
     rng = np.random.default_rng(seed + spec.track)
 

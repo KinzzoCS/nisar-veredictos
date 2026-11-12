@@ -1,0 +1,27 @@
+{
+  "app": {
+    "title": "NISAR Verdicts",
+    "tagline": "What changed, what was not detected and what cannot be known, with the data behind it."
+  },
+  "language": { "label": "Language", "es": "Español", "en": "English" },
+  "series": {
+    "heading": "Available series",
+    "loading": "Loading data…",
+    "error": "Could not reach the API. Check that the stack is running.",
+    "dates_one": "{{count}} date",
+    "dates_other": "{{count}} dates",
+    "range": "from {{from}} to {{to}}",
+    "dataKind": "Data",
+    "maturity": "Maturity"
+  },
+  "dataKind": { "real": "real", "synthetic": "synthetic" },
+  "map": {
+    "label": "Map",
+    "pending": "Atlas's map will go here.",
+    "bbox": "Extent (west, south, east, north)"
+  },
+  "footer": {
+    "attribution": "NISAR data: NASA and ISRO. Each external source is credited where it is shown.",
+    "license": "Free software under GPL-3.0-only."
+  }
+}

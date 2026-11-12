@@ -38,7 +38,7 @@ Una aplicación abierta (GPL-3.0-only) para el reto NASA/ISRO NISAR. Convierte d
 | `contracts/artifact-manifest.schema.json` | Eco con Balanza | Pruebas de `processor` y `verdicts` |
 | `contracts/verdicts.openapi.json` | Balanza | `python -m verdicts.export_openapi contracts/verdicts.openapi.json` |
 
-Las pruebas fallan si el contrato publicado no coincide con el código. Los contratos se congelan el 13 de noviembre.
+Las pruebas fallan si el contrato publicado no coincide con el código. Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC).
 
 ## Comandos
 
@@ -79,7 +79,7 @@ Revisa `git status` y el diff, y decide el dueño de cada archivo con `.github/C
 | Grupo | Qué incluye | Qué hacer |
 |---|---|---|
 | **A. Se envía ya** | Carpetas y especificación del propio rol, `MEMORY.md`, y cambios **aditivos** de un contrato propio (la aprobación llega en la revisión del PR) | Verificar, commit, push y PR |
-| **B. Primero confirmación** | Carpetas o especificación de otro rol; `specs/constitution.md`, `specs/00-sistema/` o `AGENTS.md` (aprueban las cinco personas); cambios de contrato que renombran, quitan o cambian algo, o cualquier cambio no aditivo después del 13 de noviembre | No hacer commit. Redactar el mensaje y esperar |
+| **B. Primero confirmación** | Carpetas o especificación de otro rol; `specs/constitution.md`, `specs/00-sistema/` o `AGENTS.md` (aprueban las cinco personas); cambios de contrato que renombran, quitan o cambian algo, o cualquier cambio no aditivo después del congelamiento del 14 de noviembre | No hacer commit. Redactar el mensaje y esperar |
 | **Nunca** | `.env`, tokens, datos (`data/`), o un token copiado en un archivo versionado como `.env.example` | Detenerse y avisar. No restaurar ni borrar nada sin permiso |
 
 ### 2. Verificar el grupo A antes de enviarlo

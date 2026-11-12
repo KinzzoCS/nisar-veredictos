@@ -17,7 +17,7 @@ Frontera entre `ingest` (Antena, escribe) y `processor` (Eco, lee). Un recorte e
 | `.../inputDataExceptionMask` | Ventana, solo si existe en el original |
 | `.../xCoordinates`, `.../yCoordinates` | Coordenadas de la ventana, con la orientación original |
 | `.../projection` | Copia con su atributo `epsg_code` |
-| `/science/LSAR/GCOV/metadata/radarGrid/*` | **Opcional.** Cubos de geometría del radar (`incidenceAngle`, `losUnitVectorX`, `losUnitVectorY` y los demás que traiga el grupo), con sus `xCoordinates`, `yCoordinates` y `heightAboveEllipsoid`. Se recortan en x e y a los nodos que cubren la ventana más 2 nodos de margen por lado, con todas las alturas. Sin cambiar tipos ni valores |
+| `/science/LSAR/GCOV/metadata/radarGrid/*` | **Opcional.** Cubos de geometría del radar con forma `(altura, y, x)` sobre nodos cada 500 m (`incidenceAngle`, `losUnitVectorX`, `losUnitVectorY` y los demás que traiga el grupo), con sus `xCoordinates`, `yCoordinates` (descendente, como en el original) y `heightAboveEllipsoid`. Los cubos y las coordenadas se recortan en x e y a los nodos que rodean la ventana más 2 nodos de margen por lado, con todas las alturas. `heightAboveEllipsoid`, `projection` (con su atributo `epsg_code`) y cualquier otro dato que no dependa de x e y se copian enteros. Sin cambiar tipos, valores ni atributos |
 
 Atributos en la raíz: `subset_of` (granuleId original) y `subset_bbox` (oeste, sur, este, norte en grados). Los archivos reales no llevan `data_kind`; los sintéticos llevan `data_kind = "synthetic"`.
 
