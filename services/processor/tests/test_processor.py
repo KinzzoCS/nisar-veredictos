@@ -21,6 +21,7 @@ from processor.change import (
 )
 from processor.gcov import GRID, GranuleError, GranuleMeta, Scene, read_scene
 from processor.pipeline import process_series
+from processor.qa import RADIOMETRIC_OUTLIER, date_qa
 from processor.synthetic import SeriesSpec, generate_series
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -97,6 +98,37 @@ def test_otsu_separates_two_groups():
     assert 1.0 <= otsu(values) < 9.0
 
 
+SHIFT_3_DB = 10 ** (3 / 10)
+
+
+def test_qa_flags_only_the_date_shifted_3_db():
+    scenes = [scene(rng=np.random.default_rng(seed)) for seed in range(4)]
+    scenes[2] = scene(hh=np.full(SHAPE, 0.05 * SHIFT_3_DB, np.float32), rng=np.random.default_rng(2))
+    qa = date_qa(scenes)
+    assert [item["flags"] for item in qa] == [[], [], [RADIOMETRIC_OUTLIER], []]
+    assert qa[2]["deviation_hh_db"] == pytest.approx(3, abs=0.3)
+    assert abs(qa[2]["deviation_hv_db"]) < 0.3
+    assert qa[0]["median_hh_db"] == pytest.approx(10 * np.log10(0.05), abs=0.3)
+    assert all(item["valid_fraction"] == 1.0 for item in qa)
+
+
+def test_qa_flags_a_shift_in_hv_alone():
+    scenes = [scene(rng=np.random.default_rng(seed)) for seed in range(3)]
+    scenes[1] = scene(hv=np.full(SHAPE, 0.01 / SHIFT_3_DB, np.float32), rng=np.random.default_rng(1))
+    assert date_qa(scenes)[1]["flags"] == [RADIOMETRIC_OUTLIER]
+
+
+def test_qa_counts_only_observable_pixels_and_reports_null_without_any():
+    half = np.ones(SHAPE, np.uint8)
+    half[:, : SHAPE[1] // 2] = 255
+    empty = np.zeros(SHAPE, np.uint8)
+    qa = date_qa([scene(), scene(mask=half), scene(mask=empty)])
+    assert qa[1]["valid_fraction"] == pytest.approx(0.5)
+    assert qa[2]["valid_fraction"] == 0.0
+    assert qa[2]["median_hh_db"] is None and qa[2]["deviation_hh_db"] is None
+    assert qa[2]["flags"] == []
+
+
 @pytest.fixture(scope="module")
 def series(tmp_path_factory):
     root = tmp_path_factory.mktemp("synthetic")
@@ -140,6 +172,67 @@ def test_pipeline_writes_valid_manifest_and_cogs(series):
         assert dataset.tags(ns="IMAGE_STRUCTURE").get("LAYOUT") == "COG"
 
 
+def test_pipeline_writes_qa_and_flags_a_shifted_granule(series, tmp_path):
+    paths, _ = series
+    copies = []
+    for path in paths:
+        copy = tmp_path / "raw" / path.name
+        copy.parent.mkdir(parents=True, exist_ok=True)
+        copy.write_bytes(path.read_bytes())
+        copies.append(copy)
+    with h5py.File(copies[1], "r+") as handle:
+        handle[GRID]["HHHH"][...] = handle[GRID]["HHHH"][()] * SHIFT_3_DB
+
+    manifest = process_series(copies, AOI, "T048A-F015", tmp_path / "artifacts", "PROVISIONAL")
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+    flags = [item["qa"]["flags"] for item in manifest["dates"]]
+    assert flags == [[], [RADIOMETRIC_OUTLIER], [], []]
+    assert all(0 < item["qa"]["valid_fraction"] < 1 for item in manifest["dates"])
+    assert any("control de calidad" in notice and "no está calibrado" in notice for notice in manifest["notices"])
+
+
+def test_pipeline_does_not_flag_the_unshifted_synthetic_series(series, tmp_path):
+    paths, _ = series
+    manifest = process_series(paths, AOI, "T048A-F015", tmp_path / "artifacts", "PROVISIONAL")
+    assert all(item["qa"]["flags"] == [] for item in manifest["dates"])
+
+
+def test_pipeline_never_holds_more_than_two_scenes(series, tmp_path, monkeypatch):
+    import weakref
+
+    from processor import pipeline
+
+    paths, _ = series
+    references, peak = [], []
+    original = pipeline.read_scene
+
+    def tracked(path, bbox):
+        result = original(path, bbox)
+        references.append(weakref.ref(result))
+        peak.append(sum(reference() is not None for reference in references))
+        return result
+
+    monkeypatch.setattr(pipeline, "read_scene", tracked)
+    manifest = process_series(paths, AOI, "T048A-F015", tmp_path / "artifacts", "PROVISIONAL")
+    assert len(manifest["pairs"]) == len(paths)  # consecutivos más la ventana completa
+    assert max(peak) <= 2
+
+
+def test_pipeline_memory_does_not_grow_with_the_number_of_dates(tmp_path):
+    import tracemalloc
+
+    dates = ("20260617", "20260629", "20260711", "20260723", "20260816", "20260828", "20260909", "20260921")
+    peaks = {}
+    for count in (3, 8):
+        paths = generate_series(SeriesSpec(48, "A", 15, dates[:count]), BBOX, tmp_path / f"raw{count}", posting_m=100.0)
+        tracemalloc.start()
+        process_series(paths, AOI, "T048A-F015", tmp_path / f"out{count}", "PROVISIONAL")
+        peaks[count] = tracemalloc.get_traced_memory()[1]
+        tracemalloc.stop()
+    assert peaks[8] < 1.25 * peaks[3]
+
+
 def test_pipeline_finds_the_injected_wetting(series):
     paths, root = series
     manifest = process_series(paths, AOI, "T048A-F015", root / "artifacts", "PROVISIONAL")
@@ -152,3 +245,4 @@ def test_pipeline_refuses_granules_from_another_series(series, tmp_path):
     other = generate_series(SeriesSpec(171, "D", 75, ("20260626", "20260708")), BBOX, tmp_path)
     with pytest.raises(GranuleError):
         process_series([paths[0], other[0]], AOI, "mix", tmp_path / "out", "PROVISIONAL")
+

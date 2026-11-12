@@ -44,6 +44,7 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-10 | Conventional Commits con resumen en español y ámbito por rol, validado en CI | Historial legible y comprobable |
 | 2026-11-10 | Licencia GPL-3.0-only | Elección del equipo; el reto pide código abierto |
 | 2026-11-10 | La ingesta pasa a un servicio propio, `services/ingest` | Separar el trabajo de Antena del de Eco |
+| 2026-11-11 | El manifiesto añade `dates[].qa` como campo **opcional** (T-ECO-03) | Cambio aditivo: los manifiestos y las pruebas de `verdicts` sin `qa` siguen siendo válidos. `processor` siempre lo escribe |
 | 2026-11-12 | Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC), no el 13. Hasta entonces cualquier cambio de contrato sigue el proceso de la constitución (VI.2); después solo cambios aditivos. Aprobado por las cinco personas el 2026-11-12 | El evento es el 14 y 15, y varios PR que tocan contratos (16, 22, 23 y 25) seguían en revisión |
 
 ## Datos verificados
@@ -121,12 +122,19 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - Lista de recursos oficial del reto.
 - Troceado HDF5 de los gránulos reales. La coincidencia de mallas ya se verificó en las 10 fechas de T048 y entre T048 y T171 (ver "Series completas").
 - Harmony para extraer capas GCOV.
-- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION` y las firmas por polarización son valores iniciales sin calibrar con banda L.
+- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION`, `qa_outlier_db` (1,5 dB) y las firmas por polarización son valores iniciales sin calibrar con banda L.
 
 ## Pendientes
 
 - 2026-11-11: Antena creó la cuenta de Earthdata. El token vive solo en el `.env` local, que git ignora, y **no se comparte**. Antena trae los recortes y los pasa como archivos. Si otra persona necesita leer de NASA, crea su propia cuenta de Earthdata (gratuita) y su propio token.
-- Vigilar memoria en `processor`: con 2 fechas reales usó 2,25 GB, más de lo que se estimaba (unos 4 GB para 10 fechas). Con las 10 fechas cargadas a la vez probablemente no cabe; conviene procesar por pares (T-ECO-02).
+- Memoria de `processor` (T-ECO-02): desde el 2026-11-11 procesa por pares, con como máximo dos escenas en memoria, y suaviza en float32. Medido con `services/processor/bench/memoria.py` sobre 10 fechas **sintéticas** de 5022 × 5496 px (Windows, Python 3.14): 5048 MB y 715 s antes, 1510 MB y 516 s después, con conteos, umbrales y QA idénticos. Con las 2 fechas reales de T048 en Docker (`docker compose --profile real run process`), el pico del contenedor fue de 1586 MB (`memory.peak` del cgroup, que incluye la caché de archivos) y 52 s, frente a los 2,25 GB que midió Antena. Con las **10 fechas reales** de T048 (2026-11-12, mismo método): 1611 MB y 389 s.
+- 2026-11-11, `numberOfLooks` en los recortes reales de T048 (iguales en las dos fechas): p1 1,88, p5 3,12, p15 3,99, mediana 4,52 y p95 6,14. Con `min_looks = 4` queda fuera el 15,2 %; por debajo de 3 solo el 4,3 % y por debajo de 2 el 1,2 %. La fracción baja de oeste a este (del 24-29 % al 6 %), lo que apunta al ángulo de incidencia, y esos píxeles son más brillantes en HH (mediana −7,9 dB frente a −11,1 dB), lo que apunta a laderas orientadas al sensor. Ambas son hipótesis. El umbral se aplica por píxel antes de promediar 5 × 5; la suma de looks en esa ventana baja de 25 solo en el 0,01 %. Decidir el criterio con Balanza (T-ECO-07).
+- 2026-11-12, serie real completa de T048 (10 fechas, umbrales sin calibrar):
+  - El porcentaje de `change_probable` en cada par consecutivo sigue al desplazamiento de la mediana de toda la escena (correlación 0,9 en 9 pares). Con desplazamientos de ±0,6 a ±1,1 dB sale 2-3 %; con ±1,75 a ±1,84 dB, 14-22 % de lo observable (08-28→09-09, 09-09→09-21, 10-03→10-15), casi todo con HH y HV en el mismo sentido.
+  - El umbral de Otsu nunca supera el mínimo: los 10 pares quedan en 3,0 dB, así que hoy el umbral es fijo en la práctica.
+  - El QA marca solo el 2026-10-15 (+1,89 dB en HH); el 2026-09-09 queda cerca (+1,37 dB).
+  - Hipótesis, sin verificar: humedad del suelo por lluvias del monzón, que sube toda la escena. También podría ser radiométrico. Hasta resolverlo, un "cambio" en esos pares no debe leerse como cambio local. Opciones para T-ECO-07 con Balanza: medir el cambio respecto al desplazamiento de la escena, o avisar en los pares con desplazamiento grande.
+  - Las 9 fechas de T171 y el recorte de La Boquilla están en `data/raw/real/`, sin procesar.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
