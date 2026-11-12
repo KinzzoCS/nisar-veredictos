@@ -5,6 +5,14 @@ import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { contornoZona, estiloMapaBase, textoExtension, validarBbox } from "./mapaBase";
 import { OPACIDAD_MINIMA_TRAMA } from "./estado";
 import { plantillaEstado } from "./protocolo";
+import {
+  contenidoCargando,
+  contenidoError,
+  contenidoSerie,
+  puntoSeleccionado,
+  urlPixel,
+  type SeriePixel,
+} from "./seleccion";
 import { TEXTOS } from "./textos";
 import type { Bbox, CambiosMapa, CapaRadar, MapaAtlas, OpcionesMapa } from "./tipos";
 
@@ -17,8 +25,9 @@ const IDS_RADAR = ["radar-state", "radar-change_hh", "radar-change_hv", "radar-t
  * Crea el mapa de Atlas dentro de `contenedor`. Independiente del framework:
  * Faro lo monta, lo cambia con `actualizar()` y lo desmonta con `destruir()`.
  *
- * Teclado (por defecto en MapLibre, con el mapa enfocado): flechas para
- * desplazar, + y − para el zoom.
+ * Teclado, con el mapa enfocado: flechas para desplazar y + y − para el zoom
+ * (de MapLibre); Enter selecciona el punto bajo la cruz central y Escape cierra
+ * la ventana del punto.
  */
 export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtlas {
   const estado = {
@@ -30,6 +39,8 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     dataKind: opciones.dataKind,
     idioma: opciones.idioma ?? "es",
     opacidad: 0.85,
+    pixelUrl: opciones.pixelUrl,
+    punto: null as { lon: number; lat: number } | null,
   };
 
   contenedor.classList.add("atlas-mapa");
@@ -65,6 +76,77 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   sello.setAttribute("role", "status");
   contenedor.append(sello);
 
+  // Cruz central y ayuda: solo se ven cuando el mapa tiene el foco del teclado.
+  const cruz = document.createElement("div");
+  cruz.className = "atlas-cruz";
+  cruz.setAttribute("aria-hidden", "true");
+  const ayuda = document.createElement("div");
+  ayuda.className = "atlas-ayuda";
+  ayuda.setAttribute("aria-hidden", "true");
+  // Anuncio para lectores de pantalla al seleccionar un punto.
+  const anuncio = document.createElement("div");
+  anuncio.className = "atlas-solo-lector";
+  anuncio.setAttribute("role", "status");
+  contenedor.append(cruz, ayuda, anuncio);
+
+  const marcador = new maplibregl.Marker({ color: "#1b1f3b" });
+  const ventana = new maplibregl.Popup({ maxWidth: "300px", closeOnClick: false, focusAfterOpen: false });
+  let peticion: AbortController | null = null;
+
+  async function seleccionar(lng: number, lat: number) {
+    const p = puntoSeleccionado(lng, lat);
+    estado.punto = p;
+    const t = TEXTOS[estado.idioma];
+    marcador.setLngLat([p.lon, p.lat]).addTo(map);
+    anuncio.textContent = `${t.puntoSeleccionado}: ${t.lon} ${p.lon}, ${t.lat} ${p.lat}`;
+    opciones.onPointSelected?.(p);
+
+    peticion?.abort();
+    if (!estado.pixelUrl) {
+      ventana.remove();
+      return;
+    }
+    const control = new AbortController();
+    peticion = control;
+    ventana.setLngLat([p.lon, p.lat]).setDOMContent(contenidoCargando(p, estado.idioma)).addTo(map);
+    try {
+      const r = await fetch(urlPixel(estado.pixelUrl, p), { signal: control.signal });
+      if (r.status === 404) throw new Error(t.fueraDeSerie);
+      if (!r.ok) throw new Error(`${t.errorSerie} (HTTP ${r.status})`);
+      const serie = (await r.json()) as SeriePixel;
+      if (peticion === control) ventana.setDOMContent(contenidoSerie(serie, estado.idioma));
+    } catch (e) {
+      if (control.signal.aborted) return;
+      const msg = e instanceof TypeError ? t.errorSerie : (e as Error).message;
+      ventana.setDOMContent(contenidoError(p, msg, estado.idioma));
+    }
+  }
+
+  function quitarSeleccion() {
+    peticion?.abort();
+    estado.punto = null;
+    ventana.remove();
+    marcador.remove();
+  }
+
+  map.on("click", (e) => seleccionar(e.lngLat.lng, e.lngLat.lat));
+
+  const canvas = map.getCanvas();
+  canvas.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      const c = map.getCenter();
+      seleccionar(c.lng, c.lat);
+    } else if (e.key === "Escape" && estado.punto) {
+      quitarSeleccion();
+    }
+  });
+  // La cruz se muestra solo con foco de teclado, no al hacer clic.
+  canvas.addEventListener("focus", () => {
+    contenedor.classList.toggle("atlas-foco-teclado", canvas.matches(":focus-visible"));
+  });
+  canvas.addEventListener("blur", () => contenedor.classList.remove("atlas-foco-teclado"));
+
   const dibujarLeyenda = crearLeyenda(contenedor, {
           alCambiarCapa: (c) => {
             estado.capa = c;
@@ -94,6 +176,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     extension.querySelector("span")!.textContent = textoExtension(estado.aoi);
     sello.textContent = t.sintetico;
     sello.hidden = estado.dataKind !== "synthetic";
+    ayuda.textContent = t.ayudaTeclado;
   }
 
   function quitarCapasRadar() {
@@ -203,10 +286,19 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       else aplicarVisibilidad();
       redibujarTextos();
       redibujarLeyenda();
+      // Otra serie o idioma: se vuelve a pedir la historia del punto ya elegido.
+      const cambiaSerie = "pixelUrl" in c && c.pixelUrl !== estado.pixelUrl;
+      if ("pixelUrl" in c) estado.pixelUrl = c.pixelUrl;
+      if (estado.punto && estado.pixelUrl && (cambiaSerie || c.idioma)) {
+        seleccionar(estado.punto.lon, estado.punto.lat);
+      } else if (cambiaSerie && !estado.pixelUrl) {
+        ventana.remove();
+      }
     },
     fijarOpacidad,
     encuadrar: () => map.fitBounds(estado.aoi, { padding: 32 }),
     destruir: () => {
+      peticion?.abort();
       map.remove();
       contenedor.replaceChildren();
       contenedor.classList.remove("atlas-mapa");

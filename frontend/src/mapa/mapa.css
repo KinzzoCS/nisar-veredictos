@@ -168,3 +168,128 @@
 .atlas-causa {
   margin-top: 2px;
 }
+
+/* ---- Selección de punto (T-ATL-04) ---- */
+
+.atlas-cruz {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  pointer-events: none;
+  display: none;
+  background:
+    linear-gradient(#1b1f3b, #1b1f3b) center / 2px 100% no-repeat,
+    linear-gradient(#1b1f3b, #1b1f3b) center / 100% 2px no-repeat;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+}
+
+.atlas-ayuda {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 22px);
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #1b1f3b;
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+}
+
+.atlas-foco-teclado .atlas-cruz,
+.atlas-foco-teclado .atlas-ayuda {
+  display: block;
+}
+
+.atlas-solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.atlas-serie {
+  color: #1b1f3b;
+  font: 13px/1.35 system-ui, sans-serif;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.atlas-serie h2 {
+  margin: 0 18px 2px 0;
+  font-size: 14px;
+}
+
+.atlas-serie p {
+  margin: 0 0 4px;
+}
+
+.atlas-serie-coord {
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-serie-nota {
+  color: #4b5563;
+}
+
+.atlas-serie-error {
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.atlas-serie-sintetico {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #7a1f00;
+  color: #fff;
+  font-weight: 600;
+}
+
+.atlas-serie-grafica {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 4px 0;
+  font-size: 9px;
+  fill: #4b5563;
+}
+
+.atlas-serie-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-serie-tabla caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 2px;
+}
+
+.atlas-serie-tabla th,
+.atlas-serie-tabla td {
+  padding: 1px 4px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.atlas-serie-cambio td {
+  font-weight: 600;
+}
+
+.atlas-serie summary {
+  cursor: pointer;
+  margin-top: 4px;
+}

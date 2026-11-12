@@ -25,6 +25,12 @@ export interface OpcionesMapa
   causaNoObservable?: string;
   /** Idioma de los textos del mapa. Por defecto, "es". */
   idioma?: Idioma;
+  /**
+   * Ruta de la serie por píxel de la serie activa, con el host delante; por ejemplo,
+   * `http://localhost:8080/api/verdicts/aois/parral/series/T048A-F015/pixel`.
+   * Si está, al seleccionar un punto el mapa pide `?lon=…&lat=…` y enseña la historia.
+   */
+  pixelUrl?: string;
   /** Muestra el selector de capa y la opacidad dentro del mapa. Por defecto, true. */
   controlCapas?: boolean;
   /** Se llama cuando la persona cambia de capa con el selector del mapa. */
@@ -35,7 +41,14 @@ export interface OpcionesMapa
 export type CambiosMapa = Partial<
   Pick<
     OpcionesMapa,
-    "aoi" | "nombreZona" | "layers" | "activeLayer" | "causaNoObservable" | "dataKind" | "idioma"
+    | "aoi"
+    | "nombreZona"
+    | "layers"
+    | "activeLayer"
+    | "causaNoObservable"
+    | "dataKind"
+    | "idioma"
+    | "pixelUrl"
   >
 >;
 

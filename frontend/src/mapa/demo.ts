@@ -45,6 +45,8 @@ async function main() {
       dataKind: v.receipt.data_kind,
       layers,
       causaNoObservable: v.cause_label ?? undefined,
+      pixelUrl: `${GATEWAY}/api/verdicts/aois/parral/series/${serie.id}/pixel`,
+      onPointSelected: (p) => console.debug("onPointSelected", p),
       onViewChanged: (vista) => console.debug("onViewChanged", vista),
       onLayerChanged: (c) => console.debug("onLayerChanged", c),
     });
@@ -63,6 +65,8 @@ async function main() {
         change_hv: "atlas-prueba-cambio://{z}/{x}/{y}?rescale=-10,10",
       },
       causaNoObservable: "muy pocas muestras de radar por píxel (texto de prueba)",
+      pixelUrl: RUTA_PIXEL_PRUEBA,
+      onPointSelected: (p) => console.debug("onPointSelected", p),
       onViewChanged: (vista) => console.debug("onViewChanged", vista),
       onLayerChanged: (c) => console.debug("onLayerChanged", c),
     });
@@ -112,7 +116,42 @@ async function teselaPng(
   return lienzo.convertToBlob({ type: "image/png" });
 }
 
+// Serie por píxel de prueba: el banco de pruebas intercepta fetch solo para esta ruta.
+const RUTA_PIXEL_PRUEBA = "http://atlas-prueba.invalid/pixel";
+const FECHAS_PRUEBA = ["2026-06-17", "2026-06-29", "2026-07-11", "2026-07-23", "2026-08-16"];
+
+function seriePixelPrueba(lon: number, lat: number, bbox: Bbox) {
+  if (!dentro([lon, lat], bbox)) return null;
+  const c = codigoPrueba([lon, lat]);
+  const estado = c === 1 ? "change_probable" : c === 13 ? "low_looks" : c === 15 ? "terrain" : "no_change";
+  const values = FECHAS_PRUEBA.map((date, i) => ({
+    date,
+    hh_db: c >= 10 && i === 2 ? null : -11 + Math.sin(i + lon * 50) * 1.5 - (c === 1 && i >= 3 ? 7 : 0),
+    hv_db: c >= 10 && i === 2 ? null : -18 + Math.cos(i + lat * 50) * 1.2,
+  }));
+  const changes = FECHAS_PRUEBA.slice(1).map((d, i) => ({
+    pair: `${FECHAS_PRUEBA[i].replaceAll("-", "")}_${d.replaceAll("-", "")}`,
+    state: i === 2 ? estado : c === 1 ? "no_change" : estado,
+  }));
+  return { aoi: "parral", series: "PRUEBA", lon, lat, data_kind: "synthetic", values, changes };
+}
+
+function interceptarPixelPrueba(bbox: Bbox) {
+  const original = window.fetch.bind(window);
+  window.fetch = async (entrada, init) => {
+    const url = String(entrada instanceof Request ? entrada.url : entrada);
+    if (!url.startsWith(RUTA_PIXEL_PRUEBA)) return original(entrada, init);
+    const q = new URL(url).searchParams;
+    await new Promise((r) => setTimeout(r, 300)); // simula la red
+    const s = seriePixelPrueba(Number(q.get("lon")), Number(q.get("lat")), bbox);
+    return s
+      ? new Response(JSON.stringify(s), { headers: { "content-type": "application/json" } })
+      : new Response(JSON.stringify({ detail: "El punto queda fuera de la serie" }), { status: 404 });
+  };
+}
+
 function registrarTeselasPrueba(bbox: Bbox) {
+  interceptarPixelPrueba(bbox);
   // Igual que la API con la paleta de Atlas: código en el canal rojo, nodata transparente.
   registrarCargador("atlas-prueba", (url) =>
     teselaPng(url, (ll) => {

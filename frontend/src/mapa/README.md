@@ -17,6 +17,9 @@ const mapa = crearMapa(document.getElementById("mapa")!, {
   layers: conHost(veredicto.layers),     // plantillas de la API con el host delante
   causaNoObservable: veredicto.cause_label ?? undefined,
   idioma: "es",                         // o "en"
+  // Serie por píxel de la serie activa: al seleccionar un punto, el mapa la pide y la enseña.
+  pixelUrl: `${GATEWAY}/api/verdicts/aois/parral/series/${serie.id}/pixel`,
+  onPointSelected: ({ lon, lat }) => {}, // ya redondeados a 5 decimales
   onLayerChanged: (capa) => {},
   onViewChanged: ({ bbox, zoom }) => {},
 });
@@ -39,15 +42,22 @@ El contenedor necesita una altura (mínimo 320 px). La interfaz completa está e
 
 Para la trama, el mapa sustituye el `colormap` de la plantilla `state` por uno que guarda el código en el canal rojo ([`estado.ts`](estado.ts)) y pinta cada tesela en el navegador ([`protocolo.ts`](protocolo.ts)).
 
+## Selección de punto
+
+- Clic sobre el mapa, o Enter con el mapa enfocado, que selecciona el punto bajo la cruz central. La cruz y la ayuda solo aparecen con foco de teclado.
+- El mapa pone un marcador, anuncia las coordenadas a los lectores de pantalla y llama a `onPointSelected` con `{ lon, lat }` redondeados a 5 decimales.
+- Con `pixelUrl`, abre una ventana con la historia del punto: gráfica de HH (línea continua) y HV (discontinua), el resultado de cada par consecutivo y la tabla de valores. Si la API responde 404, dice que el punto queda fuera de la zona con datos.
+- Escape cierra la ventana y quita el marcador.
+
 ## Estado
 
 | Parte | Tarea | Estado |
 |---|---|---|
 | Mapa base OSM con atribución, escala y contorno de la zona | T-ATL-02 | Hecho |
 | Capas, opacidad, leyenda y trama de lo no observable | T-ATL-03 | Hecho; falta probarlo con teselas reales |
+| Selección de punto y serie por píxel | T-ATL-04 | Hecho; falta probarlo con la API real |
 | Distintivo de sintético y atribución de NISAR solo con datos reales | — | Hecho |
-| Teclado: mapa (flechas, + y −), selector de capa y opacidad | — | Hecho |
-| `onPointSelected` | T-ATL-04 | Pendiente |
+| Teclado: mapa (flechas, + y −, Enter, Escape), selector de capa y opacidad | — | Hecho |
 | `optical` y `compare` | T-ATL-07 | Pendiente |
 
 ## Desarrollo
@@ -58,7 +68,7 @@ Desde `frontend/`:
 npm install
 npm run dev:mapa   # banco de pruebas en /src/mapa/demo.html
 npm test
-npm run typecheck
+npx tsc -b         # tipos, igual que npm run build
 ```
 
-El banco de pruebas lee la serie y el primer veredicto de `http://localhost:8080` (`docker compose up --build`). Sin la pila levantada, usa la extensión de `config/aois/parral.yaml` y **teselas de prueba** con formas geométricas generadas en el navegador, y lo avisa en pantalla.
+El banco de pruebas lee la serie y el primer veredicto de `http://localhost:8080` (`docker compose up --build`). Sin la pila levantada, usa la extensión de `config/aois/parral.yaml`, **teselas de prueba** con formas geométricas generadas en el navegador y una serie por píxel de prueba, y lo avisa en pantalla.
