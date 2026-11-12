@@ -25,7 +25,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 |---|---|---|
 | RF-BAL-01 | Veredicto en tres estados con recibo, evidencia y textos ES/EN | Hecho |
 | RF-BAL-02 | Cada veredicto informa `interval_days` y la frescura del dato (edad y latencia), y los textos lo mencionan | Hecho |
-| RF-BAL-03 | Prueba automática de lenguaje: ninguna plantilla afirma causas, daños ni confirmaciones | P0 |
+| RF-BAL-03 | Prueba automática de lenguaje: ninguna plantilla afirma causas, daños ni confirmaciones | Hecho |
 | RF-BAL-04 | Contraste óptico: escena Sentinel-2 anterior y posterior más cercana, con URL de tesela y licencia | P0 |
 | RF-BAL-05 | La prueba de humo cubre todas las rutas nuevas, incluidas las de Antena | P0 |
 | RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | P1 |
@@ -36,7 +36,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 ## Criterios de aceptación
 
 - [x] Un par que cruza el hueco de agosto dice "24 días" y lo explica.
-- [ ] La prueba de lenguaje falla si una plantilla contiene "confirmado", "causado por" o "daño".
+- [x] La prueba de lenguaje falla si una plantilla contiene "confirmado", "causado por" o "daño".
 - [ ] El gateway solo deja pasar a TiTiler artefactos propios y el host público de COG de Sentinel-2.
 - [ ] Ningún veredicto se emite sin `data_kind`.
 
