@@ -2,7 +2,7 @@
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-FAR-01 | [P] Elegir framework con Atlas, crear la estructura de la app y generar tipos desde el contrato | P0 | — | pendiente |
+| T-FAR-01 | [P] Elegir framework con Atlas, crear la estructura de la app y generar tipos desde el contrato | P0 | — | hecha |
 | T-FAR-02 | [P] Tarjeta de veredicto con los tres textos, hipótesis y recibo | P0 | T-FAR-01 | pendiente |
 | T-FAR-03 | [P] Consulta de evento | P0 | T-FAR-01 | pendiente |
 | T-FAR-04 | [P] Distintivo de datos sintéticos | P0 | T-FAR-01 | pendiente |
