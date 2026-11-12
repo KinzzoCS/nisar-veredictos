@@ -4,8 +4,10 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 
 ## Estado
 
-- 2026-11-09: esqueleto completo con datos sintéticos. **Todavía no se ha abierto ningún gránulo real.**
-- Evento: 14 y 15 de noviembre de 2026, según una fuente secundaria. Falta confirmarlo.
+- 2026-11-09: esqueleto completo con datos sintéticos.
+- 2026-11-11: **serie T048 completa** (10 fechas) y **T171 completa** (9 fechas), más un recorte de La Boquilla para T-ECO-06. Detalle en "Series completas".
+- 2026-11-11: **primeros recortes reales.** `ingest fetch --limit 2` trajo T048 del 06-17 y del 06-29, y `processor run` los procesó sin errores (T-ANT-03). Detalle en "Datos verificados".
+- Evento: sábado 14 y domingo 15 de noviembre de 2026. Confirmado por el equipo el 2026-11-11.
 - 2026-11-09: el equipo confirma que las reglas permiten llevar avances al evento.
 - 2026-11-10: roles asignados y especificaciones SDD en `specs/`.
 
@@ -22,7 +24,8 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 Acceso comprobado con la API de GitHub el 2026-11-10:
 
 - Balanza usa la cuenta `lospapulindos2-netizen`, que ya tiene acceso de escritura (confirmado por el equipo).
-- `Fransomware` tenía la invitación pendiente de aceptar. Hasta que la acepte, `CODEOWNERS` no puede pedirle revisión.
+- 2026-11-11: `Fransomware` ya aceptó la invitación y tiene acceso de escritura (API de colaboradores).
+- 2026-11-11: el repositorio es privado en un plan gratuito, así que GitHub **no** pide revisión automática a `CODEOWNERS` ni permite proteger `main` (la API de protección responde 403). Hasta hacerlo público, los revisores se añaden a mano en cada PR. Comprobado en el PR 5, que se abrió sin revisores asignados.
 - `sanchezelvin69305` tiene una invitación pendiente y ya no tiene rol.
 
 ## Decisiones
@@ -56,7 +59,45 @@ Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-0
 - El marco 15 de T048 también cubre la presa La Boquilla.
 - Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
 - Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
+- Latencia de publicación medida el 2026-11-10 con `GET /aois/parral/timeline` contra CMR: entre 40 y 533 horas en las 19 pasadas. Se usa el campo `updated` de CMR, que en la revisión 1 coincide con la fecha `Insert` de UMM-G (comprobado en `G4240430318-ASF`). Si ASF reprocesa un gránulo, esa fecha se desplaza.
+- Sentinel-2 en Earth Search, consultado el 2026-11-11 con `GET /aois/parral/references/optical`: la zona cae en 4 teselas MGRS (13RCK, 13RDK, 13RCL y 13RDL). Las pasadas de las 17:46 UTC la cubren entera; las de las 17:56 UTC, solo en parte. Para la tormenta del 1 de julio, con nubosidad de hasta 30 % por tesela, solo hay imagen previa (2026-06-28, 26,6 %). La primera posterior que cubre la zona es la del 2026-07-03, con 39 %.
 - Cada gránulo tiene un enlace HTTPS directo en `nisar.asf.earthdatacloud.nasa.gov` (CMR, 2026-11-09). Sin token válido, NASA rechaza la lectura.
+
+### Primera lectura real (2026-11-11)
+
+Medido en el equipo de Antena (Windows, Python 3.10, fuera de Docker) con `ingest fetch --aoi parral --series T048A-F015 --limit 2` y `processor run` sobre esos recortes.
+
+| Medida | Valor |
+|---|---|
+| Recortes | 2, de unos 312 MB cada uno (624 MB en disco) |
+| Tiempo de `ingest` | 324 s para los dos, unos 2,7 min por fecha |
+| RAM máxima de `ingest` | 747 MB |
+| Red recibida | ~1,9 GB para los dos (contador de todo el equipo, aproximado), frente a ~14 GB de los gránulos completos |
+| Tiempo de `processor` | 80 s para 2 fechas y 1 par |
+| RAM máxima de `processor` | 2,25 GB con 2 fechas |
+
+- Malla: EPSG:32613 (UTM 13N), paso de 10 m, 5014 × 5488 píxeles. **Las mallas de las dos fechas son idénticas** (`xCoordinates` e `yCoordinates` iguales).
+- Capas presentes: `HHHH`, `HVHV`, `mask`, `numberOfLooks`, `inputDataExceptionMask` y `projection`.
+- `mask`: 99,99 % con valor 1 y 0,01 % con valor 0. `inputDataExceptionMask` vale 0 en todo el recorte.
+- `HHHH` en dB (p5/p50/p95): -17,3/-10,6/-4,0 el 06-17 y -18,5/-11,4/-4,7 el 06-29.
+- Par 06-17 a 06-29 con los umbrales sin calibrar: 3,5 % `change_probable`, y 15 % de los píxeles marcados como `low_looks` (código 13). Eco y Balanza deben revisar ese 15 %.
+- Identificador del gránulo: el `granule_id` de catalog (campo `title` de CMR), el nombre del archivo que escribe `ingest` e `identification/granuleId` son idénticos, sin extensión ni sufijos. Comprobado el 2026-11-11 leyendo `granuleId` con h5py en los 10 recortes de T048 y en los de T171.
+
+### Series completas (2026-11-11)
+
+Mismo equipo y comandos que arriba, sin `--limit`, con `catalog` local en lugar de la pila de Docker.
+
+| Recortes | Fechas | Tiempo de `ingest` | En disco |
+|---|---|---|---|
+| Parral, T048A-F015 | las 10 | 1020 s para las 8 nuevas, unos 2,1 min por fecha | 3,1 GB |
+| Parral, T171D-F075 | las 9 | 292 s para 06-26 y 07-08, y 1167 s para las 7 restantes; unos 2,6 min por fecha | 2,8 GB |
+| La Boquilla, T048A-F015 | 06-17 | 148 s | 65 MB |
+
+- **Las 10 fechas de T048 tienen la misma malla, y T171 usa esa misma malla** (`xCoordinates` e `yCoordinates` iguales entre series, comprobado con h5py en las 9 fechas de T171 frente al 06-17 de T048). Las dos series se pueden comparar píxel a píxel sin remuestrear.
+- En todos los recortes, `identification/listOfObservationModes` vale `["(NOT SPECIFIED)"]`. No sirve para comprobar el modo; Eco lo avisó y se confirmó en los 19 recortes de Parral.
+- `mask` vale 1 en el 99,99 % de los píxeles en todas las fechas.
+- En T171, los gránulos del 09-18 y del 10-12 terminan en `_P05023_F_F_J_001`; los otros 17 de Parral terminan en `_P05023_N_F_J_001`. No se sabe qué indica esa `F`: hay que buscarlo en la convención de nombres antes de comparar esas fechas.
+- Recorte de La Boquilla para T-ECO-06: bbox `[-105.73, 27.46, -105.36, 27.60]`, que es el embalse según OpenStreetMap (`water reservoir`, consultado el 2026-11-11) con ~0,02° de margen. Cabe completo en el `boundingPolygon` del marco 15. Malla de 3660 × 1567 píxeles en EPSG:32613. Se eligió el 06-17 porque Sentinel-2 tiene una escena el 06-18 a las 17:46 UTC con 3,4 % de nubes, en una sola tesela (13RDL) que cubre toda la zona. No hay zona `boquilla` en `config/aois`: se trajo con un YAML temporal, así que `catalog` no la publica.
 
 ## Especificación GCOV
 
@@ -66,8 +107,8 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - `mask`: 0 inválido o parcialmente enfocado, 1-5 válido con su subfranja, 255 fuera de la escena.
 - `inputDataExceptionMask`: 0 sin anomalía.
 - En los recortes reales de T048 (2026-11-11): `listOfObservationModes = ["(NOT SPECIFIED)"]`, `isMixedMode = "False"`, `listOfFrequencies = [A, B]`, `isGeocoded = "True"`; los booleanos son texto, no enteros. El recorte no trae el ancho de banda ni `listOfPolarizations`. Desde T-ECO-04, `processor` deduce la polarización de A por las capas presentes, rechaza modo mixto, productos sin HH+HV y nombres que contradicen capas o frecuencias, y solo toma del nombre el código de ancho de banda.
-- `identification/staticLayersDataAccess` apunta a un producto aparte, `NISAR_L2_STATIC`, del mismo gránulo. Falta abrir uno.
 - La especificación **no** menciona layover ni sombra.
+- Capas estáticas (`NISAR_L2_STATIC`): **todavía no se publican.** Comprobado el 2026-11-11 de dos formas. Primero, `identification/staticLayersDataAccess` apunta a `nisar-services.earthdata.nasa.gov/redirect/NISAR_L2_STATIC/<granule_id>.h5`, que responde 200 con una página que dice que no están disponibles. Segundo, CMR no tiene ninguna colección `NISAR*STATIC*`. Las colecciones L2 publicadas son GCOV, GSLC, GUNW y GOFF.
 
 ## Caso de Parral
 
@@ -79,14 +120,13 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 
 - Enunciado oficial de 2026.
 - Lista de recursos oficial del reto.
-- Lectura real de un gránulo: troceado HDF5, velocidad por HTTPS y si las mallas coinciden entre fechas. `processor` rechaza mallas distintas.
+- Troceado HDF5 de los gránulos reales. La coincidencia de mallas ya se verificó en las 10 fechas de T048 y entre T048 y T171 (ver "Series completas").
 - Harmony para extraer capas GCOV.
 - Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION`, `qa_outlier_db` (1,5 dB) y las firmas por polarización son valores iniciales sin calibrar con banda L.
 
 ## Pendientes
 
-- Cuenta de Earthdata del equipo: el 2026-11-09 el equipo la reportó caída y no se pudo crear.
-- Probar `ingest fetch` con un token real. Se verificó con un servidor HTTP local (rangos, token, redirección a otro origen), no contra un gránulo NASA.
+- 2026-11-11: Antena creó la cuenta de Earthdata. El token vive solo en el `.env` local, que git ignora, y **no se comparte**. Antena trae los recortes y los pasa como archivos. Si otra persona necesita leer de NASA, crea su propia cuenta de Earthdata (gratuita) y su propio token.
 - Memoria de `processor` (T-ECO-02): desde el 2026-11-11 procesa por pares, con como máximo dos escenas en memoria, y suaviza en float32. Medido con `services/processor/bench/memoria.py` sobre 10 fechas **sintéticas** de 5022 × 5496 px (Windows, Python 3.14): 5048 MB y 715 s antes, 1510 MB y 516 s después, con conteos, umbrales y QA idénticos. Con las 2 fechas reales de T048 en Docker (`docker compose --profile real run process`), el pico del contenedor fue de 1586 MB (`memory.peak` del cgroup, que incluye la caché de archivos) y 52 s, frente a los 2,25 GB que midió Antena. Con las **10 fechas reales** de T048 (2026-11-12, mismo método): 1611 MB y 389 s.
 - 2026-11-11, `numberOfLooks` en los recortes reales de T048 (iguales en las dos fechas): p1 1,88, p5 3,12, p15 3,99, mediana 4,52 y p95 6,14. Con `min_looks = 4` queda fuera el 15,2 %; por debajo de 3 solo el 4,3 % y por debajo de 2 el 1,2 %. La fracción baja de oeste a este (del 24-29 % al 6 %), lo que apunta al ángulo de incidencia, y esos píxeles son más brillantes en HH (mediana −7,9 dB frente a −11,1 dB), lo que apunta a laderas orientadas al sensor. Ambas son hipótesis. El umbral se aplica por píxel antes de promediar 5 × 5; la suma de looks en esa ventana baja de 25 solo en el 0,01 %. Decidir el criterio con Balanza (T-ECO-07).
 - 2026-11-12, serie real completa de T048 (10 fechas, umbrales sin calibrar):
@@ -94,14 +134,9 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - El umbral de Otsu nunca supera el mínimo: los 10 pares quedan en 3,0 dB, así que hoy el umbral es fijo en la práctica.
   - El QA marca solo el 2026-10-15 (+1,89 dB en HH); el 2026-09-09 queda cerca (+1,37 dB).
   - Hipótesis, sin verificar: humedad del suelo por lluvias del monzón, que sube toda la escena. También podría ser radiométrico. Hasta resolverlo, un "cambio" en esos pares no debe leerse como cambio local. Opciones para T-ECO-07 con Balanza: medir el cambio respecto al desplazamiento de la escena, o avisar en los pares con desplazamiento grande.
-  - Las 9 fechas de T171 y el recorte de La Boquilla están en `data/raw/real/`, sin procesar.
 - 2026-11-12, serie real completa de T171 (9 fechas), mismo método que T048: 1611 MB y 389 s en T048, **1782 MB y 393 s en T171**. Las dos series quedan por debajo de 2 GB.
-- 2026-11-12, **T171 del 2026-08-13 no es utilizable.** Sus metadatos son normales (marco 75, órbita 5460, `boundingPolygon` como el de las demás fechas), pero los píxeles no muestran Parral:
-  - la vista rápida enseña sierra con relieve, sin la ciudad ni los ríos que se ven el 07-20 y el 08-25;
-  - la correlación de fase con las demás fechas da un pico de 0,01, frente a 0,2-0,3 entre fechas buenas;
-  - la mediana de HH es −5,0 dB, unos 6 dB por encima del resto.
-  El QA lo marca (+6,4 dB en HH y en HV), pero la marca es solo un aviso: los pares 07-20→08-13 y 08-13→08-25 salen con un 46 % y un 50 % de `change_probable` falso. No se sabe si el fallo es del producto de NASA o del recorte de `ingest`; para saberlo hay que comparar con el gránulo original. Hasta entonces, no usar esa fecha. El 2026-11-12 se apartó a `data/raw/cuarentena/parral/T171D-F075/` (no se borró) y T171 se reprocesó con 8 fechas (1806 MB, 359 s). El par consecutivo pasa a ser 07-20→08-25, que cruza el hueco de adquisición y da un 8,8 % de cambio.
-- Letra después del CRID en el nombre (`_N_F_J_001` frente a `_F_F_J_001`): según la guía de ASF (`nisar-docs.asf.alaska.edu/gcov/`, consultada el 2026-11-12) es la precisión de la órbita y del apuntamiento: P precisa, M media, N casi en tiempo real, F pronóstico. La segunda letra es la cobertura (F completa, P parcial), J es JPL y 001 el contador. Medido con correlación de fase en 3 ventanas: el 09-18 y el 10-12 de T171 (F) se desplazan lo mismo que las fechas N, unos 0,8 px en filas respecto al 06-26. En T048, las 10 fechas coinciden con el 06-17 con menos de 0,4 px de diferencia.
+- 2026-11-12, T171 del 2026-08-13 (defecto del producto; la evidencia está en la nota de Antena, PR 22). Efecto en `processor`: el QA lo marcaba con +6,4 dB en HH y en HV, pero la marca es solo un aviso, y los pares 07-20→08-13 y 08-13→08-25 salían con un 46 % y un 50 % de `change_probable` falso. Se apartó a `data/raw/cuarentena/parral/T171D-F075/` (no se borró) y T171 se reprocesó con 8 fechas (1806 MB, 359 s). El par consecutivo pasa a ser 07-20→08-25, que cruza el hueco de adquisición y da un 8,8 % de cambio.
+- Desplazamiento entre fechas, medido con correlación de fase en 3 ventanas (2026-11-12): en T171, todas las fechas (también las `_F_F_J_001`) se desplazan unos 0,8 px en filas respecto al 06-26; en T048, las 10 fechas coinciden con el 06-17 con menos de 0,4 px de diferencia.
 - En T171, el QA también marca el 2026-09-30 (+1,59 dB), y el par 09-18→09-30 da un 24,9 % de cambio con HH y HV subiendo a la vez: el mismo patrón de desplazamiento de toda la escena que en T048.
 - 2026-11-12, **georreferencia (T-ECO-06)**: sin desplazamiento detectable mayor que un píxel (10 m) entre NISAR y Sentinel-2.
   - Datos: T048 del 2026-06-17 recortado sobre La Boquilla frente a `S2C_13RDL_20260618_0_L2A` (Earth Search, 3,4 % de nubes). Los dos están en EPSG:32613 y en la misma rejilla de 10 m, así que se comparan sin remuestrear.
