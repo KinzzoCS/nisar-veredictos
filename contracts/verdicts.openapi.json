@@ -42,6 +42,19 @@
             "title": "Event Date",
             "type": "string"
           },
+          "event_time": {
+            "anyOf": [
+              {
+                "format": "time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hora UTC de inicio del evento, si se indicó. Sin ella, puede empezar en cualquier momento de su día.",
+            "title": "Event Time"
+          },
           "next_pass": {
             "anyOf": [
               {
@@ -53,6 +66,19 @@
               }
             ],
             "title": "Next Pass"
+          },
+          "next_pass_acquired_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hora UTC de la siguiente pasada según la línea de tiempo de catalog. null si no se conoce (datos sintéticos o catalog sin respuesta): entonces se considera todo su día.",
+            "title": "Next Pass Acquired At"
           },
           "persistence_hours": {
             "title": "Persistence Hours",
@@ -71,6 +97,7 @@
             "title": "Previous Pass"
           },
           "state": {
+            "description": "Responde otra pregunta que los pares: si alguna pasada cayó mientras duraba el evento, en horas UTC. observable exige que caiga dentro en todos los casos posibles y no afirma ningún cambio: hay que consultar el veredicto del par. not_observable lleva su causa; timing_uncertain si solo cae dentro en algunos casos.",
             "enum": [
               "observable",
               "not_observable"
@@ -85,12 +112,14 @@
         "required": [
           "aoi",
           "event_date",
+          "event_time",
           "persistence_hours",
           "state",
           "cause",
           "cause_label",
           "previous_pass",
           "next_pass",
+          "next_pass_acquired_at",
           "data_kind",
           "summary"
         ],
@@ -1037,6 +1066,25 @@
               "minimum": 1,
               "title": "Persistence Hours",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Hora UTC de inicio del evento, HH:MM. Opcional.",
+            "in": "query",
+            "name": "time",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "time",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Hora UTC de inicio del evento, HH:MM. Opcional.",
+              "title": "Time"
             }
           },
           {

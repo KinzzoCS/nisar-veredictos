@@ -177,6 +177,11 @@ expect_code 404 "/api/verdicts/aois/no-existe/series"
 get event "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE"
 grep -q '"cause":"no_acquisition_during_event"' "$TMP/event.json" || fail "evento: causa"
 grep -q '"next_pass":"2026-07-08"' "$TMP/event.json" || fail "evento: siguiente pasada"
+# El corte se cuenta en horas: con 145 h ya no sale "observable", sino la duda declarada.
+get event145 "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE&persistence_hours=145"
+grep -q '"cause":"timing_uncertain"' "$TMP/event145.json" || fail "evento: 145 h sin hora"
+get event_time "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE&persistence_hours=145&time=12:00"
+grep -q '"event_time":"12:00:00"' "$TMP/event_time.json" || fail "evento: hora UTC"
 covered verdicts "/aois/{aoi}/events"
 
 get verdicts "/api/verdicts/aois/$AOI/series/$SERIES/verdicts"

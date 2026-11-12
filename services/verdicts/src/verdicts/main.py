@@ -184,12 +184,23 @@ class SeriesInfo(BaseModel):
 class EventVerdict(BaseModel):
     aoi: str
     event_date: dt.date
+    event_time: dt.time | None = Field(
+        description="Hora UTC de inicio del evento, si se indicó. Sin ella, puede empezar en cualquier momento de su día."
+    )
     persistence_hours: int
-    state: Literal["observable", "not_observable"]
+    state: Literal["observable", "not_observable"] = Field(
+        description="Responde otra pregunta que los pares: si alguna pasada cayó mientras duraba el evento, en horas UTC. "
+        "observable exige que caiga dentro en todos los casos posibles y no afirma ningún cambio: hay que consultar "
+        "el veredicto del par. not_observable lleva su causa; timing_uncertain si solo cae dentro en algunos casos."
+    )
     cause: str | None
     cause_label: str | None
     previous_pass: dt.date | None
     next_pass: dt.date | None
+    next_pass_acquired_at: dt.datetime | None = Field(
+        description="Hora UTC de la siguiente pasada según la línea de tiempo de catalog. null si no se conoce "
+        "(datos sintéticos o catalog sin respuesta): entonces se considera todo su día."
+    )
     data_kind: Literal["real", "synthetic"]
     summary: Summary
 
@@ -515,21 +526,33 @@ def create_app(
         aoi: str,
         date: dt.date,
         persistence_hours: int = Query(24, ge=1, le=720),
+        time: dt.time | None = Query(None, description="Hora UTC de inicio del evento, HH:MM. Opcional."),
         lang: narrative.Lang = "es",
     ) -> EventVerdict:
         manifests = manifests_or_404(aoi)
-        passes = [dt.date.fromisoformat(item["date"]) for manifest in manifests for item in manifest["dates"]]
-        status = rules.event_status(passes, date, persistence_hours)
+        passes, pass_times = [], {}
+        for manifest in manifests:
+            known = passes_for(manifest) or {}
+            for item in manifest["dates"]:
+                day = dt.date.fromisoformat(item["date"])
+                passes.append(day)
+                found = known.get(granule_key(item["granule"]))
+                if found is not None:
+                    pass_times[day] = found.acquired_at
+        event_time = time.replace(tzinfo=None) if time else None
+        status = rules.event_status(passes, date, persistence_hours, event_time, pass_times)
         synthetic = any(manifest["data_kind"] == "synthetic" for manifest in manifests)
         return EventVerdict(
             aoi=aoi,
             event_date=date,
+            event_time=event_time,
             persistence_hours=persistence_hours,
             state=status.state,
             cause=status.cause,
             cause_label=narrative.CAUSES[lang][status.cause] if status.cause else None,
             previous_pass=status.previous_pass,
             next_pass=status.next_pass,
+            next_pass_acquired_at=status.next_pass_at,
             data_kind="synthetic" if synthetic else "real",
             summary=Summary(**narrative.event_summary(status, date.isoformat(), lang, synthetic)),
         )

@@ -97,7 +97,9 @@ def _event_statuses() -> list[rules.EventStatus]:
     before, after = date(2026, 6, 29), date(2026, 7, 8)
     return [
         rules.EventStatus(rules.OBSERVABLE, None, before, after),
+        rules.EventStatus(rules.OBSERVABLE, None, before, after, seen_by=after),
         rules.EventStatus(rules.NOT_OBSERVABLE, "no_acquisition_during_event", before, after),
+        rules.EventStatus(rules.NOT_OBSERVABLE, "timing_uncertain", before, after),
         rules.EventStatus(rules.NOT_OBSERVABLE, "outside_series_window", before, None),
         rules.EventStatus(rules.NOT_OBSERVABLE, "outside_series_window", None, after),
     ]
