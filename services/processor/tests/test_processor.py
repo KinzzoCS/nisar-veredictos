@@ -497,3 +497,16 @@ def test_terrain_takes_precedence_and_blocks_change():
     assert result.state[65, 65] == LOW_LOOKS
     assert result.state[15, 15] == CHANGE_PROBABLE
     assert result.stats["counts"]["terrain"] == int(terrain.sum())
+
+
+def test_terrain_is_skipped_when_radar_grid_uses_another_projection(tmp_path):
+    spec = SeriesSpec(48, "A", 15, ("20260617", "20260629"))
+    paths = generate_series(spec, BBOX, tmp_path / "raw", radar_grid=True)
+    for path in paths:
+        with h5py.File(path, "r+") as handle:
+            handle["/science/LSAR/GCOV/metadata/radarGrid/projection"].attrs["epsg_code"] = 32614
+    dem = tmp_path / "dem.tif"
+    _write_dem(dem, BBOX, ridge_lon=-105.6)
+    manifest = process_series(paths, AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])
+    assert any("radarGrid está en EPSG:32614 y la malla en EPSG:32613" in notice for notice in manifest["notices"])
+    assert all(pair["stats"]["counts"]["terrain"] == 0 for pair in manifest["pairs"])

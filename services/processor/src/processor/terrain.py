@@ -38,6 +38,7 @@ class RadarGrid:
     incidence: np.ndarray  # (H, Ny, Nx) grados
     los_x: np.ndarray  # (H, Ny, Nx) componente x del vector de visión
     los_y: np.ndarray  # (H, Ny, Nx)
+    crs: str | None = None  # del `projection` propio del grupo, si lo trae
 
 
 def read_radar_grid(handle: h5py.File) -> RadarGrid | None:
@@ -55,6 +56,9 @@ def read_radar_grid(handle: h5py.File) -> RadarGrid | None:
         incidence=group["incidenceAngle"][()].astype(np.float64),
         los_x=group["losUnitVectorX"][()].astype(np.float64),
         los_y=group["losUnitVectorY"][()].astype(np.float64),
+        crs=f"EPSG:{int(group['projection'].attrs['epsg_code'])}"
+        if "projection" in group and "epsg_code" in group["projection"].attrs
+        else None,
     )
 
 
@@ -164,6 +168,8 @@ def terrain_mask(
         radar = read_radar_grid(handle)
     if radar is None:
         return None, "el recorte no trae radarGrid"
+    if radar.crs is not None and radar.crs != crs:
+        return None, f"radarGrid está en {radar.crs} y la malla en {crs}"
     if not dem_sources:
         return None, "no hay DEM"
     dem = dem_on_grid(dem_sources, crs, transform, shape)

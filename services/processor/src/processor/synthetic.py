@@ -93,6 +93,8 @@ def write_radar_grid(path: Path, x: np.ndarray, y: np.ndarray, direction: str, i
         group["incidenceAngle"] = cube
         group["losUnitVectorX"] = np.full(cube.shape, look_east * 0.9, np.float32)
         group["losUnitVectorY"] = np.full(cube.shape, 0.15, np.float32)
+        group["projection"] = np.uint32(EPSG)
+        group["projection"].attrs["epsg_code"] = EPSG
 
 
 def _speckle(rng: np.random.Generator, db: np.ndarray) -> np.ndarray:
