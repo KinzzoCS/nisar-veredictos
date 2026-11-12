@@ -5,6 +5,7 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 ## Estado
 
 - 2026-11-09: esqueleto completo con datos sintéticos.
+- 2026-11-11: **serie T048 completa** (10 fechas) y **T171 completa** (9 fechas), más un recorte de La Boquilla para T-ECO-06. Detalle en "Series completas".
 - 2026-11-11: **primeros recortes reales.** `ingest fetch --limit 2` trajo T048 del 06-17 y del 06-29, y `processor run` los procesó sin errores (T-ANT-03). Detalle en "Datos verificados".
 - Evento: sábado 14 y domingo 15 de noviembre de 2026. Confirmado por el equipo el 2026-11-11.
 - 2026-11-09: el equipo confirma que las reglas permiten llevar avances al evento.
@@ -79,7 +80,23 @@ Medido en el equipo de Antena (Windows, Python 3.10, fuera de Docker) con `inges
 - `mask`: 99,99 % con valor 1 y 0,01 % con valor 0. `inputDataExceptionMask` vale 0 en todo el recorte.
 - `HHHH` en dB (p5/p50/p95): -17,3/-10,6/-4,0 el 06-17 y -18,5/-11,4/-4,7 el 06-29.
 - Par 06-17 a 06-29 con los umbrales sin calibrar: 3,5 % `change_probable`, y 15 % de los píxeles marcados como `low_looks` (código 13). Eco y Balanza deben revisar ese 15 %.
-- Identificador del gránulo, comprobado el 2026-11-11 en los dos recortes: el `granule_id` de catalog (campo `title` de CMR), el nombre del archivo que escribe `ingest` y el texto del gránulo dentro del HDF5 son idénticos, sin extensión ni sufijos. Se comprobó buscando el identificador en los bytes de cada archivo: aparece un único identificador `NISAR_L2_PR_GCOV_…`, tres veces, igual al nombre. No se leyó `identification/granuleId` con h5py, y falta comprobarlo en T171.
+- Identificador del gránulo: el `granule_id` de catalog (campo `title` de CMR), el nombre del archivo que escribe `ingest` e `identification/granuleId` son idénticos, sin extensión ni sufijos. Comprobado el 2026-11-11 leyendo `granuleId` con h5py en los 10 recortes de T048 y en los de T171.
+
+### Series completas (2026-11-11)
+
+Mismo equipo y comandos que arriba, sin `--limit`, con `catalog` local en lugar de la pila de Docker.
+
+| Recortes | Fechas | Tiempo de `ingest` | En disco |
+|---|---|---|---|
+| Parral, T048A-F015 | las 10 | 1020 s para las 8 nuevas, unos 2,1 min por fecha | 3,1 GB |
+| Parral, T171D-F075 | las 9 | 292 s para 06-26 y 07-08, y 1167 s para las 7 restantes; unos 2,6 min por fecha | 2,8 GB |
+| La Boquilla, T048A-F015 | 06-17 | 148 s | 65 MB |
+
+- **Las 10 fechas de T048 tienen la misma malla, y T171 usa esa misma malla** (`xCoordinates` e `yCoordinates` iguales entre series, comprobado con h5py en las 9 fechas de T171 frente al 06-17 de T048). Las dos series se pueden comparar píxel a píxel sin remuestrear.
+- En todos los recortes, `identification/listOfObservationModes` vale `["(NOT SPECIFIED)"]`. No sirve para comprobar el modo; Eco lo avisó y se confirmó en los 19 recortes de Parral.
+- `mask` vale 1 en el 99,99 % de los píxeles en todas las fechas.
+- En T171, los gránulos del 09-18 y del 10-12 terminan en `_P05023_F_F_J_001`; los otros 17 de Parral terminan en `_P05023_N_F_J_001`. No se sabe qué indica esa `F`: hay que buscarlo en la convención de nombres antes de comparar esas fechas.
+- Recorte de La Boquilla para T-ECO-06: bbox `[-105.73, 27.46, -105.36, 27.60]`, que es el embalse según OpenStreetMap (`water reservoir`, consultado el 2026-11-11) con ~0,02° de margen. Cabe completo en el `boundingPolygon` del marco 15. Malla de 3660 × 1567 píxeles en EPSG:32613. Se eligió el 06-17 porque Sentinel-2 tiene una escena el 06-18 a las 17:46 UTC con 3,4 % de nubes, en una sola tesela (13RDL) que cubre toda la zona. No hay zona `boquilla` en `config/aois`: se trajo con un YAML temporal, así que `catalog` no la publica.
 
 ## Especificación GCOV
 
@@ -88,7 +105,8 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - Rutas en `/science/LSAR/GCOV/grids/frequencyA/`: `HHHH`, `HVHV` (Float32), `numberOfLooks` (Float32), `mask` y `inputDataExceptionMask` (UByte), `xCoordinates`, `yCoordinates`, y `projection` con el atributo `epsg_code`.
 - `mask`: 0 inválido o parcialmente enfocado, 1-5 válido con su subfranja, 255 fuera de la escena.
 - `inputDataExceptionMask`: 0 sin anomalía.
-- La especificación **no** menciona layover ni sombra. `identification/staticLayersDataAccess` podría llevar a capas estáticas útiles; falta investigarlo.
+- La especificación **no** menciona layover ni sombra.
+- Capas estáticas (`NISAR_L2_STATIC`): **todavía no se publican.** Comprobado el 2026-11-11 de dos formas. Primero, `identification/staticLayersDataAccess` apunta a `nisar-services.earthdata.nasa.gov/redirect/NISAR_L2_STATIC/<granule_id>.h5`, que responde 200 con una página que dice que no están disponibles. Segundo, CMR no tiene ninguna colección `NISAR*STATIC*`. Las colecciones L2 publicadas son GCOV, GSLC, GUNW y GOFF.
 
 ## Caso de Parral
 
@@ -100,7 +118,7 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 
 - Enunciado oficial de 2026.
 - Lista de recursos oficial del reto.
-- Troceado HDF5 de los gránulos reales. Velocidad y coincidencia de mallas ya se verificaron con T048 (ver "Primera lectura real"); falta comprobar las mallas en T171 y en más fechas. `processor` rechaza mallas distintas.
+- Troceado HDF5 de los gránulos reales. La coincidencia de mallas ya se verificó en las 10 fechas de T048 y entre T048 y T171 (ver "Series completas").
 - Harmony para extraer capas GCOV.
 - Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION` y las firmas por polarización son valores iniciales sin calibrar con banda L.
 
