@@ -428,3 +428,35 @@ def water_text(
         else:
             parts.append(f"Radar water means pixels with HH < {hh} dB and HV < {hv} dB, uncalibrated thresholds.")
     return " ".join(parts)
+
+
+# --- T-BAL-07: control de calidad de Eco y desplazamiento de la escena ----------------------
+
+def _db(value: float | None, lang: Lang) -> str:
+    if value is None:
+        return "?"
+    text = f"{value:+.1f}"
+    return text.replace(".", ",") if lang == "es" else text
+
+
+def quality_flag_text(day: str, deviation_hh: float | None, deviation_hv: float | None, threshold: float, lang: Lang) -> str:
+    """Una fecha que el control de calidad de Eco marca como desviada: se avisa, no se excluye."""
+    hh, hv, limit = _db(deviation_hh, lang), _db(deviation_hv, lang), _hours(threshold, lang)
+    if lang == "es":
+        return (f"El control de calidad marca la imagen del {day}: su mediana se aparta {hh} dB en HH y {hv} dB en HV "
+                f"de la de la serie, más de {limit} dB (umbral sin calibrar). Es una advertencia, no una exclusión.")
+    return (f"Quality control flags the {day} image: its median departs {hh} dB in HH and {hv} dB in HV "
+            f"from the series median, more than {limit} dB (uncalibrated threshold). It is a warning, not an exclusion.")
+
+
+def scene_shift_text(hh: float | None, hv: float | None, same_direction: bool | None, lang: Lang) -> str:
+    """Aviso de que el nivel de toda la escena cambió entre las dos fechas."""
+    if lang == "es":
+        together = {True: ", en el mismo sentido", False: ", en sentidos opuestos", None: ""}[same_direction]
+        return (f"Entre las dos fechas cambió el nivel de toda la escena (mediana de HH {_db(hh, lang)} dB y de HV "
+                f"{_db(hv, lang)} dB{together}). El porcentaje de cambio puede reflejar ese desplazamiento general, "
+                "como humedad del suelo o un efecto radiométrico, y no un cambio local.")
+    together = {True: ", in the same direction", False: ", in opposite directions", None: ""}[same_direction]
+    return (f"The level of the whole scene changed between the two dates (median HH {_db(hh, lang)} dB and HV "
+            f"{_db(hv, lang)} dB{together}). The change percentage may reflect that general shift, "
+            "such as soil moisture or a radiometric effect, rather than a local change.")

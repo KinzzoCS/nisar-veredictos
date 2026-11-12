@@ -31,7 +31,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 | RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | Hecho |
 | RF-BAL-07 | Contraste con OPERA DSWx-S1: acuerdo o desacuerdo sobre agua, presentado como desacuerdo y no como error | Hecho (T-BAL-08); falta probarlo con radar real y token de Earthdata |
 | RF-BAL-08 | Calibrar reglas con datos reales junto a Eco | P1 |
-| RF-BAL-09 | Las fechas con bandera de calidad de Eco se reflejan en el texto y en el recibo | P1 |
+| RF-BAL-09 | Las fechas con bandera de calidad de Eco se reflejan en el texto y en el recibo | Hecho (T-BAL-07), con aviso de desplazamiento de la escena |
 
 ## Criterios de aceptación
 
@@ -41,6 +41,8 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 - [ ] Ningún veredicto se emite sin `data_kind`.
 - [x] Cada veredicto trae `evidence.water` con el producto DSWx-S1 más cercano a cada fecha, o por qué no lo hay.
 - [x] Con radar sintético el producto se lista y nunca se compara.
+- [x] Una fecha con `radiometric_outlier` aparece en `summary.missing` y en `receipt.quality`.
+- [x] Si toda la escena cambia de nivel más de 1,5 dB entre las dos fechas, `summary.does_not_prove` avisa de que el porcentaje puede reflejar ese desplazamiento y no un cambio local, sin cambiar el estado.
 - [x] Un desacuerdo con DSWx-S1 se redacta como desacuerdo entre dos métodos; la prueba de lenguaje falla si un texto de agua habla de error o fallo.
 
 ## Interfaces

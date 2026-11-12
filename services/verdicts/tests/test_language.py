@@ -133,6 +133,14 @@ def rendered_texts() -> list[tuple[str, dict]]:
         text = narrative.optical_text(before, after, lang, max_cloud=30.0, search_days=10)
         found.append((f"optical {lang} {before[0]}/{after[0]}", {"optical": text}))
     found += water_texts()
+    # T-BAL-07: fechas marcadas por el QA de Eco y desplazamiento de la escena, en cada sentido.
+    for lang in ("es", "en"):
+        for hh, hv in ((1.89, 1.6), (-2.1, None), (None, None)):
+            text = narrative.quality_flag_text("2026-10-15", hh, hv, 1.5, lang)
+            found.append((f"qa {lang} {hh}/{hv}", {"qa": text}))
+        for hh, hv, same in ((1.8, 1.7, True), (-1.9, 0.4, False), (None, 2.0, None)):
+            text = narrative.scene_shift_text(hh, hv, same, lang)
+            found.append((f"shift {lang} {hh}/{hv}/{same}", {"shift": text}))
     return found
 
 
