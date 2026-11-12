@@ -49,8 +49,9 @@ La fecha del evento sale de una fuente secundaria y falta confirmarla.
 | 10 nov | Especificaciones aprobadas. Cada rol arranca sus tareas `[P]` |
 | 11 nov | P0 en curso. El frontend consume la API sintética |
 | 12 nov | P0 terminados e integrados. Datos reales si ya hay cuenta de Earthdata |
-| 13 nov | Contratos congelados, calibración y ensayo completo de la demo |
-| 14-15 nov | Evento: solo P1, P2 y demo |
+| 13 nov | Calibración y ensayo completo de la demo |
+| 14 nov | Evento. Último día para cambios de contrato que rompen; al terminar el día (hora de Parral) los contratos se congelan |
+| 15 nov | Evento: solo cambios aditivos de contrato, P1, P2 y demo |
 
 ## Demo mínima aceptable
 
@@ -67,4 +68,4 @@ La fecha del evento sale de una fuente secundaria y falta confirmarla.
 | Lectura remota lenta | Probar `--limit 2` lo antes posible y medir | Antena |
 | RAM insuficiente con 10 fechas a 10 m | Procesar por pares | Eco |
 | Umbrales sin calibrar | Declararlo en cada veredicto y calibrar con datos reales | Eco y Balanza |
-| Cambios de contrato tardíos | Congelación el 13 de noviembre | Todos |
+| Cambios de contrato tardíos | Congelación al terminar el 14 de noviembre; los cambios que rompen necesitan la aprobación de quien consume el contrato | Todos |
