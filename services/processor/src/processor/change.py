@@ -56,12 +56,22 @@ def observable(scene: Scene, min_looks: float) -> np.ndarray:
     return np.isin(scene.mask, [1, 2, 3, 4, 5]) & (scene.exception == 0) & finite & (scene.looks >= min_looks)
 
 
-def smooth(power: np.ndarray, valid: np.ndarray, size: int) -> np.ndarray:
-    """Promedia en potencia lineal usando solo píxeles válidos."""
-    numerator = ndimage.uniform_filter(np.where(valid, power, 0).astype(np.float64), size, mode="nearest")
-    denominator = ndimage.uniform_filter(valid.astype(np.float64), size, mode="nearest")
-    result = np.full(power.shape, np.nan, np.float32)
-    result[valid] = (numerator[valid] / denominator[valid]).astype(np.float32)
+def valid_weight(valid: np.ndarray, size: int) -> np.ndarray:
+    """Fracción de píxeles válidos en cada ventana. Se reutiliza para todas las capas con la misma máscara."""
+    return ndimage.uniform_filter(valid.astype(np.float32), size, mode="nearest")
+
+
+def smooth(power: np.ndarray, valid: np.ndarray, size: int, weight: np.ndarray | None = None) -> np.ndarray:
+    """Promedia en potencia lineal usando solo píxeles válidos.
+
+    Trabaja en float32 para que una escena de 5000 x 5500 no duplique su tamaño en temporales.
+    """
+    if weight is None:
+        weight = valid_weight(valid, size)
+    result = ndimage.uniform_filter(np.where(valid, power, np.float32(0)).astype(np.float32, copy=False), size, mode="nearest")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        np.divide(result, weight, out=result)
+    result[~valid] = np.nan
     return result
 
 
@@ -131,10 +141,12 @@ def compare(a: Scene, b: Scene, params: Params = Params()) -> PairResult:
     state[~both & (state == NO_CHANGE)] = NO_DATA
 
     change = {}
+    weight = valid_weight(both, params.window)
     for name in ("hh", "hv"):
-        before = smooth(getattr(a, name), both, params.window)
-        after = smooth(getattr(b, name), both, params.window)
-        change[name] = to_db(after) - to_db(before)
+        after = to_db(smooth(getattr(b, name), both, params.window, weight))
+        after -= to_db(smooth(getattr(a, name), both, params.window, weight))
+        change[name] = after
+    del weight
 
     thresholds = {name: _threshold(np.abs(change[name][both]), params) for name in change}
     changed = np.zeros(state.shape, bool)

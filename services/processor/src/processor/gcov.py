@@ -68,6 +68,12 @@ def read_meta(handle: h5py.File) -> GranuleMeta:
     )
 
 
+def read_meta_path(path: Path) -> GranuleMeta:
+    """Lee solo la identificación, sin tocar las capas."""
+    with h5py.File(path, "r") as handle:
+        return read_meta(handle)
+
+
 def read_scene(path: Path, bbox: list[float]) -> Scene:
     """Lee solo la ventana de la zona, sin cargar el gránulo completo."""
     with h5py.File(path, "r") as handle:

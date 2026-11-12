@@ -198,6 +198,41 @@ def test_pipeline_does_not_flag_the_unshifted_synthetic_series(series, tmp_path)
     assert all(item["qa"]["flags"] == [] for item in manifest["dates"])
 
 
+def test_pipeline_never_holds_more_than_two_scenes(series, tmp_path, monkeypatch):
+    import weakref
+
+    from processor import pipeline
+
+    paths, _ = series
+    references, peak = [], []
+    original = pipeline.read_scene
+
+    def tracked(path, bbox):
+        result = original(path, bbox)
+        references.append(weakref.ref(result))
+        peak.append(sum(reference() is not None for reference in references))
+        return result
+
+    monkeypatch.setattr(pipeline, "read_scene", tracked)
+    manifest = process_series(paths, AOI, "T048A-F015", tmp_path / "artifacts", "PROVISIONAL")
+    assert len(manifest["pairs"]) == len(paths)  # consecutivos más la ventana completa
+    assert max(peak) <= 2
+
+
+def test_pipeline_memory_does_not_grow_with_the_number_of_dates(tmp_path):
+    import tracemalloc
+
+    dates = ("20260617", "20260629", "20260711", "20260723", "20260816", "20260828", "20260909", "20260921")
+    peaks = {}
+    for count in (3, 8):
+        paths = generate_series(SeriesSpec(48, "A", 15, dates[:count]), BBOX, tmp_path / f"raw{count}", posting_m=100.0)
+        tracemalloc.start()
+        process_series(paths, AOI, "T048A-F015", tmp_path / f"out{count}", "PROVISIONAL")
+        peaks[count] = tracemalloc.get_traced_memory()[1]
+        tracemalloc.stop()
+    assert peaks[8] < 1.25 * peaks[3]
+
+
 def test_pipeline_finds_the_injected_wetting(series):
     paths, root = series
     manifest = process_series(paths, AOI, "T048A-F015", root / "artifacts", "PROVISIONAL")
@@ -210,3 +245,4 @@ def test_pipeline_refuses_granules_from_another_series(series, tmp_path):
     other = generate_series(SeriesSpec(171, "D", 75, ("20260626", "20260708")), BBOX, tmp_path)
     with pytest.raises(GranuleError):
         process_series([paths[0], other[0]], AOI, "mix", tmp_path / "out", "PROVISIONAL")
+

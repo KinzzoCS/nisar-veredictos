@@ -71,11 +71,13 @@ def _speckle(rng: np.random.Generator, db: np.ndarray) -> np.ndarray:
     return 10 ** (db / 10) * rng.gamma(LOOKS, 1 / LOOKS, db.shape)
 
 
-def generate_series(spec: SeriesSpec, bbox: list[float], out_dir: Path, seed: int = 7) -> list[Path]:
+def generate_series(
+    spec: SeriesSpec, bbox: list[float], out_dir: Path, seed: int = 7, posting_m: float = POSTING_M
+) -> list[Path]:
     left, bottom, right, top = transform_bounds("EPSG:4326", f"EPSG:{EPSG}", *bbox)
-    margin = 4 * POSTING_M
-    x = np.arange(left - margin, right + margin, POSTING_M)
-    y = np.arange(top + margin, bottom - margin, -POSTING_M)
+    margin = 4 * posting_m
+    x = np.arange(left - margin, right + margin, posting_m)
+    y = np.arange(top + margin, bottom - margin, -posting_m)
     shape = (y.size, x.size)
     rng = np.random.default_rng(seed + spec.track)
 
