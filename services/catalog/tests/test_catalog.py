@@ -329,3 +329,142 @@ def test_optical_api_validates_parameters():
 def test_optical_failure_is_502():
     response = optical_client(BrokenScenes()).get("/aois/parral/references/optical?date=2026-07-01")
     assert response.status_code == 502 and "Earth Search" in response.json()["detail"]
+
+
+# --- Referencias OPERA DSWx-S1 (T-ANT-06) ---
+
+from catalog.opera import group_passes, latest_versions, parse_entry
+
+PODAAC = "https://archive.podaac.earthdata.nasa.gov/podaac-ops-cumulus-{bucket}/OPERA_L3_DSWX-S1_V1/"
+REL = "http://esipfed.org/ns/fedsearch/1.1/"
+# Cajas reales de CMR ("sur oeste norte este"), consultadas el 2026-11-11.
+BOXES = {
+    "13RDK": "26.1714959 -106.0587906 27.1667001 -104.9505393",
+    "13RDL": "27.0742501 -106.0675069 28.0694794 -104.950132",
+}
+
+
+def cmr_entry(tile: str, acq: str, prod: str, sensor: str = "S1A", start: str | None = None):
+    title = f"OPERA_L3_DSWx-S1_T{tile}_{acq}Z_{prod}Z_{sensor}_30_v1.0"
+    public, protected = PODAAC.format(bucket="public"), PODAAC.format(bucket="protected")
+    return {
+        "title": title,
+        "time_start": start or f"{acq[:4]}-{acq[4:6]}-{acq[6:8]}T{acq[9:11]}:{acq[11:13]}:{acq[13:15]}.000Z",
+        "boxes": [BOXES[tile]],
+        "links": [
+            {"rel": f"{REL}browse#", "href": f"{public}{title}_BROWSE.png"},
+            {"rel": f"{REL}data#", "href": f"{protected}{title}_B01_WTR.tif"},
+            {"rel": f"{REL}data#", "href": f"{protected}{title}_B03_CONF.tif"},
+            {"rel": f"{REL}metadata#", "href": f"{protected}{title}_BROWSE.tif"},
+            {"rel": f"{REL}s3#", "href": f"s3://podaac-ops-cumulus-protected/OPERA_L3_DSWX-S1_V1/{title}_B01_WTR.tif"},
+        ],
+    }
+
+
+def opera_tiles(*entries):
+    return [parse_entry(entry) for entry in entries]
+
+
+# Productos reales de Parral alrededor del 2026-06-29, con la versión repetida de T13RDL del 06-22.
+JUNE = opera_tiles(
+    cmr_entry("13RDL", "20260622T125623", "20260828T070616", start="2026-06-22T12:56:40.000Z"),
+    cmr_entry("13RDL", "20260622T125623", "20260828T070924", start="2026-06-22T12:56:40.000Z"),
+    cmr_entry("13RDK", "20260622T125653", "20260828T065910", start="2026-06-22T12:56:57.000Z"),
+    cmr_entry("13RDK", "20260627T005832", "20260829T161636", start="2026-06-27T00:59:06.000Z"),
+    cmr_entry("13RDL", "20260627T005902", "20260829T161817", start="2026-06-27T00:59:08.000Z"),
+    cmr_entry("13RDL", "20260627T130437", "20260829T200117", start="2026-06-27T13:04:51.000Z"),
+    cmr_entry("13RDK", "20260627T130504", "20260829T195832", start="2026-06-27T13:05:07.000Z"),
+)
+
+
+class OperaList:
+    def __init__(self, tiles):
+        self._tiles = tiles
+        self.calls = []
+
+    def tiles(self, bbox, start, end):
+        self.calls.append((start, end))
+        return self._tiles
+
+
+class BrokenOpera:
+    def tiles(self, bbox, start, end):
+        raise httpx.ConnectError("sin red")
+
+
+def opera_client(source):
+    return TestClient(create_app(ROOT / "config" / "aois", ListSource([]), lambda: NOW, SceneList([]), source))
+
+
+def test_parse_entry_reads_real_dswx_title_and_links():
+    tile = parse_entry(cmr_entry("13RDK", "20260627T130504", "20260829T195832", start="2026-06-27T13:05:07.000Z"))
+    assert tile.tile == "13RDK" and tile.platform == "sentinel-1a"
+    assert tile.acquired_at == datetime(2026, 6, 27, 13, 5, 7, tzinfo=timezone.utc)
+    assert tile.produced_at == datetime(2026, 8, 29, 19, 58, 32, tzinfo=timezone.utc)
+    assert tile.wtr_url.endswith("_B01_WTR.tif") and tile.conf_url.endswith("_B03_CONF.tif")
+    assert "/podaac-ops-cumulus-public/" in tile.browse_url
+    assert tile.box == (-106.0587906, 26.1714959, -104.9505393, 27.1667001)
+
+
+def test_parse_entry_rejects_foreign_or_unusable_entries():
+    nisar = {"title": "NISAR_L2_PR_GCOV_033_048_A_015_4005_DHDH_A_20260617T094225_20260617T094259_P05023_N_F_J_001"}
+    assert parse_entry(nisar) is None
+    no_water = cmr_entry("13RDK", "20260627T130504", "20260829T195832")
+    no_water["links"] = [link for link in no_water["links"] if "WTR" not in link["href"]]
+    assert parse_entry(no_water) is None
+
+
+def test_browse_url_never_points_to_protected_bucket():
+    entry = cmr_entry("13RDK", "20260627T130504", "20260829T195832")
+    entry["links"] = [link for link in entry["links"] if "public" not in link["href"]]
+    entry["links"].append({"rel": f"{REL}browse#", "href": f"{PODAAC.format(bucket='protected')}x_BROWSE.png"})
+    assert parse_entry(entry).browse_url is None
+
+
+def test_reprocessed_dswx_keeps_latest_production():
+    kept = [tile for tile in latest_versions(JUNE) if tile.tile == "13RDL" and tile.acquired_at.day == 22]
+    assert len(kept) == 1 and "_20260828T070924Z_" in kept[0].id
+
+
+def test_dswx_passes_around_june_29():
+    passes = group_passes(JUNE, BBOX, date(2026, 6, 29))
+    assert [p.days_from_date for p in passes] == [-2, -2, -7]
+    assert [p.acquired_at.hour for p in passes] == [0, 13, 12]
+    assert all([t.tile for t in p.tiles] == ["13RDK", "13RDL"] for p in passes)
+    assert all(p.covers_aoi for p in passes)
+
+
+def test_dswx_tile_rdl_alone_does_not_cover_parral():
+    rdl = [tile for tile in JUNE if tile.tile == "13RDL" and tile.acquired_at.hour == 0]
+    assert not group_passes(rdl, BBOX, date(2026, 6, 29))[0].covers_aoi
+
+
+def test_opera_api_lists_passes_and_declares_limits():
+    source = OperaList(JUNE)
+    body = opera_client(source).get("/aois/parral/references/opera?date=2026-06-29").json()
+    assert body["days"] == 7 and body["collection"] == "OPERA_L3_DSWX-S1_V1"
+    assert body["doi"] == "10.5067/OPDSWS1-L3V1"
+    assert body["min_water_body_ha"] == 3 and body["min_water_body_width_m"] == 200
+    assert body["coverage_basis"] == "tile_bbox" and body["data_access"] == "earthdata_login"
+    assert "OPERA" in body["attribution"] and "Copernicus Sentinel 2026" in body["attribution"]
+    assert [acq["days_from_date"] for acq in body["acquisitions"]] == [-2, -2, -7]
+    first = body["acquisitions"][0]
+    assert first["acquired_at"] == "2026-06-27T00:59:06Z" and first["covers_aoi"]
+    assert source.calls == [(datetime(2026, 6, 22, tzinfo=timezone.utc), datetime(2026, 7, 6, 23, 59, 59, tzinfo=timezone.utc))]
+
+
+def test_opera_api_without_products_says_so():
+    response = opera_client(OperaList([])).get("/aois/parral/references/opera?date=2026-07-08")
+    assert response.status_code == 200 and response.json()["acquisitions"] == []
+
+
+def test_opera_api_validates_parameters():
+    client = opera_client(OperaList([]))
+    assert client.get("/aois/parral/references/opera").status_code == 422
+    assert client.get("/aois/parral/references/opera?date=2026-07-08&days=31").status_code == 422
+    assert client.get("/aois/nope/references/opera?date=2026-07-08").status_code == 404
+
+
+def test_opera_failure_is_502():
+    response = opera_client(BrokenOpera()).get("/aois/parral/references/opera?date=2026-06-29")
+    assert response.status_code == 502 and "OPERA" in response.json()["detail"]

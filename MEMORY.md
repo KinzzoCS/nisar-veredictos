@@ -59,6 +59,14 @@ Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-0
 - Cada serie contiene por completo la zona de `config/aois/parral.yaml`.
 - El marco 15 de T048 también cubre la presa La Boquilla.
 - Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
+- OPERA DSWx-S1 en Parral, consultado en CMR el 2026-11-11 (`OPERA_L3_DSWX-S1_V1`, ventana de la zona):
+  - Los 40 productos son 36 tras quitar 4 versiones reprocesadas (misma tesela y adquisición, otra producción), en 18 pasadas de Sentinel-1A (hasta el 06-27) y Sentinel-1D (desde el 09-14). Cada pasada trae las teselas 13RDK y 13RDL, y la caja de 13RDK contiene sola toda la zona.
+  - **No hay ningún producto entre el 2026-06-28 y el 2026-09-13.** 9 de las 19 fechas NISAR no tienen DSWx-S1 a ±7 días: T048 del 07-11 al 08-28 y T171 del 07-08 al 09-06. El par de la tormenta (06-29 a 07-08) solo tiene referencia antes.
+  - Los distribuye PO.DAAC, no ASF. Los GeoTIFF están en el bucket protegido: sin cuenta responden 401 y redirigen a Earthdata Login. La vista previa `_BROWSE.png` está en el bucket público y se lee sin cuenta (206 tras una redirección a CloudFront).
+  - CMR solo da la caja de la tesela (`boxes`), no polígonos.
+  - DOI `10.5067/OPDSWS1-L3V1`. Según el resumen de la colección, detecta masas de agua abiertas de más de 3 ha y 200 m de ancho, así que no sirve para ver calles inundadas.
+  - Horas entre adquisición y `updated` de CMR: de 16 a 1634, porque los productos de junio se reprocesaron a finales de agosto.
+  - `GET /aois/parral/references/opera` (T-ANT-06) probado contra CMR real el 2026-11-11: `date=2026-06-29` da 3 pasadas (-2, -2 y -7 días), `2026-07-08` da `acquisitions: []` y `2026-10-15` da 6 pasadas sin versiones repetidas. Todas con `covers_aoi`, vista previa pública y capa de confianza.
 - Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
 - Latencia de publicación medida el 2026-11-10 con `GET /aois/parral/timeline` contra CMR: entre 40 y 533 horas en las 19 pasadas. Se usa el campo `updated` de CMR, que en la revisión 1 coincide con la fecha `Insert` de UMM-G (comprobado en `G4240430318-ASF`). Si ASF reprocesa un gránulo, esa fecha se desplaza.
 - Sentinel-2 en Earth Search, consultado el 2026-11-11 con `GET /aois/parral/references/optical`: la zona cae en 4 teselas MGRS (13RCK, 13RDK, 13RCL y 13RDL). Las pasadas de las 17:46 UTC la cubren entera; las de las 17:56 UTC, solo en parte. Para la tormenta del 1 de julio, con nubosidad de hasta 30 % por tesela, solo hay imagen previa (2026-06-28, 26,6 %). La primera posterior que cubre la zona es la del 2026-07-03, con 39 %.
