@@ -68,6 +68,34 @@ bash scripts/smoke.sh
 - Todo entra a `main` por PR con fusión squash y CI en verde.
 - Nunca se suben datos, tokens ni archivos `.env`.
 
+## Orden "verifica y haz commit"
+
+Cuando la persona escriba **"verifica y haz commit"**, sigue estos pasos sin hacer nada más. Su rol es el de la tabla de "Roles y carpetas" que corresponde a su cuenta de git o de `gh`. Fuera de esta orden, no hagas commit sin que te lo pida.
+
+### 1. Clasificar los cambios pendientes
+
+Revisa `git status` y el diff, y decide el dueño de cada archivo con `.github/CODEOWNERS`. Cada cambio cae en uno de estos grupos:
+
+| Grupo | Qué incluye | Qué hacer |
+|---|---|---|
+| **A. Se envía ya** | Carpetas y especificación del propio rol, `MEMORY.md`, y cambios **aditivos** de un contrato propio (la aprobación llega en la revisión del PR) | Verificar, commit, push y PR |
+| **B. Primero confirmación** | Carpetas o especificación de otro rol; `specs/constitution.md`, `specs/00-sistema/` o `AGENTS.md` (aprueban las cinco personas); cambios de contrato que renombran, quitan o cambian algo, o cualquier cambio no aditivo después del 13 de noviembre | No hacer commit. Redactar el mensaje y esperar |
+| **Nunca** | `.env`, tokens, datos (`data/`), o un token copiado en un archivo versionado como `.env.example` | Detenerse y avisar. No restaurar ni borrar nada sin permiso |
+
+### 2. Verificar el grupo A antes de enviarlo
+
+- Pruebas de cada servicio tocado (`pytest -q` en su carpeta) y contratos regenerados si cambió una API.
+- El diff no contiene tokens, `.env` ni datos.
+- Rama `<ámbito>/<tema>`, mensaje con el formato de `CONTRIBUTING.md` (lo valida `.githooks/commit-msg`) y `Refs: T-XXX-NN`.
+- PR con la plantilla. Mientras el repositorio sea privado, `CODEOWNERS` no asigna revisores: añádelos a mano con `gh pr edit --add-reviewer`.
+- Si algo falla, no se envía. Pasa a la lista de pendientes y se explica.
+
+### 3. Responder siempre con este formato
+
+1. **Enviado:** cada PR con su enlace y lo que contiene.
+2. **Mensajes para enviar:** uno por compañero afectado, en un bloque listo para copiar. Cada mensaje dice qué cambió, qué debe hacer paso a paso (revisar, aprobar o cambiar algo), cómo probarlo y la fecha límite si la hay.
+3. **Esperando confirmación (grupo B):** cada cambio retenido, de quién es y el mensaje que pide su aprobación. Ahí te detienes hasta que la persona repita "verifica y haz commit" después de conseguirla.
+
 ## Actualizar la memoria
 
 Cuando se tome una decisión o se verifique algo que otro necesite, actualiza `MEMORY.md` en la misma rama. Escribe la fecha absoluta y cómo se comprobó. Si algo ya no es cierto, corrígelo en lugar de añadir otra línea.
