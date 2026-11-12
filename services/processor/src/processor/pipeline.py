@@ -20,6 +20,9 @@ BASE_NOTICES = [
     "Datos PROVISIONAL: se reprocesarán a VALIDATED en 2027 y no deben mezclarse con otra versión.",
     "Hueco permanente de adquisición del 2026-07-27 al 2026-08-10.",
     "Umbrales estimados sobre la propia escena: indicador del modelo, no error calibrado.",
+    "El cambio de cada par se mide respecto al desplazamiento de toda la escena: se resta la mediana de la "
+    "diferencia (scene_shift_hh_db y scene_shift_hv_db en stats) antes de aplicar el umbral. Un cambio que "
+    "afecta a casi toda la zona, como una lluvia general, queda en ese desplazamiento y no como cambio local.",
 ]
 QA_NOTICE = (
     "El control de calidad marca una fecha si su mediana se aparta más de {:g} dB de la serie. "
@@ -62,7 +65,7 @@ def _check_comparable(reference: GranuleMeta, other: GranuleMeta) -> None:
 
 
 def _db(scene: Scene, name: str, params: Params) -> np.ndarray:
-    return to_db(smooth(getattr(scene, name), observable(scene, params.min_looks), params.window))
+    return to_db(smooth(getattr(scene, name), observable(scene, params), params.window))
 
 
 def _crosses_gap(first: str, second: str) -> bool:

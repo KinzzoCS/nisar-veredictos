@@ -45,6 +45,7 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-10 | Licencia GPL-3.0-only | Elección del equipo; el reto pide código abierto |
 | 2026-11-10 | La ingesta pasa a un servicio propio, `services/ingest` | Separar el trabajo de Antena del de Eco |
 | 2026-11-11 | El manifiesto añade `dates[].qa` como campo **opcional** (T-ECO-03) | Cambio aditivo: los manifiestos y las pruebas de `verdicts` sin `qa` siguen siendo válidos. `processor` siempre lo escribe |
+| 2026-11-12 | `processor` decide `low_looks` con la suma de looks en la ventana de 5 × 5 (mínimo 50) y resta a cada par el desplazamiento de toda la escena antes del umbral; lo publica en `stats.scene_shift_hh_db`/`hv_db`, campos opcionales del manifiesto (T-ECO-07) | Acordado con Balanza: el veredicto pregunta por un cambio local, y la regla por píxel dejaba fuera el 15 % aunque luego se promediaba 5 × 5 |
 | 2026-11-12 | Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC), no el 13. Hasta entonces cualquier cambio de contrato sigue el proceso de la constitución (VI.2); después solo cambios aditivos. Aprobado por las cinco personas el 2026-11-12 | El evento es el 14 y 15, y varios PR que tocan contratos (16, 22, 23 y 25) seguían en revisión |
 | 2026-11-11 | La prueba de lenguaje prohíbe la palabra aunque vaya en negación ("ni mide daños" pasa a "ni mide sus consecuencias"); excepciones solo en `ALLOWED` con motivo (T-BAL-03) | Más fácil de auditar; la lista vive en `services/verdicts/tests/test_language.py` y Faro puede reutilizarla |
 | 2026-11-11 | `verdicts` toma la hora UTC y la latencia de la línea de tiempo de catalog por HTTP, no del manifiesto (T-BAL-02) | No cambia el contrato de Eco; si catalog cae, el veredicto sale y declara `latency_status` |
@@ -173,6 +174,14 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - `processor run` usa `radarGrid` y el DEM de `data/dem/<zona>/` (`processor fetch-dem --aoi parral`: 2 teselas GLO-30, 77 MB, sin cuenta). Si falta alguno de los dos, no marca relieve y lo avisa en el manifiesto.
   - Criterio local por pendiente en la dirección de alcance: layover si la ladera sube más que la incidencia; sombra si baja más que 90° menos la incidencia. No incluye sombras proyectadas por crestas.
   - Coste medido con 2 fechas reales de T048, el DEM real y un `radarGrid` supuesto: +112 MB (1760 frente a 1648 MB de `ru_maxrss`) y unos 9 s más.
+- 2026-11-12, **ruido de la diferencia (T-ECO-07)**, par 06-17→06-29 de T048: la desviación robusta (1,4826 · MAD) tras restar la mediana es de 1,19 dB en HH y 0,90 dB en HV. En teoría, con unos 112 looks independientes (4,5 por píxel × 25), serían 0,58 dB; la diferencia sale de que los píxeles vecinos de GCOV no son independientes, más la textura real. Con 3 dB de umbral, el 2,2 % de los píxeles lo supera en HH y el 0,65 % en HV, así que un 2-3 % de cambio no se puede atribuir a un cambio real.
+- 2026-11-12, looks sumados en 5 × 5 en T048 (06-17): p1 50, p5 80, mediana 113. Quedan por debajo de 25 el 0,14 %, de 50 el 0,98 % y de 100 el 14,4 %.
+- 2026-11-12, **calibración en `processor` (T-ECO-07)** con las series reales (T048 de 10 fechas y T171 de 8; 16 pares consecutivos y 2 ventanas completas). Cambio sobre lo observable:
+  - Con la regla nueva de looks y sin corregir: del 1,8 % al 29,3 %, siguiendo al desplazamiento de la escena. Corregido: del 0,58 % al 5,2 %, salvo T048 08-28→09-09 (9,6 %, con desplazamiento de +1,61 dB en HH). Ventanas completas: 2,7 % en T048 y 3,3 % en T171.
+  - Los pares con desplazamiento grande se desinflan: T171 09-18→09-30 pasa del 29,3 % al 2,3 % (+2,29 dB en HH) y T048 10-03→10-15 del 12,5 % al 1,6 %.
+  - `low_looks` baja del 15,2 % al 0,98 % en T048 y del 12,2 % al 1,00 % en T171.
+  - El par T048 08-28→09-09 sigue alto después de corregir: o hay cambio local, o el desplazamiento no es uniforme en la escena. Sin verificar.
+  - La fracción mínima para `change_probable` la decide Balanza (T-BAL-07) sobre estos valores corregidos.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
