@@ -188,3 +188,85 @@ def event_summary(status: rules.EventStatus, event: str, lang: Lang, synthetic: 
             missing = "It would need a more frequent source or local reports."
     prefix = SYNTHETIC_PREFIX[lang] if synthetic else ""
     return {"detected": prefix + detected, "does_not_prove": limits, "missing": missing}
+
+
+# --- T-BAL-04: contraste óptico Sentinel-2 ------------------------------------------------
+
+OPTICAL_ROLE = {
+    "es": {"before": ("de antes", "la primera fecha de radar"), "after": ("de después", "la segunda fecha de radar")},
+    "en": {"before": ("before", "the first radar date"), "after": ("after", "the second radar date")},
+}
+
+
+def _percent(value: float, lang: Lang) -> str:
+    text = f"{value:.1f}".removesuffix(".0")
+    return (text.replace(".", ",") if lang == "es" else text) + " %"
+
+
+def _optical_side(
+    side: str,
+    status: str,
+    acquired: str | None,
+    days: int | None,
+    cloud: float | None,
+    lang: Lang,
+    max_cloud: float,
+    search_days: int,
+) -> str:
+    role, radar = OPTICAL_ROLE[lang][side]
+    window = _days(search_days, lang)
+    limit = _percent(max_cloud, lang)
+    if lang == "es":
+        if status == "catalog_unavailable":
+            return f"No se sabe si hay imagen óptica Sentinel-2 {role}: el catálogo no respondió."
+        if status == "none_in_window":
+            return f"No hay imagen óptica Sentinel-2 {role} a {window} o menos de {radar}."
+        offset = f"el mismo día que {radar}" if days == 0 else f"{_days(abs(days), lang)} {'antes' if side == 'before' else 'después'} de {radar}"
+        text = f"Imagen óptica Sentinel-2 {role}: {acquired}, {offset}, con hasta {_percent(cloud, lang)} de nubes por tesela."
+        if status == "cloudy":
+            text += f" Es la menos nublada: ninguna a {window} o menos cubre la zona con {limit} de nubes o menos."
+        elif status == "partial_coverage":
+            text += f" Solo cubre parte de la zona: ninguna a {window} o menos la cubre entera."
+        return text
+    if status == "catalog_unavailable":
+        return f"It is unknown whether there is a Sentinel-2 optical image {role} {radar}: the catalog did not respond."
+    if status == "none_in_window":
+        return f"There is no Sentinel-2 optical image within {window} {role} {radar}."
+    offset = f"the same day as {radar}" if days == 0 else f"{_days(abs(days), lang)} {'before' if side == 'before' else 'after'} {radar}"
+    text = f"Optical image {role} (Sentinel-2): {acquired}, {offset}, with up to {_percent(cloud, lang)} cloud per tile."
+    if status == "cloudy":
+        text += f" It is the least cloudy: none within {window} covers the area with {limit} cloud or less."
+    elif status == "partial_coverage":
+        text += f" It covers only part of the area: none within {window} covers all of it."
+    return text
+
+
+def optical_text(
+    before: tuple[str, str | None, int | None, float | None],
+    after: tuple[str, str | None, int | None, float | None],
+    lang: Lang,
+    *,
+    max_cloud: float,
+    search_days: int,
+) -> str:
+    """Cada lado es (estado, fecha, días respecto a la fecha de radar, nubosidad máxima por tesela)."""
+    if before[0] == after[0] == "catalog_unavailable":
+        if lang == "es":
+            return "No se sabe si hay imágenes ópticas Sentinel-2: el catálogo no respondió."
+        return "It is unknown whether there are Sentinel-2 optical images: the catalog did not respond."
+    parts = [
+        _optical_side(side, *values, lang, max_cloud, search_days)
+        for side, values in (("before", before), ("after", after))
+    ]
+    if any(values[1] is not None for values in (before, after)):
+        if lang == "es":
+            parts.append(
+                "La nubosidad es la de cada tesela completa, no la de la zona. "
+                "La imagen óptica sirve de contexto y no explica por sí sola la señal de radar."
+            )
+        else:
+            parts.append(
+                "Cloud cover is for each whole tile, not for the area. "
+                "The optical image gives context and does not explain the radar signal on its own."
+            )
+    return " ".join(parts)

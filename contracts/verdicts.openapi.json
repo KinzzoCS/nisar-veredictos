@@ -129,6 +129,9 @@
             "title": "Observed Fraction",
             "type": "number"
           },
+          "optical": {
+            "$ref": "#/components/schemas/OpticalEvidence"
+          },
           "pixel_counts": {
             "additionalProperties": {
               "type": "integer"
@@ -174,7 +177,8 @@
           "mean_change_hh_db",
           "mean_change_hv_db",
           "pixel_counts",
-          "signature_counts"
+          "signature_counts",
+          "optical"
         ],
         "title": "Evidence",
         "type": "object"
@@ -242,6 +246,240 @@
           "change_hv"
         ],
         "title": "Layers",
+        "type": "object"
+      },
+      "OpticalEvidence": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/OpticalSide",
+            "description": "Escena más cercana a to_date que no es anterior a la pasada."
+          },
+          "before": {
+            "$ref": "#/components/schemas/OpticalSide",
+            "description": "Escena más cercana a from_date que no es posterior a la pasada."
+          },
+          "cloud_cover_basis": {
+            "const": "tile",
+            "default": "tile",
+            "title": "Cloud Cover Basis",
+            "type": "string"
+          },
+          "collection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection"
+          },
+          "data_kind": {
+            "const": "real",
+            "default": "real",
+            "description": "Las escenas ópticas son siempre datos reales.",
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "license": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License"
+          },
+          "license_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "License Url"
+          },
+          "max_cloud_cover": {
+            "description": "Nubosidad máxima por tesela, en %. Valor inicial sin calibrar.",
+            "title": "Max Cloud Cover",
+            "type": "number"
+          },
+          "search_days": {
+            "description": "Días máximos entre la escena óptica y su fecha de radar.",
+            "title": "Search Days",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Buscador de escenas usado por catalog. null si no respondió.",
+            "title": "Source"
+          },
+          "text": {
+            "description": "Resumen en el idioma pedido de qué escenas hay y con cuántas nubes.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "collection",
+          "license",
+          "license_url",
+          "max_cloud_cover",
+          "search_days",
+          "before",
+          "after",
+          "text"
+        ],
+        "title": "OpticalEvidence",
+        "type": "object"
+      },
+      "OpticalScene": {
+        "properties": {
+          "acquired_at": {
+            "description": "Hora UTC de la primera tesela de la adquisición.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "attribution": {
+            "description": "Texto de atribución que debe mostrarse junto a la imagen.",
+            "title": "Attribution",
+            "type": "string"
+          },
+          "covers_aoi": {
+            "description": "Las teselas juntas cubren toda la zona.",
+            "title": "Covers Aoi",
+            "type": "boolean"
+          },
+          "days_from_radar": {
+            "description": "Días respecto a radar_date; negativo si es anterior.",
+            "title": "Days From Radar",
+            "type": "integer"
+          },
+          "max_cloud_cover": {
+            "description": "Mayor nubosidad entre sus teselas. Es de la tesela, no de la zona.",
+            "title": "Max Cloud Cover",
+            "type": "number"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "tiles": {
+            "items": {
+              "$ref": "#/components/schemas/OpticalTileOut"
+            },
+            "title": "Tiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platform",
+          "acquired_at",
+          "days_from_radar",
+          "covers_aoi",
+          "max_cloud_cover",
+          "attribution",
+          "tiles"
+        ],
+        "title": "OpticalScene",
+        "type": "object"
+      },
+      "OpticalSide": {
+        "properties": {
+          "radar_acquired_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Hora UTC de la pasada de radar. Si se conoce, antes y después se comparan al segundo; si es null, se compara por día UTC y una escena del mismo día cuenta en los dos lados.",
+            "title": "Radar Acquired At"
+          },
+          "radar_date": {
+            "format": "date",
+            "title": "Radar Date",
+            "type": "string"
+          },
+          "scene": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/OpticalScene"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "status": {
+            "description": "clear: cubre la zona con nubosidad <= max_cloud_cover. cloudy: la menos nublada que cubre la zona, por encima del límite. partial_coverage: ninguna cubre la zona entera. none_in_window: ninguna a search_days o menos. catalog_unavailable: catalog no respondió.",
+            "enum": [
+              "clear",
+              "cloudy",
+              "partial_coverage",
+              "none_in_window",
+              "catalog_unavailable"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "radar_date",
+          "radar_acquired_at",
+          "scene"
+        ],
+        "title": "OpticalSide",
+        "type": "object"
+      },
+      "OpticalTileOut": {
+        "properties": {
+          "cloud_cover": {
+            "description": "Porcentaje de nubes de la tesela completa, no de la zona.",
+            "title": "Cloud Cover",
+            "type": "number"
+          },
+          "tile": {
+            "description": "Tesela MGRS de unos 110 km de lado.",
+            "title": "Tile",
+            "type": "string"
+          },
+          "tile_url": {
+            "description": "Plantilla XYZ por el gateway: TiTiler lee visual_url.",
+            "title": "Tile Url",
+            "type": "string"
+          },
+          "visual_url": {
+            "description": "COG en color verdadero (TCI) en el bucket público de Sentinel-2.",
+            "title": "Visual Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tile",
+          "cloud_cover",
+          "visual_url",
+          "tile_url"
+        ],
+        "title": "OpticalTileOut",
         "type": "object"
       },
       "PassFreshness": {

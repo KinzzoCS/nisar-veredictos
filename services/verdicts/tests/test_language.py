@@ -121,7 +121,21 @@ def rendered_texts() -> list[tuple[str, dict]]:
         for status in _event_statuses():
             summary = narrative.event_summary(status, "2026-07-01", lang, synthetic)
             found.append((f"event {lang} {status.state}/{status.cause}", summary))
+    for lang, before, after in itertools.product(("es", "en"), OPTICAL_SIDES, OPTICAL_SIDES):
+        text = narrative.optical_text(before, after, lang, max_cloud=30.0, search_days=10)
+        found.append((f"optical {lang} {before[0]}/{after[0]}", {"optical": text}))
     return found
+
+
+# T-BAL-04: cada estado del contraste óptico, con escena el mismo día y con días de distancia.
+OPTICAL_SIDES = [
+    ("catalog_unavailable", None, None, None),
+    ("none_in_window", None, None, None),
+] + [
+    (status, "2026-06-28", days, 26.6)
+    for status in ("clear", "cloudy", "partial_coverage")
+    for days in (0, 1, 4)
+]
 
 
 def test_rendering_covers_every_cause_and_latency_in_both_languages():
@@ -190,10 +204,12 @@ def test_checker_allows_hypotheses_and_plain_negations(fine):
 
 def test_every_synthetic_text_carries_its_prefix_and_real_ones_do_not():
     prefixes = tuple(narrative.SYNTHETIC_PREFIX.values())
-    # El prefijo va solo al inicio de "detected"; los demás campos nunca lo llevan.
+    # El prefijo va solo al inicio de "detected"; los demás campos nunca lo llevan. El texto óptico
+    # tampoco: las escenas Sentinel-2 son reales aunque el radar sea sintético.
     for label, summary in rendered_texts():
-        assert not summary["does_not_prove"].startswith(prefixes), label
-        assert not summary["missing"].startswith(prefixes), label
+        for field, text in summary.items():
+            if field != "detected":
+                assert not text.startswith(prefixes), f"{label} [{field}]"
     for lang in ("es", "en"):
         for decision in _decisions():
             args = dict(interval_days=12, age_days=3, latency_hours=None, latency_status="synthetic")

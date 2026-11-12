@@ -51,4 +51,28 @@ for query in \
   test "$code" = "403" || { echo "El gateway dejó pasar: $query ($code)"; exit 1; }
 done
 
+# T-BAL-04: contraste óptico en cada veredicto, con estado aunque no haya red.
+echo "$verdicts" | grep -q '"optical":{"data_kind":"real"'
+echo "$verdicts" | python3 -c "
+import json, sys
+for verdict in json.load(sys.stdin):
+    optical = verdict['evidence']['optical']
+    assert optical['before']['status'] and optical['after']['status'] and optical['text'], verdict['id']
+"
+
+# El bucket público de Sentinel-2 sí pasa el filtro (sin red, TiTiler responde otro error, no 403).
+S2_URL="https%3A%2F%2Fsentinel-cogs.s3.us-west-2.amazonaws.com%2Fsentinel-s2-l2a-cogs%2F13%2FR%2FCK%2F2026%2F6%2FS2C_13RCK_20260628_0_L2A%2FTCI.tif"
+code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/tiles/cog/info?url=$S2_URL")
+test "$code" != "403"
+# Otro host HTTPS, otro prefijo del bucket o un segundo url= no pasan.
+for query in \
+  "url=https%3A%2F%2Fexample.com%2FTCI.tif" \
+  "url=https%3A%2F%2Fsentinel-cogs.s3.us-west-2.amazonaws.com.example.com%2Fsentinel-s2-l2a-cogs%2Fx.tif" \
+  "url=https%3A%2F%2Fsentinel-cogs.s3.us-west-2.amazonaws.com%2Fotro%2Fx.tif" \
+  "url=$S2_URL&url=file%3A%2F%2F%2Fetc%2Fpasswd" \
+  "url=$S2_URL&%75rl=file%3A%2F%2F%2Fetc%2Fpasswd"; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/tiles/cog/info?$query")
+  test "$code" = "403" || { echo "El gateway dejó pasar: $query ($code)"; exit 1; }
+done
+
 echo "Smoke OK"

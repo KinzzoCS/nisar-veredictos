@@ -327,3 +327,227 @@ def test_http_timeline_failure_is_cached_briefly():
     with pytest.raises(CatalogUnavailable):
         source.passes("parral")
     assert len(calls) == 2
+
+
+# --- T-BAL-04: contraste óptico Sentinel-2 ----------------------------------------------
+
+from verdicts import optical  # noqa: E402
+from verdicts.catalog import HttpOptical, OpticalAcquisition, OpticalReference, OpticalTile  # noqa: E402
+
+S2 = "https://sentinel-cogs.s3.us-west-2.amazonaws.com/sentinel-s2-l2a-cogs/13/R/CK"
+
+
+def _acq(day, cloud, covers=True, hour=17, minute=46):
+    when = datetime(day.year, day.month, day.day, hour, minute, tzinfo=timezone.utc)
+    stamp = f"{day:%Y%m%d}"
+    return OpticalAcquisition(
+        platform="sentinel-2c", acquired_at=when, covers_aoi=covers, max_cloud_cover=cloud,
+        tiles=(OpticalTile("13RCK", cloud, f"{S2}/{day.year}/{day.month}/S2C_13RCK_{stamp}_0_L2A/TCI.tif"),),
+    )
+
+
+def _reference(*acquisitions):
+    return OpticalReference(
+        source="Earth Search v1 (Element 84)", collection="sentinel-2-l2a",
+        license="Datos Copernicus Sentinel: acceso libre con atribución",
+        license_url="https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice",
+        attribution="Contiene datos modificados de Copernicus Sentinel 2026", acquisitions=tuple(acquisitions),
+    )
+
+
+class FakeOptical:
+    def __init__(self, acquisitions=(), fail=False):
+        self.acquisitions = acquisitions
+        self.fail = fail
+        self.calls = []
+
+    def scenes(self, aoi, day, days):
+        self.calls.append((aoi, day, days))
+        if self.fail:
+            raise CatalogUnavailable(aoi)
+        # Como catalog: solo lo que cae a ±days de la fecha pedida.
+        return _reference(*(a for a in self.acquisitions if abs((a.acquired_at.date() - day).days) <= days))
+
+
+JUNE_29 = date(2026, 6, 29)
+
+
+def test_before_is_closest_scene_not_after_the_radar_date():
+    scenes = [_acq(date(2026, 6, 24), 5), _acq(date(2026, 6, 28), 10), _acq(date(2026, 7, 1), 0)]
+    chosen = optical.pick(scenes, "before", JUNE_29)
+    assert chosen.status == "clear" and chosen.days_from_radar == -1
+
+
+def test_after_is_closest_scene_not_before_the_radar_date():
+    scenes = [_acq(date(2026, 7, 10), 0), _acq(date(2026, 7, 13), 10), _acq(date(2026, 7, 20), 0)]
+    chosen = optical.pick(scenes, "after", date(2026, 7, 11))
+    assert chosen.status == "clear" and chosen.days_from_radar == 2
+
+
+def test_a_clear_scene_wins_over_a_closer_cloudy_one():
+    scenes = [_acq(date(2026, 6, 28), 80), _acq(date(2026, 6, 23), 12)]
+    chosen = optical.pick(scenes, "before", JUNE_29)
+    assert chosen.status == "clear" and chosen.days_from_radar == -6
+
+
+def test_cloudy_window_shows_the_least_cloudy_scene_instead_of_hiding_it():
+    scenes = [_acq(date(2026, 7, 3), 39), _acq(date(2026, 7, 8), 65), _acq(date(2026, 7, 2), 20, covers=False)]
+    chosen = optical.pick(scenes, "after", date(2026, 7, 1))
+    assert chosen.status == "cloudy" and chosen.acquisition.max_cloud_cover == 39
+
+
+def test_only_partial_scenes_are_declared_as_partial():
+    chosen = optical.pick([_acq(date(2026, 6, 28), 5, covers=False)], "before", JUNE_29)
+    assert chosen.status == "partial_coverage" and chosen.acquisition is not None
+
+
+def test_scenes_beyond_the_search_window_do_not_count():
+    assert optical.pick([_acq(date(2026, 6, 18), 0)], "before", JUNE_29).status == "none_in_window"
+    assert optical.pick([], "after", JUNE_29).status == "none_in_window"
+
+
+def test_same_day_scene_is_placed_by_hour_when_the_pass_time_is_known():
+    scene = [_acq(JUNE_29, 0)]  # 17:46 UTC
+    radar = datetime(2026, 6, 29, 0, 41, tzinfo=timezone.utc)
+    assert optical.pick(scene, "before", JUNE_29, radar).status == "none_in_window"
+    assert optical.pick(scene, "after", JUNE_29, radar).days_from_radar == 0
+    # Sin hora conocida se compara por día y cuenta en los dos lados.
+    assert optical.pick(scene, "before", JUNE_29).status == "clear"
+
+
+PARRAL_SCENES = (
+    _acq(date(2026, 6, 28), 26.6),
+    _acq(date(2026, 7, 3), 39),
+    _acq(date(2026, 7, 13), 18.2),
+)
+
+
+def test_verdict_carries_optical_before_and_after_with_tile_and_license(manifest_root):
+    source = FakeOptical(PARRAL_SCENES)
+    body = TestClient(create_app(manifest_root, clock=_clock, optical_source=source)).get(VERDICT).json()
+    evidence = body["evidence"]["optical"]
+    assert evidence["data_kind"] == "real" and evidence["cloud_cover_basis"] == "tile"
+    assert evidence["license_url"].startswith("https://sentinel.esa.int/")
+    assert evidence["max_cloud_cover"] == 30 and evidence["search_days"] == 10
+    before, after = evidence["before"], evidence["after"]
+    assert before["status"] == "clear" and before["scene"]["days_from_radar"] == -1
+    assert before["scene"]["acquired_at"].startswith("2026-06-28")
+    assert after["status"] == "clear" and after["scene"]["days_from_radar"] == 2
+    assert after["scene"]["attribution"].startswith("Contiene datos modificados de Copernicus Sentinel")
+    tile = after["scene"]["tiles"][0]
+    assert tile["tile_url"].startswith("/tiles/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=")
+    assert "url=https%3A%2F%2Fsentinel-cogs.s3.us-west-2.amazonaws.com%2F" in tile["tile_url"]
+    assert "2026-06-28, 1 día antes de la primera fecha de radar" in evidence["text"]
+    assert "26,6 %" in evidence["text"] and "no la de la zona" in evidence["text"]
+    assert sorted(day for _, day, _ in source.calls) == [JUNE_29, date(2026, 7, 11)]
+
+
+def test_optical_text_in_english(manifest_root):
+    client = TestClient(create_app(manifest_root, clock=_clock, optical_source=FakeOptical(PARRAL_SCENES)))
+    text = client.get(VERDICT, params={"lang": "en"}).json()["evidence"]["optical"]["text"]
+    assert "2026-07-13, 2 days after the second radar date" in text and "18.2 %" in text
+
+
+def test_real_pass_time_moves_same_day_scene_to_after(manifest_root):
+    _as_real(manifest_root)
+    scenes = (_acq(JUNE_29, 3), _acq(date(2026, 7, 11), 4))
+    client = TestClient(create_app(manifest_root, timeline=FakeTimeline(REAL_PASSES), clock=_clock,
+                                   optical_source=FakeOptical(scenes)))
+    evidence = client.get(VERDICT).json()["evidence"]["optical"]
+    # La pasada de radar es a las 00:41 UTC y la óptica a las 17:46: la del 06-29 ya no es "de antes".
+    assert evidence["before"]["radar_acquired_at"].startswith("2026-06-29T00:41:12")
+    assert evidence["before"]["status"] == "none_in_window"
+    assert evidence["after"]["scene"]["days_from_radar"] == 0
+    assert "el mismo día que la segunda fecha de radar" in evidence["text"]
+
+
+def test_storm_pair_without_clear_after_scene_says_so(manifest_root):
+    _as_real(manifest_root, **{"from": "2026-06-29", "to": "2026-07-01"})
+    scenes = (_acq(date(2026, 6, 28), 26.6), _acq(date(2026, 7, 3), 39), _acq(date(2026, 7, 8), 70))
+    body = TestClient(create_app(manifest_root, clock=_clock, optical_source=FakeOptical(scenes))).get(VERDICT).json()
+    after = body["evidence"]["optical"]["after"]
+    assert after["status"] == "cloudy" and after["scene"]["max_cloud_cover"] == 39
+    assert "Es la menos nublada" in body["evidence"]["optical"]["text"]
+
+
+def test_no_scene_in_window_is_declared(manifest_root):
+    body = TestClient(create_app(manifest_root, clock=_clock, optical_source=FakeOptical())).get(VERDICT).json()
+    evidence = body["evidence"]["optical"]
+    assert evidence["before"]["status"] == evidence["after"]["status"] == "none_in_window"
+    assert evidence["before"]["scene"] is None
+    assert "No hay imagen óptica Sentinel-2 de antes a 10 días o menos" in evidence["text"]
+    assert "nubosidad es la de cada tesela" not in evidence["text"]
+
+
+@pytest.mark.parametrize("source", [None, FakeOptical(fail=True)])
+def test_catalog_down_keeps_the_verdict_and_declares_it(manifest_root, source):
+    response = TestClient(create_app(manifest_root, clock=_clock, optical_source=source)).get(VERDICT)
+    assert response.status_code == 200
+    evidence = response.json()["evidence"]["optical"]
+    assert evidence["before"]["status"] == evidence["after"]["status"] == "catalog_unavailable"
+    assert evidence["license"] is None
+    assert evidence["text"] == "No se sabe si hay imágenes ópticas Sentinel-2: el catálogo no respondió."
+
+
+def test_verdict_list_asks_each_date_once(manifest_root):
+    source = FakeOptical(PARRAL_SCENES)
+    client = TestClient(create_app(manifest_root, clock=_clock, optical_source=source))
+    assert client.get("/aois/parral/series/T048A-F015/verdicts").status_code == 200
+    assert sorted(day for _, day, _ in source.calls) == [JUNE_29, date(2026, 7, 11)]
+    assert all(days == optical.SEARCH_DAYS for _, _, days in source.calls)
+
+
+def _optical_body():
+    return {
+        "source": "Earth Search v1 (Element 84)", "collection": "sentinel-2-l2a",
+        "license": "Datos Copernicus Sentinel: acceso libre con atribución",
+        "license_url": "https://sentinel.esa.int/documents/247904/690755/Sentinel_Data_Legal_Notice",
+        "attribution": "Contiene datos modificados de Copernicus Sentinel 2026",
+        "acquisitions": [
+            {"platform": "sentinel-2c", "acquired_at": "2026-06-28T17:46:31Z", "days_from_date": -1,
+             "covers_aoi": True, "max_cloud_cover": 26.6,
+             "tiles": [{"id": "S2C_13RCK_20260628_0_L2A", "tile": "13RCK", "acquired_at": "2026-06-28T17:46:31Z",
+                        "cloud_cover": 26.6, "visual_url": f"{S2}/2026/6/S2C_13RCK_20260628_0_L2A/TCI.tif"}]},
+            {"platform": "sentinel-2a", "acquired_at": "2026-06-30T17:46:31Z", "days_from_date": 1,
+             "covers_aoi": True, "max_cloud_cover": 1.0,
+             "tiles": [{"id": "x", "tile": "13RCK", "acquired_at": "2026-06-30T17:46:31Z",
+                        "cloud_cover": 1.0, "visual_url": "file:///etc/passwd"}]},
+        ],
+    }
+
+
+def test_http_optical_asks_without_cloud_limit_parses_and_caches():
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        return httpx.Response(200, json=_optical_body())
+
+    clock = [0.0]
+    source = HttpOptical("http://catalog:8000/", httpx.Client(transport=httpx.MockTransport(handler)), lambda: clock[0])
+    result = source.scenes("parral", JUNE_29, 10)
+    assert requests[0].url.path == "/aois/parral/references/optical"
+    assert dict(requests[0].url.params) == {"date": "2026-06-29", "days": "10", "max_cloud": "100"}
+    # Una URL que no es HTTPS nunca llega al veredicto ni a TiTiler.
+    assert len(result.acquisitions) == 1 and result.acquisitions[0].max_cloud_cover == 26.6
+    assert result.acquisitions[0].acquired_at.tzinfo is not None
+    source.scenes("parral", JUNE_29, 10)
+    assert len(requests) == 1
+    clock[0] = 10_000
+    source.scenes("parral", JUNE_29, 10)
+    assert len(requests) == 2
+
+
+def test_http_optical_failure_is_cached_briefly():
+    calls = []
+
+    def handler(request):
+        calls.append(1)
+        return httpx.Response(502)
+
+    clock = [0.0]
+    source = HttpOptical("http://catalog:8000", httpx.Client(transport=httpx.MockTransport(handler)), lambda: clock[0])
+    for _ in range(2):
+        with pytest.raises(CatalogUnavailable):
+            source.scenes("parral", JUNE_29, 10)
+    assert len(calls) == 1
