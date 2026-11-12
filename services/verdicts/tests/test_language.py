@@ -29,9 +29,17 @@ FORBIDDEN = {
     "confirmación": r"\bconfirm\w*",  # confirmado, confirma, confirmación; confirmed, confirms
     "causa afirmada (es)": r"\b(causad|provocad|ocasionad|originad)[oa]s? por\b",
     "causa afirmada (en)": r"\b(caused|triggered|produced) by\b",
+    # Voz activa: "la tormenta causó el cambio". "causa" sola no, porque es el sustantivo de "no identifica la causa".
+    "causa en voz activa (es)": (
+        r"\b(causo|causaron|provocan?|provoco|provocaron|ocasionan?|ocasiono|ocasionaron|origino|originaron)\b"
+    ),
+    "causa en voz activa (en)": r"\bcaused\b",
     "debido a": r"\bdebid[oa]s? a\b",
+    "se debe a": r"\bse deben? a\b",
+    "a causa de": r"\b(a causa|por culpa) de\b",
     "due to": r"\bdue to\b",
-    "daño (es)": r"\bdan(o|os|ad[oa]s?|ar|ino\w*)\b",
+    "because of": r"\b(because of|as a result of)\b",
+    "daño (es)": r"\bdan(o|os|ad[oa]s?|ar|an|aron|en|ino\w*)\b",
     "damage (en)": r"\bdamag\w*",
     "destrucción (es)": r"\bdestru\w*",
     "destruction (en)": r"\bdestr(oy|uct)\w*",
@@ -151,6 +159,18 @@ def test_no_rendered_summary_asserts_causes_damage_or_confirmation():
     "The storm damaged the road.",
     "Due to the rain, the signal changed.",
     "Sin duda hubo un cambio.",
+    # Causas en voz activa (revisión del PR 17).
+    "La tormenta causó el cambio.",
+    "La lluvia provocó la inundación.",
+    "Las lluvias provocaron el cambio.",
+    "El río ocasionó la crecida.",
+    "El cambio se debe a la lluvia.",
+    "A causa de la tormenta, cambió la señal.",
+    "Por culpa de la lluvia cambió la señal.",
+    "Se dañaron las calles.",
+    "The storm caused the change.",
+    "The signal changed because of the storm.",
+    "As a result of the rain, the signal changed.",
 ])
 def test_checker_catches_forbidden_language(bad):
     assert violations(bad)
@@ -161,6 +181,8 @@ def test_checker_catches_forbidden_language(bad):
     "No identifica la causa.",
     "It does not identify the cause.",
     "Se dan dos fechas.",  # "dan" no es "daño"
+    "La causa no se conoce.",  # el sustantivo "causa" se permite
+    "The cause is unknown.",
 ])
 def test_checker_allows_hypotheses_and_plain_negations(fine):
     assert not violations(fine)
