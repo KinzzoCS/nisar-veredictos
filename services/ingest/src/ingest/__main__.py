@@ -34,6 +34,10 @@ def fetch(args: argparse.Namespace) -> int:
         f"{args.series}: {len(result.written)} recortes nuevos, {len(result.skipped)} ya existían, "
         f"{megabytes:.0f} MB en disco, {time.monotonic() - started:.0f} s"
     )
+    if result.excluded:
+        print(f"Excluidos en config/aois/{args.aoi}.yaml, no se traen: {', '.join(result.excluded)}")
+    for name in result.stale:
+        print(f"Aviso: {name}.h5 está excluido pero sigue en {result.target}; apártalo antes de processor run", file=sys.stderr)
     print(f"Siguiente paso, en processor: run --aoi {args.aoi} --series {args.series} --input {result.target}")
     return 0
 
