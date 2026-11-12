@@ -50,6 +50,185 @@
         "title": "HTTPValidationError",
         "type": "object"
       },
+      "NextPassEstimate": {
+        "properties": {
+          "basis": {
+            "const": "12-day cycle",
+            "title": "Basis",
+            "type": "string"
+          },
+          "expected_at": {
+            "description": "Estimación, no plan de observación: última pasada más N ciclos.",
+            "format": "date-time",
+            "title": "Expected At",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "expected_at",
+          "basis"
+        ],
+        "title": "NextPassEstimate",
+        "type": "object"
+      },
+      "OpticalAcquisition": {
+        "properties": {
+          "acquired_at": {
+            "description": "Hora UTC de la primera tesela de la adquisición.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "covers_aoi": {
+            "description": "Las teselas juntas cubren toda la zona.",
+            "title": "Covers Aoi",
+            "type": "boolean"
+          },
+          "days_from_date": {
+            "description": "Días respecto a la fecha pedida; negativo si es anterior.",
+            "title": "Days From Date",
+            "type": "integer"
+          },
+          "max_cloud_cover": {
+            "description": "Mayor nubosidad entre sus teselas. Es de la tesela, no de la zona.",
+            "title": "Max Cloud Cover",
+            "type": "number"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "tiles": {
+            "items": {
+              "$ref": "#/components/schemas/OpticalTile"
+            },
+            "title": "Tiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platform",
+          "acquired_at",
+          "days_from_date",
+          "covers_aoi",
+          "max_cloud_cover",
+          "tiles"
+        ],
+        "title": "OpticalAcquisition",
+        "type": "object"
+      },
+      "OpticalOut": {
+        "properties": {
+          "acquisitions": {
+            "items": {
+              "$ref": "#/components/schemas/OpticalAcquisition"
+            },
+            "title": "Acquisitions",
+            "type": "array"
+          },
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "attribution": {
+            "description": "Texto de atribución que debe mostrarse junto a la imagen.",
+            "title": "Attribution",
+            "type": "string"
+          },
+          "cloud_cover_basis": {
+            "const": "tile",
+            "description": "La nubosidad es la de cada tesela MGRS completa; la zona puede estar más o menos nublada.",
+            "title": "Cloud Cover Basis",
+            "type": "string"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "license_url": {
+            "title": "License Url",
+            "type": "string"
+          },
+          "max_cloud": {
+            "title": "Max Cloud",
+            "type": "number"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "aoi",
+          "date",
+          "days",
+          "max_cloud",
+          "source",
+          "collection",
+          "license",
+          "license_url",
+          "attribution",
+          "cloud_cover_basis",
+          "acquisitions"
+        ],
+        "title": "OpticalOut",
+        "type": "object"
+      },
+      "OpticalTile": {
+        "properties": {
+          "acquired_at": {
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "cloud_cover": {
+            "description": "Porcentaje de nubes de la tesela completa, no de la zona.",
+            "title": "Cloud Cover",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "tile": {
+            "description": "Tesela MGRS de unos 110 km de lado.",
+            "title": "Tile",
+            "type": "string"
+          },
+          "visual_url": {
+            "description": "COG en color verdadero (TCI), legible por HTTPS sin cuenta.",
+            "title": "Visual Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tile",
+          "acquired_at",
+          "cloud_cover",
+          "visual_url"
+        ],
+        "title": "OpticalTile",
+        "type": "object"
+      },
       "SeriesGranule": {
         "properties": {
           "date": {
@@ -150,6 +329,180 @@
         "title": "SeriesOut",
         "type": "object"
       },
+      "TimelineGap": {
+        "properties": {
+          "end": {
+            "description": "Último día sin adquisiciones, incluido.",
+            "format": "date",
+            "title": "End",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          },
+          "start": {
+            "description": "Primer día sin adquisiciones, incluido.",
+            "format": "date",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "start",
+          "end",
+          "source"
+        ],
+        "title": "TimelineGap",
+        "type": "object"
+      },
+      "TimelineInterval": {
+        "properties": {
+          "crosses_gap": {
+            "description": "El intervalo atraviesa un hueco de adquisición conocido.",
+            "title": "Crosses Gap",
+            "type": "boolean"
+          },
+          "days": {
+            "description": "Días entre dos pasadas consecutivas de la misma serie.",
+            "title": "Days",
+            "type": "integer"
+          },
+          "end": {
+            "format": "date-time",
+            "title": "End",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          },
+          "start": {
+            "format": "date-time",
+            "title": "Start",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "start",
+          "end",
+          "days",
+          "crosses_gap"
+        ],
+        "title": "TimelineInterval",
+        "type": "object"
+      },
+      "TimelineOut": {
+        "properties": {
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "gaps": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineGap"
+            },
+            "title": "Gaps",
+            "type": "array"
+          },
+          "intervals": {
+            "items": {
+              "$ref": "#/components/schemas/TimelineInterval"
+            },
+            "title": "Intervals",
+            "type": "array"
+          },
+          "next_pass_estimates": {
+            "items": {
+              "$ref": "#/components/schemas/NextPassEstimate"
+            },
+            "title": "Next Pass Estimates",
+            "type": "array"
+          },
+          "passes": {
+            "items": {
+              "$ref": "#/components/schemas/TimelinePass"
+            },
+            "title": "Passes",
+            "type": "array"
+          },
+          "published_at_basis": {
+            "const": "cmr_updated",
+            "description": "published_at es la fecha 'updated' de CMR, una aproximación a la publicación real.",
+            "title": "Published At Basis",
+            "type": "string"
+          }
+        },
+        "required": [
+          "aoi",
+          "published_at_basis",
+          "passes",
+          "intervals",
+          "gaps",
+          "next_pass_estimates"
+        ],
+        "title": "TimelineOut",
+        "type": "object"
+      },
+      "TimelinePass": {
+        "properties": {
+          "acquired_at": {
+            "description": "Inicio de la adquisición, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "contains_aoi": {
+            "description": "La huella de la serie contiene la zona completa.",
+            "title": "Contains Aoi",
+            "type": "boolean"
+          },
+          "granule_id": {
+            "title": "Granule Id",
+            "type": "string"
+          },
+          "latency_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Horas entre la adquisición y published_at.",
+            "title": "Latency Hours"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Última actualización del gránulo en CMR, en UTC. Aproxima la publicación.",
+            "title": "Published At"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "granule_id",
+          "acquired_at",
+          "published_at",
+          "latency_hours",
+          "contains_aoi"
+        ],
+        "title": "TimelinePass",
+        "type": "object"
+      },
       "ValidationError": {
         "properties": {
           "ctx": {
@@ -220,6 +573,85 @@
         "summary": "Aois"
       }
     },
+    "/aois/{aoi_id}/references/optical": {
+      "get": {
+        "operationId": "optical_aois__aoi_id__references_optical_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi_id",
+            "required": true,
+            "schema": {
+              "title": "Aoi Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha de referencia, normalmente la de una pasada NISAR.",
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "description": "Fecha de referencia, normalmente la de una pasada NISAR.",
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Días antes y después de la fecha.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "Días antes y después de la fecha.",
+              "maximum": 30,
+              "minimum": 0,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Nubosidad máxima por tesela, en %. Valor inicial sin calibrar.",
+            "in": "query",
+            "name": "max_cloud",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Nubosidad máxima por tesela, en %. Valor inicial sin calibrar.",
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Max Cloud",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpticalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Optical"
+      }
+    },
     "/aois/{aoi_id}/series": {
       "get": {
         "operationId": "series_aois__aoi_id__series_get",
@@ -272,6 +704,45 @@
           }
         },
         "summary": "Series"
+      }
+    },
+    "/aois/{aoi_id}/timeline": {
+      "get": {
+        "operationId": "timeline_aois__aoi_id__timeline_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi_id",
+            "required": true,
+            "schema": {
+              "title": "Aoi Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TimelineOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Timeline"
       }
     },
     "/health": {
