@@ -49,6 +49,10 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 - Redactar textos o decidir el veredicto final, que es trabajo de Balanza.
 - Descargar datos, que es trabajo de Antena.
 
+## Resultados
+
+- RF-ECO-06 (2026-11-12): frente a Sentinel-2 en La Boquilla no hay un desplazamiento detectable mayor que un píxel (10 m). Método y cifras en `MEMORY.md`; se repite con `bench/georref.py`.
+
 ## Preguntas abiertas
 
 - ¿Coinciden píxel a píxel las mallas de un mismo marco entre fechas? Hoy se rechazan si difieren.

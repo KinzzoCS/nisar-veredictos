@@ -24,6 +24,7 @@ from processor.change import (
     observable,
     otsu,
 )
+from processor.georef import agreement, best_shift, shared_components, shift_mask, water_from_ndwi, water_from_sar
 from processor.gcov import GRID, IDENTIFICATION, GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from processor.pipeline import process_series
 from processor.qa import RADIOMETRIC_OUTLIER, date_qa
@@ -352,3 +353,41 @@ def test_real_granules_agree_with_their_names():
     for path in REAL:
         meta = read_meta_path(path)
         assert (meta.mode, meta.polarization, meta.track, meta.frame) == ("4005", "DHDH", 48, 15)
+
+
+def _lake(shape=(200, 260)):
+    rows, cols = np.ogrid[: shape[0], : shape[1]]
+    lake = ((rows - 90) / 45) ** 2 + ((cols - 120) / 80) ** 2 < 1
+    arm = (np.abs(rows - 150) < 6) & (cols > 120) & (cols < 230)
+    return lake | arm
+
+
+def test_georef_best_shift_recovers_a_known_shift_with_its_sign():
+    reference = _lake()
+    moved = shift_mask(reference, 3, -2)  # 3 filas abajo, 2 columnas a la izquierda
+    rows, cols, table = best_shift(moved, reference)
+    assert (rows, cols) == (-3, 2)
+    assert table[(rows, cols)] == 1.0 and table[(0, 0)] < 1.0
+
+
+def test_georef_prefers_no_shift_when_masks_already_agree():
+    rows, cols, _ = best_shift(_lake(), _lake())
+    assert (rows, cols) == (0, 0)
+
+
+def test_georef_finds_water_in_radar_and_optical_and_ignores_unshared_patches():
+    rng = np.random.default_rng(3)
+    lake = _lake()
+    dry_flat = np.zeros(lake.shape, bool)
+    dry_flat[10:60, 200:255] = True  # suelo liso: oscuro en radar, seco en el óptico
+    dark = lake | dry_flat
+    hh = np.where(dark, 10 ** (-19 / 10), 10 ** (-10 / 10)) * rng.gamma(4, 1 / 4, lake.shape)
+    hv = np.where(dark, 10 ** (-26 / 10), 10 ** (-18 / 10)) * rng.gamma(4, 1 / 4, lake.shape)
+    valid = np.ones(lake.shape, bool)
+    radar = water_from_sar(hh.astype(np.float32), hv.astype(np.float32), valid, min_pixels=500)
+    optical = water_from_ndwi(np.where(lake, 900, 700), np.where(lake, 300, 2500))
+    assert agreement(optical, lake) == 1.0
+    assert radar[30, 230]  # el radar ve el suelo liso como agua...
+    shared = shared_components(radar, optical)
+    assert not shared[30, 230]  # ...pero no se usa para medir el desplazamiento
+    assert agreement(shared, lake) > 0.9
