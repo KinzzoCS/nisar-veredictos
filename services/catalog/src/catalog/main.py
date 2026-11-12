@@ -13,6 +13,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .cmr import CmrSource, GranuleSource
+from . import opera
 from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, group_acquisitions, window
 from .pairing import Granule, build_series
 from .timeline import build_timeline
@@ -123,6 +124,44 @@ class OpticalOut(BaseModel):
     acquisitions: list[OpticalAcquisition]
 
 
+class OperaTileOut(BaseModel):
+    id: str = Field(description="Título del gránulo en CMR, sin extensión.")
+    tile: str = Field(description="Tesela MGRS sin la T inicial.")
+    acquired_at: datetime = Field(description="time_start de CMR, en UTC.")
+    produced_at: datetime = Field(description="Hora de producción que figura en el título, en UTC.")
+    wtr_url: str = Field(description="GeoTIFF B01_WTR, clasificación de agua. Pide cuenta de Earthdata.")
+    conf_url: str = Field(description="GeoTIFF B03_CONF, confianza. Pide cuenta de Earthdata. Vacío si CMR no lo publica.")
+    browse_url: str | None = Field(description="Vista previa PNG del bucket público de PO.DAAC, sin cuenta ni georreferencia.")
+
+
+class OperaAcquisition(BaseModel):
+    platform: str
+    acquired_at: datetime = Field(description="time_start de CMR de la primera tesela de la pasada, en UTC.")
+    days_from_date: int = Field(description="Días entre la fecha UTC de la pasada y la pedida; negativo si es anterior.")
+    covers_aoi: bool = Field(description="Las cajas de sus teselas contienen la zona. No dice si hay datos válidos en toda ella.")
+    tiles: list[OperaTileOut]
+
+
+class OperaOut(BaseModel):
+    aoi: str
+    date: date
+    days: int
+    source: str
+    collection: str
+    doi: str
+    attribution: str = Field(description="Texto de atribución que debe mostrarse junto al producto.")
+    product_spec_url: str
+    min_water_body_ha: float = Field(description="Superficie mínima de una masa de agua abierta que el producto detecta.")
+    min_water_body_width_m: float = Field(description="Anchura mínima de una masa de agua abierta que el producto detecta.")
+    coverage_basis: Literal["tile_bbox"] = Field(
+        description="covers_aoi usa la caja de cada tesela MGRS, no los píxeles válidos."
+    )
+    data_access: Literal["earthdata_login"] = Field(
+        description="wtr_url y conf_url piden cuenta de Earthdata; browse_url no."
+    )
+    acquisitions: list[OperaAcquisition] = Field(description="Vacía si no hay productos en la ventana.")
+
+
 def _load_aois(aoi_dir: Path) -> dict[str, dict]:
     result = {}
     for path in sorted(aoi_dir.glob("*.yaml")):
@@ -136,10 +175,12 @@ def create_app(
     source: GranuleSource | None = None,
     clock: Callable[[], datetime] | None = None,
     optical_source: SceneSource | None = None,
+    opera_source: opera.OperaSource | None = None,
 ) -> FastAPI:
     directory = aoi_dir or Path(os.environ.get("AOI_DIR", "/config/aois"))
     granule_source = source or CmrSource()
     scene_source = optical_source or EarthSearchSource()
+    water_source = opera_source or opera.CmrOperaSource()
     now = clock or (lambda: datetime.now(timezone.utc))
     app = FastAPI(title="NISAR catalog", version="0.1.0")
 
@@ -257,6 +298,59 @@ def create_app(
                     ],
                 )
                 for acq in acquisitions
+            ],
+        )
+
+    @app.get("/aois/{aoi_id}/references/opera", response_model=OperaOut)
+    def opera_water(
+        aoi_id: str,
+        date: date = Query(description="Fecha de referencia, normalmente la de una pasada NISAR."),
+        days: int = Query(7, ge=0, le=30, description="Días antes y después de la fecha."),
+    ) -> OperaOut:
+        aoi = aoi_or_404(aoi_id)
+        start, end = window(date, days)
+        try:
+            tiles = water_source.tiles(aoi["bbox"], start, end)
+        except httpx.HTTPError as exc:
+            raise HTTPException(502, "CMR no respondió; no hay referencias OPERA") from exc
+        passes = opera.group_passes(tiles, aoi["bbox"], date)
+        years = sorted({p.acquired_at.year for p in passes}) or [date.year]
+        return OperaOut(
+            aoi=aoi["id"],
+            date=date,
+            days=days,
+            source="NASA CMR",
+            collection=opera.COLLECTION,
+            doi=opera.DOI,
+            attribution=(
+                "OPERA Dynamic Surface Water Extent from Sentinel-1 (v1), NASA JPL OPERA, distribuido por PO.DAAC. "
+                f"Contiene datos modificados de Copernicus Sentinel {', '.join(map(str, years))}"
+            ),
+            product_spec_url=opera.PRODUCT_SPEC_URL,
+            min_water_body_ha=opera.MIN_WATER_BODY_HA,
+            min_water_body_width_m=opera.MIN_WATER_BODY_WIDTH_M,
+            coverage_basis="tile_bbox",
+            data_access="earthdata_login",
+            acquisitions=[
+                OperaAcquisition(
+                    platform=p.platform,
+                    acquired_at=p.acquired_at,
+                    days_from_date=p.days_from_date,
+                    covers_aoi=p.covers_aoi,
+                    tiles=[
+                        OperaTileOut(
+                            id=t.id,
+                            tile=t.tile,
+                            acquired_at=t.acquired_at,
+                            produced_at=t.produced_at,
+                            wtr_url=t.wtr_url,
+                            conf_url=t.conf_url,
+                            browse_url=t.browse_url,
+                        )
+                        for t in p.tiles
+                    ],
+                )
+                for p in passes
             ],
         )
 
