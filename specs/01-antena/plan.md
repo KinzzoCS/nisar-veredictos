@@ -6,6 +6,8 @@
 - `ingest` (CLI) pide a `catalog` la serie configurada y lee cada gránulo por HTTPS con `fsspec`, caché `background` y bloques de 16 MB, según la guía de ASF. Escribe primero un `.part` y lo renombra al terminar. Existe en el PR 2.
 - La línea de tiempo se calcula con los metadatos de CMR: la hora de inicio de adquisición sale del nombre del gránulo, y el campo `updated` de CMR se usa como aproximación a la publicación. Incluye las series con una sola pasada, porque también dicen cuándo se pudo observar la zona.
 
+- El recorte copia también `/science/LSAR/GCOV/metadata/radarGrid` si existe (T-ANT-11). Son cubos `(altura, y, x)` sobre nodos cada 500 m. Se quedan los nodos que rodean la ventana de `frequencyA` más 2 por lado, en x y en y, con todas las alturas. `heightAboveEllipsoid`, `projection` y cualquier otro dato que no dependa de x e y se copian enteros, y se conservan tipos, valores y atributos. Si el gránulo no trae el grupo, el recorte sale sin él.
+
 ## Interfaces nuevas
 
 | Ruta | Respuesta |

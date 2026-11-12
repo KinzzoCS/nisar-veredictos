@@ -107,6 +107,12 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - `inputDataExceptionMask`: 0 sin anomalía.
 - La especificación **no** menciona layover ni sombra.
 - Capas estáticas (`NISAR_L2_STATIC`): **todavía no se publican.** Comprobado el 2026-11-11 de dos formas. Primero, `identification/staticLayersDataAccess` apunta a `nisar-services.earthdata.nasa.gov/redirect/NISAR_L2_STATIC/<granule_id>.h5`, que responde 200 con una página que dice que no están disponibles. Segundo, CMR no tiene ninguna colección `NISAR*STATIC*`. Las colecciones L2 publicadas son GCOV, GSLC, GUNW y GOFF.
+- `metadata/radarGrid` **sí está** en los gránulos reales, en `/science/LSAR/GCOV/metadata/radarGrid`. Comprobado el 2026-11-12 por Antena leyendo por HTTPS el gránulo de T048 del 06-17.
+  - Cubos `(altura, y, x)` de 21 × 689 × 702: `incidenceAngle`, `elevationAngle`, `losUnitVectorX`, `losUnitVectorY`, `alongTrackUnitVectorX` y `alongTrackUnitVectorY` en Float32, y `slantRange`, `groundTrackVelocity` y `zeroDopplerAzimuthTime` en Float64. Bloques de 1 × 512 × 512 con gzip.
+  - Nodos cada 500 m (`yCoordinates` descendente) en EPSG:32613, con su propio `projection`. `heightAboveEllipsoid` va de −1000 a 9000 m cada 500 m.
+  - Desde T-ANT-11, `ingest` lo copia recortado a los nodos que rodean la ventana más 2 por lado: 21 × 106 × 116 en Parral, unos 11 MB más por recorte.
+  - Probado el 2026-11-12 con T048 del 06-17 y T171 del 06-26. Las capas de `frequencyA` salen idénticas a los recortes anteriores. La incidencia a 0 m sobre la zona va de 38,0° a 41,8° en T048 y de 39,5° a 43,2° en T171.
+  - `ingest` tardó 350 s y 370 s por fecha, frente a unos 130-160 s sin `radarGrid`. Falta saber si es la red o la lectura de los cubos.
 
 ## Caso de Parral
 
