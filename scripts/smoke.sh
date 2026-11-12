@@ -38,4 +38,14 @@ test "$(curl -fsS -o /tmp/tile2.png -w '%{content_type}' "$BASE$tile")" = "image
 code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/tiles/cog/info?url=file%3A%2F%2F%2Fetc%2Fpasswd")
 test "$code" = "403"
 
+# Un url= bueno seguido de otro malo, o un nombre codificado, tampoco pasa.
+GOOD="url=file%3A%2F%2F%2Fdata%2Fartifacts%2Fx.tif"
+for query in \
+  "$GOOD&url=http%3A%2F%2Fcatalog%3A8000%2Faois" \
+  "$GOOD&URL=file%3A%2F%2F%2Fetc%2Fpasswd" \
+  "$GOOD&ur%6C=file%3A%2F%2F%2Fetc%2Fpasswd"; do
+  code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/tiles/cog/info?$query")
+  test "$code" = "403" || { echo "El gateway dejó pasar: $query ($code)"; exit 1; }
+done
+
 echo "Smoke OK"
