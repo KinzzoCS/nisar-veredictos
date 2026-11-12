@@ -23,11 +23,11 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 | ID | Requisito | Prioridad |
 |---|---|---|
 | RF-ECO-01 | Detectar cambio entre pares comparables y clasificar cada píxel con su estado | Hecho |
-| RF-ECO-02 | Procesar una serie real completa de la zona sin cargar todas las fechas en memoria | P0 |
-| RF-ECO-03 | Control de calidad por fecha en el manifiesto: fracción válida, mediana en dB de HH y HV, desviación respecto a la serie y banderas | P0 |
-| RF-ECO-04 | Leer modo y polarización de los metadatos del producto, no del nombre del archivo | P0 |
-| RF-ECO-05 | Marcar layover y sombra con el DEM Copernicus GLO-30 (estado 15) | P1 |
-| RF-ECO-06 | Verificar la georreferencia contra un rasgo conocido y documentar el desplazamiento | P1 |
+| RF-ECO-02 | Procesar una serie real completa de la zona sin cargar todas las fechas en memoria | Hecho (T-ECO-02) |
+| RF-ECO-03 | Control de calidad por fecha en el manifiesto: fracción válida, mediana en dB de HH y HV, desviación respecto a la serie y banderas | Hecho (T-ECO-03) |
+| RF-ECO-04 | Leer modo y polarización de los metadatos del producto, no del nombre del archivo | Hecho (T-ECO-04) |
+| RF-ECO-05 | Marcar layover y sombra con el DEM Copernicus GLO-30 (estado 15) | Hecho (T-ECO-05) |
+| RF-ECO-06 | Verificar la georreferencia contra un rasgo conocido y documentar el desplazamiento | Hecho (T-ECO-06) |
 | RF-ECO-07 | Calibrar umbrales con datos reales junto a Balanza | P1 |
 | RF-ECO-08 | Filtro multitemporal opcional para reducir el speckle | P2 |
 
