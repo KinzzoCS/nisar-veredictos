@@ -8,7 +8,7 @@ import numpy as np
 import pytest
 
 from ingest.fetch import FetchError, fetch_series, is_nasa_url, select_series
-from ingest.subset import GRID, IDENTIFICATION, SubsetError
+from ingest.subset import GRID, IDENTIFICATION, RADAR_GRID, SubsetError
 
 TOKEN = "token-de-prueba"
 SIZE = 1500
@@ -21,7 +21,28 @@ AOI = {"id": "parral", "bbox": AOI_SMALL, "series": [SERIES]}
 ALLOW_LOCAL = lambda url: url.startswith("http://127.0.0.1")  # noqa: E731
 
 
-def write_granule(path):
+# radarGrid como en los gránulos reales: nodos cada 500 m, y descendente y cubos (altura, y, x).
+NODE = 2500.0
+HEIGHTS = np.arange(-1000.0, 1500.0, 500.0)
+
+
+def write_radar_grid(handle):
+    nodes_x = LEFT - NODE + NODE * np.arange(SIZE * POSTING / NODE + 3)
+    nodes_y = TOP + NODE - NODE * np.arange(SIZE * POSTING / NODE + 3)
+    group = handle.create_group(RADAR_GRID)
+    group["xCoordinates"] = nodes_x
+    group["yCoordinates"] = nodes_y
+    group["heightAboveEllipsoid"] = HEIGHTS
+    shape = (HEIGHTS.size, nodes_y.size, nodes_x.size)
+    incidence = 30.0 + np.broadcast_to(np.arange(nodes_x.size, dtype=np.float32), shape)
+    group.create_dataset("incidenceAngle", data=incidence, chunks=(1, 16, 16), compression="gzip")
+    group["incidenceAngle"].attrs["units"] = "degrees"
+    group.create_dataset("slantRange", data=np.ones(shape, np.float64), chunks=(1, 16, 16))
+    group["projection"] = np.uint32(32613)
+    group["projection"].attrs["epsg_code"] = 32613
+
+
+def write_granule(path, radar_grid=True):
     rng = np.random.default_rng(3)
     with h5py.File(path, "w") as handle:
         identification = handle.create_group(IDENTIFICATION)
@@ -45,6 +66,8 @@ def write_granule(path):
             grid.create_dataset(name, data=data, chunks=(250, 250))
         grid["projection"] = np.uint32(32613)
         grid["projection"].attrs["epsg_code"] = 32613
+        if radar_grid:
+            write_radar_grid(handle)
 
 
 class State:
@@ -233,3 +256,45 @@ def test_excluded_file_already_on_disk_is_reported_not_deleted(tmp_path, nasa):
     aoi = {**AOI, "series": [{**SERIES, "exclude": [{"granule": "GRANULE_0", "reason": "product_defect"}]}]}
     result = run(tmp_path, catalog_with(f"{base}/g0.h5"), aoi=aoi)
     assert result.stale == ["GRANULE_0"] and (result.target / "GRANULE_0.h5").exists()
+
+
+def test_radar_grid_is_cropped_to_the_window_with_margin_and_all_heights(tmp_path, nasa):
+    _, base = nasa
+    result = run(tmp_path, catalog_with(f"{base}/g0.h5"))
+    with h5py.File(result.target / "GRANULE_0.h5", "r") as handle:
+        grid, radar = handle[GRID], handle[RADAR_GRID]
+        x, y = grid["xCoordinates"][()], grid["yCoordinates"][()]
+        nodes_x, nodes_y = radar["xCoordinates"][()], radar["yCoordinates"][()]
+        # Dos nodos de margen fuera de la ventana por cada lado, y la orientación original.
+        assert (nodes_x < x.min()).sum() == 3 and (nodes_x > x.max()).sum() == 3
+        assert (nodes_y > y.max()).sum() == 3 and (nodes_y < y.min()).sum() == 3
+        assert nodes_y[0] > nodes_y[-1]
+        cube = radar["incidenceAngle"]
+        assert cube.shape == (HEIGHTS.size, nodes_y.size, nodes_x.size) and cube.dtype == np.float32
+        assert cube.attrs["units"] == "degrees"
+        assert radar["slantRange"].dtype == np.float64
+        assert list(radar["heightAboveEllipsoid"][()]) == list(HEIGHTS)
+        assert radar["projection"].attrs["epsg_code"] == 32613
+
+
+def test_radar_grid_values_are_copied_unchanged(tmp_path, nasa, granule_bytes):
+    _, base = nasa
+    result = run(tmp_path, catalog_with(f"{base}/g0.h5"))
+    (tmp_path / "original.h5").write_bytes(granule_bytes)
+    with h5py.File(tmp_path / "original.h5", "r") as src, h5py.File(result.target / "GRANULE_0.h5", "r") as out:
+        all_x = list(src[RADAR_GRID]["xCoordinates"][()])
+        all_y = list(src[RADAR_GRID]["yCoordinates"][()])
+        cut_x, cut_y = out[RADAR_GRID]["xCoordinates"][()], out[RADAR_GRID]["yCoordinates"][()]
+        cols = slice(all_x.index(cut_x[0]), all_x.index(cut_x[-1]) + 1)
+        rows = slice(all_y.index(cut_y[0]), all_y.index(cut_y[-1]) + 1)
+        assert np.array_equal(src[RADAR_GRID]["incidenceAngle"][:, rows, cols], out[RADAR_GRID]["incidenceAngle"][()])
+
+
+def test_granule_without_radar_grid_still_subsets(tmp_path):
+    source = tmp_path / "plain.h5"
+    write_granule(source, radar_grid=False)
+    from ingest.subset import subset
+
+    subset(source, AOI_SMALL, SERIES, tmp_path / "out.h5")
+    with h5py.File(tmp_path / "out.h5", "r") as handle:
+        assert GRID in handle and RADAR_GRID not in handle

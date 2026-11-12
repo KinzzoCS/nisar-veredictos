@@ -11,15 +11,26 @@ import rasterio
 import rasterio.shutil
 
 from .change import STATE_CODES, STATE_NODATA, Params, compare, smooth, observable, to_db
-from .gcov import GranuleError, GranuleMeta, Scene, read_scene
+from .gcov import GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
+from .qa import finalize_qa, scene_stats
+from .terrain import terrain_mask
 
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 BASE_NOTICES = [
     "Datos PROVISIONAL: se reprocesarán a VALIDATED en 2027 y no deben mezclarse con otra versión.",
     "Hueco permanente de adquisición del 2026-07-27 al 2026-08-10.",
-    "Layover y sombra no vienen en GCOV y todavía no se calculan.",
     "Umbrales estimados sobre la propia escena: indicador del modelo, no error calibrado.",
 ]
+QA_NOTICE = (
+    "El control de calidad marca una fecha si su mediana se aparta más de {:g} dB de la serie. "
+    "Ese umbral no está calibrado y la marca es una advertencia, no una exclusión."
+)
+GDAL_CACHE_MB = 128
+TERRAIN_NOTICE = (
+    "Layover y sombra (estado terrain) calculados con el DEM Copernicus GLO-30 y la geometría radarGrid de la "
+    "primera fecha ({detail}), con un criterio local por pendiente: no incluye sombras proyectadas por crestas."
+)
+NO_TERRAIN_NOTICE = "Layover y sombra no se marcaron: {reason}. Las laderas empinadas pueden aparecer como cambio o sin cambio."
 SYNTHETIC_NOTICE = "DATOS SINTÉTICOS: sirven para probar el sistema y no describen ningún lugar real."
 
 
@@ -35,7 +46,8 @@ def _write_cog(path: Path, data: np.ndarray, scene: Scene, nodata, resampling: s
         "transform": scene.transform,
         "nodata": nodata,
     }
-    with tempfile.TemporaryDirectory() as temporary:
+    # La caché de GDAL por omisión es el 5 % de la RAM; con una escena completa en memoria basta con poca.
+    with tempfile.TemporaryDirectory() as temporary, rasterio.Env(GDAL_CACHEMAX=GDAL_CACHE_MB):
         source = Path(temporary) / "raw.tif"
         with rasterio.open(source, "w", **profile) as dataset:
             dataset.write(data, 1)
@@ -57,58 +69,102 @@ def _crosses_gap(first: str, second: str) -> bool:
     return date.fromisoformat(first) < DATA_GAP[1] and date.fromisoformat(second) > DATA_GAP[0]
 
 
-def process_series(
-    paths: list[Path], aoi: dict, series_id: str, artifact_root: Path, maturity: str, params: Params = Params()
+def _stamp(meta: GranuleMeta) -> str:
+    return meta.date.replace("-", "")
+
+
+def _write_date(scene: Scene, prefix: str, artifact_root: Path, params: Params) -> dict:
+    layers = {}
+    for name in ("hh", "hv"):
+        relative = f"{prefix}/dates/{_stamp(scene.meta)}/{name}_db.tif"
+        _write_cog(artifact_root / relative, _db(scene, name, params), scene, float("nan"), "average")
+        layers[f"{name}_db"] = relative
+    return {"date": scene.meta.date, "granule": scene.meta.granule_id, **layers}
+
+
+def _write_pair(
+    before: Scene, after: Scene, kind: str, prefix: str, artifact_root: Path, params: Params, terrain=None
 ) -> dict:
-    scenes = sorted((read_scene(path, aoi["bbox"]) for path in paths), key=lambda scene: scene.meta.date)
-    if len(scenes) < 2:
+    pair_id = f"{_stamp(before.meta)}_{_stamp(after.meta)}"
+    result = compare(before, after, params, terrain)
+    layers = {
+        "state": f"{prefix}/pairs/{pair_id}/state.tif",
+        "change_hh": f"{prefix}/pairs/{pair_id}/change_hh.tif",
+        "change_hv": f"{prefix}/pairs/{pair_id}/change_hv.tif",
+    }
+    _write_cog(artifact_root / layers["state"], result.state, before, STATE_NODATA, "nearest")
+    _write_cog(artifact_root / layers["change_hh"], result.change_hh, before, float("nan"), "average")
+    _write_cog(artifact_root / layers["change_hv"], result.change_hv, before, float("nan"), "average")
+    return {
+        "id": pair_id,
+        "from": before.meta.date,
+        "to": after.meta.date,
+        "kind": kind,
+        "spans_data_gap": _crosses_gap(before.meta.date, after.meta.date),
+        "granules": [before.meta.granule_id, after.meta.granule_id],
+        "layers": layers,
+        "stats": result.stats,
+    }
+
+
+def process_series(
+    paths: list[Path],
+    aoi: dict,
+    series_id: str,
+    artifact_root: Path,
+    maturity: str,
+    params: Params = Params(),
+    dem_sources: list[Path | str] | None = None,
+) -> dict:
+    """Procesa la serie con como máximo dos escenas en memoria, sea cual sea el número de fechas."""
+    ordered = sorted(((read_meta_path(path), path) for path in paths), key=lambda item: item[0].date)
+    if len(ordered) < 2:
         raise GranuleError("Hacen falta al menos dos fechas")
-    reference = scenes[0].meta
-    for scene in scenes[1:]:
-        _check_comparable(reference, scene.meta)
+    reference = ordered[0][0]
+    for meta, _ in ordered[1:]:
+        _check_comparable(reference, meta)
 
     prefix = f"{aoi['id']}/{series_id}"
     target = artifact_root / aoi["id"] / series_id
-    dates = []
-    for scene in scenes:
-        stamp = scene.meta.date.replace("-", "")
-        layers = {}
-        for name in ("hh", "hv"):
-            relative = f"{prefix}/dates/{stamp}/{name}_db.tif"
-            _write_cog(artifact_root / relative, _db(scene, name, params), scene, float("nan"), "average")
-            layers[f"{name}_db"] = relative
-        dates.append({"date": scene.meta.date, "granule": scene.meta.granule_id, **layers})
+    dates, stats, pairs = [], [], []
+    crs = None
+    previous: Scene | None = None
+    terrain, terrain_detail = None, "no hay DEM"
+    for index, (_, path) in enumerate(ordered):
+        scene = read_scene(path, aoi["bbox"])
+        crs = crs or scene.crs
+        if index == 0 and dem_sources:
+            # La geometría casi no cambia entre pasadas de la misma órbita: basta la primera fecha.
+            terrain, terrain_detail = terrain_mask(
+                path, list(dem_sources), scene.crs, scene.transform, scene.hh.shape, reference.direction
+            )
+        dates.append(_write_date(scene, prefix, artifact_root, params))
+        stats.append(scene_stats(scene, params))
+        if previous is not None:
+            pairs.append(_write_pair(previous, scene, "consecutive", prefix, artifact_root, params, terrain))
+        previous = scene
+        del scene
 
-    combinations = [(a, b, "consecutive") for a, b in zip(scenes, scenes[1:])]
-    if len(scenes) > 2:
-        combinations.append((scenes[0], scenes[-1], "full_window"))
+    if len(ordered) > 2:
+        # La primera fecha se vuelve a leer: guardarla toda la serie costaría una escena más de RAM.
+        first = read_scene(ordered[0][1], aoi["bbox"])
+        pairs.append(_write_pair(first, previous, "full_window", prefix, artifact_root, params, terrain))
+        del first
+    del previous
 
-    pairs = []
-    for before, after, kind in combinations:
-        pair_id = f"{before.meta.date.replace('-', '')}_{after.meta.date.replace('-', '')}"
-        result = compare(before, after, params)
-        layers = {
-            "state": f"{prefix}/pairs/{pair_id}/state.tif",
-            "change_hh": f"{prefix}/pairs/{pair_id}/change_hh.tif",
-            "change_hv": f"{prefix}/pairs/{pair_id}/change_hv.tif",
-        }
-        _write_cog(artifact_root / layers["state"], result.state, before, STATE_NODATA, "nearest")
-        _write_cog(artifact_root / layers["change_hh"], result.change_hh, before, float("nan"), "average")
-        _write_cog(artifact_root / layers["change_hv"], result.change_hv, before, float("nan"), "average")
-        pairs.append(
-            {
-                "id": pair_id,
-                "from": before.meta.date,
-                "to": after.meta.date,
-                "kind": kind,
-                "spans_data_gap": _crosses_gap(before.meta.date, after.meta.date),
-                "granules": [before.meta.granule_id, after.meta.granule_id],
-                "layers": layers,
-                "stats": result.stats,
-            }
-        )
+    for item, qa in zip(dates, finalize_qa(stats, params)):
+        item["qa"] = qa
 
-    notices = ([SYNTHETIC_NOTICE] if reference.data_kind == "synthetic" else []) + BASE_NOTICES
+    notices = (
+        ([SYNTHETIC_NOTICE] if reference.data_kind == "synthetic" else [])
+        + BASE_NOTICES
+        + [
+            TERRAIN_NOTICE.format(detail=terrain_detail)
+            if terrain is not None
+            else NO_TERRAIN_NOTICE.format(reason=terrain_detail)
+        ]
+        + [QA_NOTICE.format(params.qa_outlier_db)]
+    )
     manifest = {
         "schema_version": 1,
         "aoi": aoi["id"],
@@ -123,7 +179,7 @@ def process_series(
         },
         "data_kind": reference.data_kind,
         "maturity": maturity,
-        "crs": scenes[0].crs,
+        "crs": crs,
         "bbox": list(aoi["bbox"]),
         "state_codes": STATE_CODES,
         "notices": notices,

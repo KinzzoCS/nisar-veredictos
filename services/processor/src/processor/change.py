@@ -15,7 +15,7 @@ INVALID_OR_PARTIAL = 11
 INPUT_EXCEPTION = 12
 LOW_LOOKS = 13
 NO_DATA = 14
-# Reservado: GCOV no trae layover ni sombra; hay que calcularlos aparte.
+# Layover o sombra, calculados con el DEM y radarGrid (terrain.py); GCOV no los trae.
 TERRAIN = 15
 STATE_NODATA = 255
 STABLE_DB = 2.0
@@ -39,6 +39,8 @@ class Params:
     # Otsu siempre encuentra un umbral, incluso sin cambio; este suelo evita marcar ruido.
     min_threshold_db: float = 3.0
     min_cluster_pixels: int = 4
+    # Umbral inicial sin calibrar con banda L: desviación de la mediana de una fecha respecto a la serie.
+    qa_outlier_db: float = 1.5
 
 
 @dataclass
@@ -54,12 +56,22 @@ def observable(scene: Scene, min_looks: float) -> np.ndarray:
     return np.isin(scene.mask, [1, 2, 3, 4, 5]) & (scene.exception == 0) & finite & (scene.looks >= min_looks)
 
 
-def smooth(power: np.ndarray, valid: np.ndarray, size: int) -> np.ndarray:
-    """Promedia en potencia lineal usando solo píxeles válidos."""
-    numerator = ndimage.uniform_filter(np.where(valid, power, 0).astype(np.float64), size, mode="nearest")
-    denominator = ndimage.uniform_filter(valid.astype(np.float64), size, mode="nearest")
-    result = np.full(power.shape, np.nan, np.float32)
-    result[valid] = (numerator[valid] / denominator[valid]).astype(np.float32)
+def valid_weight(valid: np.ndarray, size: int) -> np.ndarray:
+    """Fracción de píxeles válidos en cada ventana. Se reutiliza para todas las capas con la misma máscara."""
+    return ndimage.uniform_filter(valid.astype(np.float32), size, mode="nearest")
+
+
+def smooth(power: np.ndarray, valid: np.ndarray, size: int, weight: np.ndarray | None = None) -> np.ndarray:
+    """Promedia en potencia lineal usando solo píxeles válidos.
+
+    Trabaja en float32 para que una escena de 5000 x 5500 no duplique su tamaño en temporales.
+    """
+    if weight is None:
+        weight = valid_weight(valid, size)
+    result = ndimage.uniform_filter(np.where(valid, power, np.float32(0)).astype(np.float32, copy=False), size, mode="nearest")
+    with np.errstate(divide="ignore", invalid="ignore"):
+        np.divide(result, weight, out=result)
+    result[~valid] = np.nan
     return result
 
 
@@ -79,10 +91,13 @@ def otsu(values: np.ndarray, bins: int = 256) -> float:
     return float(centers[int(np.nanargmax(np.nan_to_num(between)))])
 
 
-def _state_for_unobservable(a: Scene, b: Scene, params: Params) -> np.ndarray:
+def _state_for_unobservable(a: Scene, b: Scene, params: Params, terrain: np.ndarray | None = None) -> np.ndarray:
     state = np.full(a.hh.shape, NO_CHANGE, np.uint8)
     for scene in (a, b):
         state[scene.looks < params.min_looks] = LOW_LOOKS
+    if terrain is not None:
+        # El relieve explica mejor que los pocos looks por qué no se ve: va encima.
+        state[terrain] = TERRAIN
     for scene in (a, b):
         state[~(np.isfinite(scene.hh) & np.isfinite(scene.hv) & (scene.hh > 0) & (scene.hv > 0))] = NO_DATA
     for scene in (a, b):
@@ -120,19 +135,23 @@ def _signature_counts(hh: np.ndarray, hv: np.ndarray) -> dict[str, int]:
     return result
 
 
-def compare(a: Scene, b: Scene, params: Params = Params()) -> PairResult:
+def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray | None = None) -> PairResult:
     if a.hh.shape != b.hh.shape or a.transform != b.transform:
         raise ValueError(f"Mallas distintas: {a.meta.granule_id} y {b.meta.granule_id}")
 
-    state = _state_for_unobservable(a, b, params)
+    state = _state_for_unobservable(a, b, params, terrain)
     both = observable(a, params.min_looks) & observable(b, params.min_looks)
+    if terrain is not None:
+        both &= ~terrain
     state[~both & (state == NO_CHANGE)] = NO_DATA
 
     change = {}
+    weight = valid_weight(both, params.window)
     for name in ("hh", "hv"):
-        before = smooth(getattr(a, name), both, params.window)
-        after = smooth(getattr(b, name), both, params.window)
-        change[name] = to_db(after) - to_db(before)
+        after = to_db(smooth(getattr(b, name), both, params.window, weight))
+        after -= to_db(smooth(getattr(a, name), both, params.window, weight))
+        change[name] = after
+    del weight
 
     thresholds = {name: _threshold(np.abs(change[name][both]), params) for name in change}
     changed = np.zeros(state.shape, bool)

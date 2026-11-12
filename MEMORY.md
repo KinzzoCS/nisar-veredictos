@@ -44,6 +44,8 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-10 | Conventional Commits con resumen en español y ámbito por rol, validado en CI | Historial legible y comprobable |
 | 2026-11-10 | Licencia GPL-3.0-only | Elección del equipo; el reto pide código abierto |
 | 2026-11-10 | La ingesta pasa a un servicio propio, `services/ingest` | Separar el trabajo de Antena del de Eco |
+| 2026-11-11 | El manifiesto añade `dates[].qa` como campo **opcional** (T-ECO-03) | Cambio aditivo: los manifiestos y las pruebas de `verdicts` sin `qa` siguen siendo válidos. `processor` siempre lo escribe |
+| 2026-11-12 | Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC), no el 13. Hasta entonces cualquier cambio de contrato sigue el proceso de la constitución (VI.2); después solo cambios aditivos. Aprobado por las cinco personas el 2026-11-12 | El evento es el 14 y 15, y varios PR que tocan contratos (16, 22, 23 y 25) seguían en revisión |
 
 ## Datos verificados
 
@@ -114,8 +116,15 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - Rutas en `/science/LSAR/GCOV/grids/frequencyA/`: `HHHH`, `HVHV` (Float32), `numberOfLooks` (Float32), `mask` y `inputDataExceptionMask` (UByte), `xCoordinates`, `yCoordinates`, y `projection` con el atributo `epsg_code`.
 - `mask`: 0 inválido o parcialmente enfocado, 1-5 válido con su subfranja, 255 fuera de la escena.
 - `inputDataExceptionMask`: 0 sin anomalía.
+- En los recortes reales de T048 (2026-11-11): `listOfObservationModes = ["(NOT SPECIFIED)"]`, `isMixedMode = "False"`, `listOfFrequencies = [A, B]`, `isGeocoded = "True"`; los booleanos son texto, no enteros. El recorte no trae el ancho de banda ni `listOfPolarizations`. Desde T-ECO-04, `processor` deduce la polarización de A por las capas presentes, rechaza modo mixto, productos sin HH+HV y nombres que contradicen capas o frecuencias, y solo toma del nombre el código de ancho de banda.
 - La especificación **no** menciona layover ni sombra.
 - Capas estáticas (`NISAR_L2_STATIC`): **todavía no se publican.** Comprobado el 2026-11-11 de dos formas. Primero, `identification/staticLayersDataAccess` apunta a `nisar-services.earthdata.nasa.gov/redirect/NISAR_L2_STATIC/<granule_id>.h5`, que responde 200 con una página que dice que no están disponibles. Segundo, CMR no tiene ninguna colección `NISAR*STATIC*`. Las colecciones L2 publicadas son GCOV, GSLC, GUNW y GOFF.
+- `metadata/radarGrid` **sí está** en los gránulos reales, en `/science/LSAR/GCOV/metadata/radarGrid`. Comprobado el 2026-11-12 por Antena leyendo por HTTPS el gránulo de T048 del 06-17.
+  - Cubos `(altura, y, x)` de 21 × 689 × 702: `incidenceAngle`, `elevationAngle`, `losUnitVectorX`, `losUnitVectorY`, `alongTrackUnitVectorX` y `alongTrackUnitVectorY` en Float32, y `slantRange`, `groundTrackVelocity` y `zeroDopplerAzimuthTime` en Float64. Bloques de 1 × 512 × 512 con gzip.
+  - Nodos cada 500 m (`yCoordinates` descendente) en EPSG:32613, con su propio `projection`. `heightAboveEllipsoid` va de −1000 a 9000 m cada 500 m.
+  - Desde T-ANT-11, `ingest` lo copia recortado a los nodos que rodean la ventana más 2 por lado: 21 × 106 × 116 en Parral, unos 11 MB más por recorte.
+  - Probado el 2026-11-12 con T048 del 06-17 y T171 del 06-26. Las capas de `frequencyA` salen idénticas a los recortes anteriores. La incidencia a 0 m sobre la zona va de 38,0° a 41,8° en T048 y de 39,5° a 43,2° en T171.
+  - `ingest` tardó 350 s y 370 s por fecha, frente a unos 130-160 s sin `radarGrid`. Falta saber si es la red o la lectura de los cubos.
 
 ## Caso de Parral
 
@@ -129,12 +138,38 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - Lista de recursos oficial del reto.
 - Troceado HDF5 de los gránulos reales. La coincidencia de mallas ya se verificó en las 10 fechas de T048 y entre T048 y T171 (ver "Series completas").
 - Harmony para extraer capas GCOV.
-- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION` y las firmas por polarización son valores iniciales sin calibrar con banda L.
+- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION`, `qa_outlier_db` (1,5 dB) y las firmas por polarización son valores iniciales sin calibrar con banda L.
 
 ## Pendientes
 
 - 2026-11-11: Antena creó la cuenta de Earthdata. El token vive solo en el `.env` local, que git ignora, y **no se comparte**. Antena trae los recortes y los pasa como archivos. Si otra persona necesita leer de NASA, crea su propia cuenta de Earthdata (gratuita) y su propio token.
-- Vigilar memoria en `processor`: con 2 fechas reales usó 2,25 GB, más de lo que se estimaba (unos 4 GB para 10 fechas). Con las 10 fechas cargadas a la vez probablemente no cabe; conviene procesar por pares (T-ECO-02).
+- Memoria de `processor` (T-ECO-02): desde el 2026-11-11 procesa por pares, con como máximo dos escenas en memoria, y suaviza en float32. Medido con `services/processor/bench/memoria.py` sobre 10 fechas **sintéticas** de 5022 × 5496 px (Windows, Python 3.14): 5048 MB y 715 s antes, 1510 MB y 516 s después, con conteos, umbrales y QA idénticos. Con las 2 fechas reales de T048 en Docker (`docker compose --profile real run process`), el pico del contenedor fue de 1586 MB (`memory.peak` del cgroup, que incluye la caché de archivos) y 52 s, frente a los 2,25 GB que midió Antena. Con las **10 fechas reales** de T048 (2026-11-12, mismo método): 1611 MB y 389 s.
+- 2026-11-11, `numberOfLooks` en los recortes reales de T048 (iguales en las dos fechas): p1 1,88, p5 3,12, p15 3,99, mediana 4,52 y p95 6,14. Con `min_looks = 4` queda fuera el 15,2 %; por debajo de 3 solo el 4,3 % y por debajo de 2 el 1,2 %. La fracción baja de oeste a este (del 24-29 % al 6 %), lo que apunta al ángulo de incidencia, y esos píxeles son más brillantes en HH (mediana −7,9 dB frente a −11,1 dB), lo que apunta a laderas orientadas al sensor. Ambas son hipótesis. El umbral se aplica por píxel antes de promediar 5 × 5; la suma de looks en esa ventana baja de 25 solo en el 0,01 %. Decidir el criterio con Balanza (T-ECO-07).
+- 2026-11-12, serie real completa de T048 (10 fechas, umbrales sin calibrar):
+  - El porcentaje de `change_probable` en cada par consecutivo sigue al desplazamiento de la mediana de toda la escena (correlación 0,9 en 9 pares). Con desplazamientos de ±0,6 a ±1,1 dB sale 2-3 %; con ±1,75 a ±1,84 dB, 14-22 % de lo observable (08-28→09-09, 09-09→09-21, 10-03→10-15), casi todo con HH y HV en el mismo sentido.
+  - El umbral de Otsu nunca supera el mínimo: los 10 pares quedan en 3,0 dB, así que hoy el umbral es fijo en la práctica.
+  - El QA marca solo el 2026-10-15 (+1,89 dB en HH); el 2026-09-09 queda cerca (+1,37 dB).
+  - Hipótesis, sin verificar: humedad del suelo por lluvias del monzón, que sube toda la escena. También podría ser radiométrico. Hasta resolverlo, un "cambio" en esos pares no debe leerse como cambio local. Opciones para T-ECO-07 con Balanza: medir el cambio respecto al desplazamiento de la escena, o avisar en los pares con desplazamiento grande.
+- 2026-11-12, serie real completa de T171 (9 fechas), mismo método que T048: 1611 MB y 389 s en T048, **1782 MB y 393 s en T171**. Las dos series quedan por debajo de 2 GB.
+- 2026-11-12, T171 del 2026-08-13 (defecto del producto; la evidencia está en la nota de Antena, PR 22). Efecto en `processor`: el QA lo marcaba con +6,4 dB en HH y en HV, pero la marca es solo un aviso, y los pares 07-20→08-13 y 08-13→08-25 salían con un 46 % y un 50 % de `change_probable` falso. Se apartó a `data/raw/cuarentena/parral/T171D-F075/` (no se borró) y T171 se reprocesó con 8 fechas (1806 MB, 359 s). El par consecutivo pasa a ser 07-20→08-25, que cruza el hueco de adquisición y da un 8,8 % de cambio.
+- Desplazamiento entre fechas, medido con correlación de fase en 3 ventanas (2026-11-12): en T171, todas las fechas (también las `_F_F_J_001`) se desplazan unos 0,8 px en filas respecto al 06-26; en T048, las 10 fechas coinciden con el 06-17 con menos de 0,4 px de diferencia.
+- En T171, el QA también marca el 2026-09-30 (+1,59 dB), y el par 09-18→09-30 da un 24,9 % de cambio con HH y HV subiendo a la vez: el mismo patrón de desplazamiento de toda la escena que en T048.
+- 2026-11-12, **georreferencia (T-ECO-06)**: sin desplazamiento detectable mayor que un píxel (10 m) entre NISAR y Sentinel-2.
+  - Datos: T048 del 2026-06-17 recortado sobre La Boquilla frente a `S2C_13RDL_20260618_0_L2A` (Earth Search, 3,4 % de nubes). Los dos están en EPSG:32613 y en la misma rejilla de 10 m, así que se comparan sin remuestrear.
+  - Método (`services/processor/bench/georref.py`): agua del radar con HH < −15 dB y HV < −23 dB suavizados en 5 × 5; agua del óptico con NDWI > 0. Se quitan las nubes con SCL y se dejan solo los cuerpos de agua que aparecen en las dos máscaras. Se busca el desplazamiento entero que maximiza el IoU.
+  - Resultado: el IoU sin desplazar es 0,7154 y el mejor, 1 px al este, da 0,7155. Las mitades oeste y este, por separado, dan (0, 0). La superficie de IoU es casi plana, así que la resolución del método es de un píxel.
+  - Las máscaras difieren en área, no en posición: el radar ve oscuras zonas fuera del agua óptica, posiblemente orillas expuestas o suelo liso, y el óptico ve agua en el brazo del este que el radar no ve oscuro. Los umbrales se eligieron mirando esta misma escena y no están calibrados para otras.
+  - La correlación de fase de las máscaras no sirvió (picos de 0,02 e inconsistentes) y se descartó.
+  - Entre órbitas, T048 (06-17) frente a T171 (06-26 y 07-08) en Parral, la correlación de fase en 4 ventanas da 0,5-1,1 px en filas y menos de 0,6 px en columnas, de forma consistente. Se pueden cruzar las dos series con ese margen.
+- 2026-11-12, **layover y sombra (T-ECO-05)**, probado con geometría real.
+  - El recorte copia `metadata/radarGrid` desde el PR 25 de Antena (contrato en el PR 23). Probado con T048 del 06-17 y T171 del 06-26 de "data v3/radargrid" en Drive: cubos 21 × 106 × 116, EPSG:32613, nodos cada 500 m. Incidencia a 0 m: 38,0-41,8° en T048 y 39,5-43,2° en T171, creciendo hacia el alcance lejano. `losUnitVector` va del suelo al sensor (X medio +0,62 en T048 y −0,63 en T171); el código no depende de ese signo.
+  - Resultado (par 06-17→06-29 en T048 y 06-26→07-08 en T171): layover 0,05 % y 0,06 %; sombra 0,01 % y 0,00 %. Unos 45 s por par.
+  - Comprobación física: en T048 (sensor al este) el 100 % del layover está en laderas que miran al este y el 100 % de la sombra en laderas que miran al oeste; en T171, al revés. La pendiente media en layover es de unos 46°, por encima de la incidencia.
+  - El 98-99 % del layover ya salía como `low_looks`; ahora queda con la causa `terrain`. El layover no explica el 15 % de `low_looks` (son unos 15 000 de unos 4 millones de píxeles), que sigue pendiente para T-ECO-07.
+  - La sombra sale muy brillante en HH (+6 a +7 dB de mediana, frente a unos −11 dB de la escena). Hipótesis sin verificar: la corrección radiométrica de relieve de GCOV divide por un área iluminada casi nula.
+  - `processor run` usa `radarGrid` y el DEM de `data/dem/<zona>/` (`processor fetch-dem --aoi parral`: 2 teselas GLO-30, 77 MB, sin cuenta). Si falta alguno de los dos, no marca relieve y lo avisa en el manifiesto.
+  - Criterio local por pendiente en la dirección de alcance: layover si la ladera sube más que la incidencia; sombra si baja más que 90° menos la incidencia. No incluye sombras proyectadas por crestas.
+  - Coste medido con 2 fechas reales de T048, el DEM real y un `radarGrid` supuesto: +112 MB (1760 frente a 1648 MB de `ru_maxrss`) y unos 9 s más.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación

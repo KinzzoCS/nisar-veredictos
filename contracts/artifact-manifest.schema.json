@@ -39,7 +39,29 @@
           "date": { "type": "string", "format": "date" },
           "granule": { "type": "string" },
           "hh_db": { "type": "string" },
-          "hv_db": { "type": "string" }
+          "hv_db": { "type": "string" },
+          "qa": {
+            "description": "Control de calidad de la fecha. Opcional para no romper manifiestos anteriores; processor siempre lo escribe.",
+            "type": "object",
+            "required": ["valid_fraction", "median_hh_db", "median_hv_db", "deviation_hh_db", "deviation_hv_db", "flags"],
+            "additionalProperties": false,
+            "properties": {
+              "valid_fraction": {
+                "description": "Fracción de píxeles de la ventana con mask 1-5, inputDataExceptionMask 0, looks suficientes y potencia positiva.",
+                "type": "number", "minimum": 0, "maximum": 1
+              },
+              "median_hh_db": { "description": "Mediana de HH en dB sobre píxeles válidos, sin suavizar. null si no hay ninguno.", "type": ["number", "null"] },
+              "median_hv_db": { "description": "Mediana de HV en dB sobre píxeles válidos, sin suavizar. null si no hay ninguno.", "type": ["number", "null"] },
+              "deviation_hh_db": { "description": "median_hh_db menos la mediana de las medianas de la serie.", "type": ["number", "null"] },
+              "deviation_hv_db": { "description": "median_hv_db menos la mediana de las medianas de la serie.", "type": ["number", "null"] },
+              "flags": {
+                "description": "radiometric_outlier: alguna desviación supera el umbral sin calibrar (1,5 dB). Es una advertencia, no una exclusión.",
+                "type": "array",
+                "items": { "enum": ["radiometric_outlier"] },
+                "uniqueItems": true
+              }
+            }
+          }
         }
       }
     },

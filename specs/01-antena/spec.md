@@ -31,6 +31,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 | RF-ANT-06 | Listar productos OPERA DSWx-S1 a ±N días de una fecha (7 por defecto), agrupados por pasada de Sentinel-1, sin versiones reprocesadas repetidas, con su cobertura de la zona y enlaces que dicen si requieren cuenta. Si no hay ninguno, lo dice | Hecho (T-ANT-06) |
 | RF-ANT-07 | Dejar un registro de ingesta por serie: gránulo, bytes, segundos y fecha de publicación | P1 |
 | RF-ANT-08 | Excluir los gránulos defectuosos declarados en `config/aois`, con motivo, evidencia y fecha de comprobación. `catalog` los quita de las series y de la línea de tiempo y los lista aparte en `excluded`; `ingest` no los trae | Hecho (T-ANT-10) |
+| RF-ANT-09 | Copiar al recorte `metadata/radarGrid`, si el gránulo lo trae, recortado a los nodos que cubren la ventana más 2 por lado, con todas las alturas y sin cambiar valores (`contracts/gcov-subset.md`) | Hecho (T-ANT-11) |
 
 ## Criterios de aceptación
 

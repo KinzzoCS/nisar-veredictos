@@ -6,6 +6,8 @@
 - `ingest` (CLI) pide a `catalog` la serie configurada y lee cada gránulo por HTTPS con `fsspec`, caché `background` y bloques de 16 MB, según la guía de ASF. Escribe primero un `.part` y lo renombra al terminar. Existe en el PR 2.
 - La línea de tiempo se calcula con los metadatos de CMR: la hora de inicio de adquisición sale del nombre del gránulo, y el campo `updated` de CMR se usa como aproximación a la publicación. Incluye las series con una sola pasada, porque también dicen cuándo se pudo observar la zona.
 
+- El recorte copia también `/science/LSAR/GCOV/metadata/radarGrid` si existe (T-ANT-11). Son cubos `(altura, y, x)` sobre nodos cada 500 m. Se quedan los nodos que rodean la ventana de `frequencyA` más 2 por lado, en x y en y, con todas las alturas. `heightAboveEllipsoid`, `projection` y cualquier otro dato que no dependa de x e y se copian enteros, y se conservan tipos, valores y atributos. Si el gránulo no trae el grupo, el recorte sale sin él.
+
 ## Interfaces nuevas
 
 | Ruta | Respuesta |
@@ -131,6 +133,7 @@ Cada serie de `config/aois/<zona>.yaml` admite `exclude`, una lista con:
 
 `ingest fetch` salta los gránulos de `exclude` aunque `catalog` aún los liste, y los informa aparte. Si el archivo ya está en disco, lo avisa y no lo borra, porque `processor` lee toda la carpeta y debe apartarse a mano.
 
+## Datos
 
 - Sentinel-2 L2A desde Earth Search (`https://earth-search.aws.element84.com/v1`), colección `sentinel-2-l2a`, sin cuenta. Licencia: datos Copernicus, de acceso libre y con atribución.
 - La zona de Parral cae en cuatro teselas MGRS (13RCK, 13RDK, 13RCL y 13RDL), así que una sola escena nunca la cubre. Por eso se agrupan por adquisición. La nubosidad publicada es la de la tesela completa, no la de la zona, y una adquisición se descarta si alguna de sus teselas supera `max_cloud`. Si hay dos versiones de procesado de una misma escena, se queda la más reciente.
