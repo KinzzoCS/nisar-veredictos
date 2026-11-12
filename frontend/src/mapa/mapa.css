@@ -1,0 +1,170 @@
+.atlas-mapa {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  font-family: system-ui, sans-serif;
+}
+
+.atlas-lienzo {
+  position: absolute;
+  inset: 0;
+}
+
+.atlas-mapa .maplibregl-canvas:focus-visible {
+  outline: 3px solid #1b1f3b;
+  outline-offset: -3px;
+}
+
+.atlas-extension,
+.atlas-sintetico {
+  position: absolute;
+  left: 10px;
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.atlas-extension {
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-sintetico {
+  top: 64px;
+  background: #7a1f00;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.atlas-mapa .maplibregl-ctrl-scale {
+  border-color: #1b1f3b;
+  color: #1b1f3b;
+}
+
+.atlas-panel {
+  position: absolute;
+  right: 10px;
+  top: 80px;
+  z-index: 2;
+  width: 230px;
+  max-height: calc(100% - 130px);
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.atlas-capas {
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atlas-capas legend,
+.atlas-opacidad {
+  font-weight: 600;
+}
+
+.atlas-capas label {
+  cursor: pointer;
+}
+
+.atlas-opacidad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.atlas-opacidad input {
+  flex: 1;
+  min-width: 0;
+}
+
+.atlas-panel input:focus-visible {
+  outline: 2px solid #1b1f3b;
+  outline-offset: 2px;
+}
+
+.atlas-leyenda {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid #d1d5db;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.atlas-leyenda li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.atlas-leyenda small {
+  display: block;
+  color: #4b5563;
+}
+
+.atlas-entrada {
+  display: flex;
+  flex-direction: column;
+}
+
+.atlas-muestra {
+  flex: none;
+  width: 22px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1px solid #1b1f3b;
+}
+
+.atlas-muestra-vacia {
+  background: transparent;
+}
+
+/* Mismo dibujo que la trama del mapa (estado.ts): rayas diagonales gris oscuro sobre gris claro. */
+.atlas-muestra-trama {
+  background: repeating-linear-gradient(
+    135deg,
+    #374151 0 2px,
+    #d1d5db 2px 5.7px
+  );
+}
+
+.atlas-escala {
+  flex-direction: column;
+}
+
+.atlas-degradado {
+  width: 100%;
+  height: 12px;
+  border: 1px solid #1b1f3b;
+}
+
+.atlas-marcas {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-causa {
+  margin-top: 2px;
+}
