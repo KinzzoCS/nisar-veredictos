@@ -27,7 +27,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 | RF-BAL-02 | Cada veredicto informa `interval_days` y la frescura del dato (edad y latencia), y los textos lo mencionan | Hecho |
 | RF-BAL-03 | Prueba automática de lenguaje: ninguna plantilla afirma causas, daños ni confirmaciones | Hecho |
 | RF-BAL-04 | Contraste óptico: escena Sentinel-2 anterior y posterior más cercana, con URL de tesela y licencia | Hecho |
-| RF-BAL-05 | La prueba de humo cubre todas las rutas nuevas, incluidas las de Antena | P0 |
+| RF-BAL-05 | La prueba de humo cubre todas las rutas nuevas, incluidas las de Antena | Hecho |
 | RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | P1 |
 | RF-BAL-07 | Contraste con OPERA DSWx-S1: acuerdo o desacuerdo sobre agua, presentado como desacuerdo y no como error | P1 |
 | RF-BAL-08 | Calibrar reglas con datos reales junto a Eco | P1 |
