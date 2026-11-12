@@ -66,6 +66,14 @@ Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-0
 - Cada serie contiene por completo la zona de `config/aois/parral.yaml`.
 - El marco 15 de T048 también cubre la presa La Boquilla.
 - Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
+- OPERA DSWx-S1 en Parral, consultado en CMR el 2026-11-11 (`OPERA_L3_DSWX-S1_V1`, ventana de la zona):
+  - Los 40 productos son 36 tras quitar 4 versiones reprocesadas (misma tesela y adquisición, otra producción), en 18 pasadas de Sentinel-1A (hasta el 06-27) y Sentinel-1D (desde el 09-14). Cada pasada trae las teselas 13RDK y 13RDL, y la caja de 13RDK contiene sola toda la zona.
+  - **No hay ningún producto entre el 2026-06-28 y el 2026-09-13.** 9 de las 19 fechas NISAR no tienen DSWx-S1 a ±7 días: T048 del 07-11 al 08-28 y T171 del 07-08 al 09-06. El par de la tormenta (06-29 a 07-08) solo tiene referencia antes.
+  - Los distribuye PO.DAAC, no ASF. Los GeoTIFF están en el bucket protegido: sin cuenta responden 401 y redirigen a Earthdata Login. La vista previa `_BROWSE.png` está en el bucket público y se lee sin cuenta (206 tras una redirección a CloudFront).
+  - CMR solo da la caja de la tesela (`boxes`), no polígonos.
+  - DOI `10.5067/OPDSWS1-L3V1`. Según el resumen de la colección, detecta masas de agua abiertas de más de 3 ha y 200 m de ancho, así que no sirve para ver calles inundadas.
+  - Horas entre adquisición y `updated` de CMR: de 16 a 1634, porque los productos de junio se reprocesaron a finales de agosto.
+  - `GET /aois/parral/references/opera` (T-ANT-06) probado contra CMR real el 2026-11-11: `date=2026-06-29` da 3 pasadas (-2, -2 y -7 días), `2026-07-08` da `acquisitions: []` y `2026-10-15` da 6 pasadas sin versiones repetidas. Todas con `covers_aoi`, vista previa pública y capa de confianza.
 - Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
 - Latencia de publicación medida el 2026-11-10 con `GET /aois/parral/timeline` contra CMR: entre 40 y 533 horas en las 19 pasadas. Se usa el campo `updated` de CMR, que en la revisión 1 coincide con la fecha `Insert` de UMM-G (comprobado en `G4240430318-ASF`). Si ASF reprocesa un gránulo, esa fecha se desplaza.
 - 2026-11-11, T-BAL-04 con la pila de Docker y Earth Search real: los 10 pares de T048 reciben escena de antes y de después, todas de las 17:46 UTC y con las 4 teselas. Solo dos lados quedan `cloudy` (la del 2026-07-03, con 39 %); el resto, `clear`. Una tesela TCI pedida por el gateway (`/tiles/cog/...url=https%3A%2F%2Fsentinel-cogs...`) devolvió PNG; fuera de la huella de su tesela MGRS, TiTiler responde 404.
@@ -107,7 +115,8 @@ Mismo equipo y comandos que arriba, sin `--limit`, con `catalog` local en lugar 
 - **Las 10 fechas de T048 tienen la misma malla, y T171 usa esa misma malla** (`xCoordinates` e `yCoordinates` iguales entre series, comprobado con h5py en las 9 fechas de T171 frente al 06-17 de T048). Las dos series se pueden comparar píxel a píxel sin remuestrear.
 - En todos los recortes, `identification/listOfObservationModes` vale `["(NOT SPECIFIED)"]`. No sirve para comprobar el modo; Eco lo avisó y se confirmó en los 19 recortes de Parral.
 - `mask` vale 1 en el 99,99 % de los píxeles en todas las fechas.
-- En T171, los gránulos del 09-18 y del 10-12 terminan en `_P05023_F_F_J_001`; los otros 17 de Parral terminan en `_P05023_N_F_J_001`. No se sabe qué indica esa `F`: hay que buscarlo en la convención de nombres antes de comparar esas fechas.
+- En T171, los gránulos del 09-18 y del 10-12 terminan en `_P05023_F_F_J_001`; los otros 17 de Parral terminan en `_P05023_N_F_J_001`. Según la guía de ASF (`nisar-docs.asf.alaska.edu/gcov/`, consultada el 2026-11-12), esa primera letra es la precisión de la órbita y del apuntamiento: P precisa, M media, N casi en tiempo real y F pronóstico. Sin embargo, el atributo `ORBIT_TYPE` de CMR vale `MOE` en los 9 gránulos de T171, incluidos los dos F (CMR, 2026-11-12). Eco midió que esas fechas no se desplazan más que las N, así que se pueden usar.
+- **T171 del 2026-08-13 queda fuera de la serie: el fallo es del producto, no del recorte.** Comprobado por Antena el 2026-11-12. El recorte da una mediana de HH de −5,2 dB, frente a −10,2 dB el 07-20 y −12,1 dB el 08-25. La vista previa `_LATLON.png` que publica ASF para ese gránulo (pública, sin cuenta) ya muestra la anomalía: no se ven la ciudad, los ríos ni las parcelas, hay relieve sombreado y rayas, mientras el 07-20 y el 08-25 se ven casi iguales. `ingest` no puede causarlo, porque toma la ventana de las coordenadas del propio gránulo y no modifica valores. `config/aois/parral.yaml` lo excluye con su evidencia (T-ANT-10): `catalog` lo quita de `/series` y de `/timeline` y lo lista en `excluded`, y `ingest` no lo trae. T171 queda con 8 fechas, y el intervalo del 07-20 al 08-25 es de 36 días y cruza el hueco (CMR real, 2026-11-12).
 - Recorte de La Boquilla para T-ECO-06: bbox `[-105.73, 27.46, -105.36, 27.60]`, que es el embalse según OpenStreetMap (`water reservoir`, consultado el 2026-11-11) con ~0,02° de margen. Cabe completo en el `boundingPolygon` del marco 15. Malla de 3660 × 1567 píxeles en EPSG:32613. Se eligió el 06-17 porque Sentinel-2 tiene una escena el 06-18 a las 17:46 UTC con 3,4 % de nubes, en una sola tesela (13RDL) que cubre toda la zona. No hay zona `boquilla` en `config/aois`: se trajo con un YAML temporal, así que `catalog` no la publica.
 
 ## Especificación GCOV
@@ -120,6 +129,12 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 - En los recortes reales de T048 (2026-11-11): `listOfObservationModes = ["(NOT SPECIFIED)"]`, `isMixedMode = "False"`, `listOfFrequencies = [A, B]`, `isGeocoded = "True"`; los booleanos son texto, no enteros. El recorte no trae el ancho de banda ni `listOfPolarizations`. Desde T-ECO-04, `processor` deduce la polarización de A por las capas presentes, rechaza modo mixto, productos sin HH+HV y nombres que contradicen capas o frecuencias, y solo toma del nombre el código de ancho de banda.
 - La especificación **no** menciona layover ni sombra.
 - Capas estáticas (`NISAR_L2_STATIC`): **todavía no se publican.** Comprobado el 2026-11-11 de dos formas. Primero, `identification/staticLayersDataAccess` apunta a `nisar-services.earthdata.nasa.gov/redirect/NISAR_L2_STATIC/<granule_id>.h5`, que responde 200 con una página que dice que no están disponibles. Segundo, CMR no tiene ninguna colección `NISAR*STATIC*`. Las colecciones L2 publicadas son GCOV, GSLC, GUNW y GOFF.
+- `metadata/radarGrid` **sí está** en los gránulos reales, en `/science/LSAR/GCOV/metadata/radarGrid`. Comprobado el 2026-11-12 por Antena leyendo por HTTPS el gránulo de T048 del 06-17.
+  - Cubos `(altura, y, x)` de 21 × 689 × 702: `incidenceAngle`, `elevationAngle`, `losUnitVectorX`, `losUnitVectorY`, `alongTrackUnitVectorX` y `alongTrackUnitVectorY` en Float32, y `slantRange`, `groundTrackVelocity` y `zeroDopplerAzimuthTime` en Float64. Bloques de 1 × 512 × 512 con gzip.
+  - Nodos cada 500 m (`yCoordinates` descendente) en EPSG:32613, con su propio `projection`. `heightAboveEllipsoid` va de −1000 a 9000 m cada 500 m.
+  - Desde T-ANT-11, `ingest` lo copia recortado a los nodos que rodean la ventana más 2 por lado: 21 × 106 × 116 en Parral, unos 11 MB más por recorte.
+  - Probado el 2026-11-12 con T048 del 06-17 y T171 del 06-26. Las capas de `frequencyA` salen idénticas a los recortes anteriores. La incidencia a 0 m sobre la zona va de 38,0° a 41,8° en T048 y de 39,5° a 43,2° en T171.
+  - `ingest` tardó 350 s y 370 s por fecha, frente a unos 130-160 s sin `radarGrid`. Falta saber si es la red o la lectura de los cubos.
 
 ## Caso de Parral
 
@@ -157,6 +172,15 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - Las máscaras difieren en área, no en posición: el radar ve oscuras zonas fuera del agua óptica, posiblemente orillas expuestas o suelo liso, y el óptico ve agua en el brazo del este que el radar no ve oscuro. Los umbrales se eligieron mirando esta misma escena y no están calibrados para otras.
   - La correlación de fase de las máscaras no sirvió (picos de 0,02 e inconsistentes) y se descartó.
   - Entre órbitas, T048 (06-17) frente a T171 (06-26 y 07-08) en Parral, la correlación de fase en 4 ventanas da 0,5-1,1 px en filas y menos de 0,6 px en columnas, de forma consistente. Se pueden cruzar las dos series con ese margen.
+- 2026-11-12, **layover y sombra (T-ECO-05)**, probado con geometría real.
+  - El recorte copia `metadata/radarGrid` desde el PR 25 de Antena (contrato en el PR 23). Probado con T048 del 06-17 y T171 del 06-26 de "data v3/radargrid" en Drive: cubos 21 × 106 × 116, EPSG:32613, nodos cada 500 m. Incidencia a 0 m: 38,0-41,8° en T048 y 39,5-43,2° en T171, creciendo hacia el alcance lejano. `losUnitVector` va del suelo al sensor (X medio +0,62 en T048 y −0,63 en T171); el código no depende de ese signo.
+  - Resultado (par 06-17→06-29 en T048 y 06-26→07-08 en T171): layover 0,05 % y 0,06 %; sombra 0,01 % y 0,00 %. Unos 45 s por par.
+  - Comprobación física: en T048 (sensor al este) el 100 % del layover está en laderas que miran al este y el 100 % de la sombra en laderas que miran al oeste; en T171, al revés. La pendiente media en layover es de unos 46°, por encima de la incidencia.
+  - El 98-99 % del layover ya salía como `low_looks`; ahora queda con la causa `terrain`. El layover no explica el 15 % de `low_looks` (son unos 15 000 de unos 4 millones de píxeles), que sigue pendiente para T-ECO-07.
+  - La sombra sale muy brillante en HH (+6 a +7 dB de mediana, frente a unos −11 dB de la escena). Hipótesis sin verificar: la corrección radiométrica de relieve de GCOV divide por un área iluminada casi nula.
+  - `processor run` usa `radarGrid` y el DEM de `data/dem/<zona>/` (`processor fetch-dem --aoi parral`: 2 teselas GLO-30, 77 MB, sin cuenta). Si falta alguno de los dos, no marca relieve y lo avisa en el manifiesto.
+  - Criterio local por pendiente en la dirección de alcance: layover si la ladera sube más que la incidencia; sombra si baja más que 90° menos la incidencia. No incluye sombras proyectadas por crestas.
+  - Coste medido con 2 fechas reales de T048, el DEM real y un `radarGrid` supuesto: +112 MB (1760 frente a 1648 MB de `ru_maxrss`) y unos 9 s más.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación

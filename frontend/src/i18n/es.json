@@ -1,0 +1,27 @@
+{
+  "app": {
+    "title": "NISAR Veredictos",
+    "tagline": "Qué cambió, qué no se detectó y qué no se puede saber, con los datos que lo respaldan."
+  },
+  "language": { "label": "Idioma", "es": "Español", "en": "English" },
+  "series": {
+    "heading": "Series disponibles",
+    "loading": "Cargando datos…",
+    "error": "No se pudo conectar con la API. Comprueba que la pila está levantada.",
+    "dates_one": "{{count}} fecha",
+    "dates_other": "{{count}} fechas",
+    "range": "del {{from}} al {{to}}",
+    "dataKind": "Datos",
+    "maturity": "Madurez"
+  },
+  "dataKind": { "real": "reales", "synthetic": "sintéticos" },
+  "map": {
+    "label": "Mapa",
+    "pending": "Aquí irá el mapa de Atlas.",
+    "bbox": "Encuadre (oeste, sur, este, norte)"
+  },
+  "footer": {
+    "attribution": "Datos NISAR: NASA e ISRO. Cada fuente externa se atribuye donde se muestra.",
+    "license": "Software libre bajo GPL-3.0-only."
+  }
+}
