@@ -121,7 +121,7 @@ def pair_summary(
     if lang == "es":
         if decision.state == rules.CHANGE_PROBABLE:
             detected = f"Entre {start} y {end} ({span}) cambió la señal de radar en el {changed} de la superficie observada."
-            limits = "No identifica la causa ni mide daños; la explicación requiere otra fuente o verificación en campo."
+            limits = "No identifica la causa ni mide sus consecuencias; explicarlo requiere otra fuente o verificación en campo."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
             detected = f"Entre {start} y {end} ({span}) no detectamos cambios sobre el umbral en el {observed} observado de la zona."
             limits = "No demuestra que nada cambiara: lo pequeño, lo breve o lo ocurrido entre pasadas puede no aparecer."
@@ -142,7 +142,7 @@ def pair_summary(
     else:
         if decision.state == rules.CHANGE_PROBABLE:
             detected = f"Between {start} and {end} ({span}), the radar signal changed over {changed} of the observed surface."
-            limits = "It does not identify the cause or measure damage; explaining it needs another source or field checks."
+            limits = "It does not identify the cause or measure its consequences; explaining it needs another source or field checks."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
             detected = f"Between {start} and {end} ({span}), we detected no change above the threshold in the {observed} of the area observed."
             limits = "It does not prove nothing changed: small, brief or between-pass changes may not appear."
