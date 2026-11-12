@@ -11,3 +11,4 @@
 | T-ANT-07 | Registro de ingesta por serie (`ingest.json`) | P1 | T-ANT-02 | pendiente |
 | T-ANT-08 | Ingesta de la serie T171 descendente | P1 | T-ANT-03 | hecha |
 | T-ANT-09 | Siguiente pasada desde el plan de observación de ASF | P2 | — | pendiente |
+| T-ANT-10 | Excluir gránulos defectuosos declarados en la zona (T171 del 2026-08-13) | P0 | — | hecha |

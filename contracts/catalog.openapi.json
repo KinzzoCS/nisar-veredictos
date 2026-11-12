@@ -37,6 +37,103 @@
         "title": "Aoi",
         "type": "object"
       },
+      "ExcludedGranule": {
+        "properties": {
+          "acquired_at": {
+            "description": "Inicio de la adquisición, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "checked_on": {
+            "description": "Fecha de la comprobación.",
+            "format": "date",
+            "title": "Checked On",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Cómo se comprobó.",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "id": {
+            "description": "granule_id excluido, el título de CMR sin extensión.",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Código del motivo. product_defect: el fallo está en el producto publicado.",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "acquired_at",
+          "reason",
+          "evidence",
+          "checked_on"
+        ],
+        "title": "ExcludedGranule",
+        "type": "object"
+      },
+      "ExcludedPass": {
+        "properties": {
+          "acquired_at": {
+            "description": "Inicio de la adquisición, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "checked_on": {
+            "description": "Fecha de la comprobación.",
+            "format": "date",
+            "title": "Checked On",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Cómo se comprobó.",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "id": {
+            "description": "granule_id excluido, el título de CMR sin extensión.",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Código del motivo. product_defect: el fallo está en el producto publicado.",
+            "title": "Reason",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "acquired_at",
+          "reason",
+          "evidence",
+          "checked_on",
+          "series"
+        ],
+        "title": "ExcludedPass",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -456,11 +553,20 @@
             "title": "Direction",
             "type": "string"
           },
+          "excluded": {
+            "description": "Gránulos de la serie que existen en CMR pero se declararon inservibles en la zona.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedGranule"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
           "frame": {
             "title": "Frame",
             "type": "integer"
           },
           "granules": {
+            "description": "Fechas utilizables, sin las excluidas.",
             "items": {
               "$ref": "#/components/schemas/SeriesGranule"
             },
@@ -508,7 +614,8 @@
           "contains_aoi",
           "max_gap_days",
           "spans_data_gap",
-          "granules"
+          "granules",
+          "excluded"
         ],
         "title": "SeriesOut",
         "type": "object"
@@ -583,6 +690,14 @@
             "title": "Aoi",
             "type": "string"
           },
+          "excluded": {
+            "description": "Pasadas que existen pero se declararon inservibles; no están en passes ni en intervals.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedPass"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
           "gaps": {
             "items": {
               "$ref": "#/components/schemas/TimelineGap"
@@ -624,7 +739,8 @@
           "passes",
           "intervals",
           "gaps",
-          "next_pass_estimates"
+          "next_pass_estimates",
+          "excluded"
         ],
         "title": "TimelineOut",
         "type": "object"

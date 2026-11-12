@@ -217,3 +217,19 @@ def test_multiple_versions_are_not_chosen_silently():
     candidates = [{"id": "a", "track": 48, "direction": "A", "frame": 15}, {"id": "b", "track": 48, "direction": "A", "frame": 15}]
     with pytest.raises(FetchError):
         select_series(candidates, SERIES)
+
+
+def test_excluded_granule_is_never_fetched_and_limit_counts_usable_ones(tmp_path, nasa):
+    state, base = nasa
+    aoi = {**AOI, "series": [{**SERIES, "exclude": [{"granule": "GRANULE_0", "reason": "product_defect"}]}]}
+    result = run(tmp_path, catalog_with(f"{base}/g0.h5", f"{base}/g1.h5"), limit=1, aoi=aoi)
+    assert result.excluded == ["GRANULE_0"] and result.written == ["GRANULE_1"]
+    assert not (result.target / "GRANULE_0.h5").exists() and result.stale == []
+
+
+def test_excluded_file_already_on_disk_is_reported_not_deleted(tmp_path, nasa):
+    _, base = nasa
+    run(tmp_path, catalog_with(f"{base}/g0.h5"))
+    aoi = {**AOI, "series": [{**SERIES, "exclude": [{"granule": "GRANULE_0", "reason": "product_defect"}]}]}
+    result = run(tmp_path, catalog_with(f"{base}/g0.h5"), aoi=aoi)
+    assert result.stale == ["GRANULE_0"] and (result.target / "GRANULE_0.h5").exists()

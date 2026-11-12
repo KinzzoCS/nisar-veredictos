@@ -5,7 +5,7 @@ import asyncio
 import json
 import urllib.error
 import urllib.request
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable
 from urllib.parse import quote, urlsplit
@@ -30,6 +30,8 @@ class FetchResult:
     target: Path
     written: list[str]
     skipped: list[str]
+    excluded: list[str] = field(default_factory=list)  # Declarados inservibles en la zona; no se traen.
+    stale: list[str] = field(default_factory=list)  # Excluidos que siguen en disco; processor los leería.
 
 
 def is_nasa_url(url: str) -> bool:
@@ -99,11 +101,17 @@ def fetch_series(
 
     available = json_getter(f"{catalog_url.rstrip('/')}/aois/{quote(aoi['id'], safe='')}/series")
     granules = select_series(available, wanted)["granules"]
+    # Se aplica aquí también, por si catalog todavía no conoce la exclusión.
+    banned = {entry["granule"] for entry in wanted.get("exclude") or []}
+    excluded = [granule["id"] for granule in granules if granule["id"] in banned]
+    granules = [granule for granule in granules if granule["id"] not in banned]
+
     if limit is not None:
         granules = granules[:limit]
 
     target = data_dir / "raw" / "real" / aoi["id"] / series_id
     target.mkdir(parents=True, exist_ok=True)
+    stale = sorted(name for name in banned if (target / f"{name}.h5").exists())
     written, skipped = [], []
     for granule in granules:
         url = granule["download_url"]
@@ -115,4 +123,4 @@ def fetch_series(
             continue
         _subset_one(granule, aoi["bbox"], wanted, destination, token, block_size)
         written.append(granule["id"])
-    return FetchResult(target=target, written=written, skipped=skipped)
+    return FetchResult(target=target, written=written, skipped=skipped, excluded=excluded, stale=stale)

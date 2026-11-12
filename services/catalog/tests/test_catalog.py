@@ -468,3 +468,48 @@ def test_opera_api_validates_parameters():
 def test_opera_failure_is_502():
     response = opera_client(BrokenOpera()).get("/aois/parral/references/opera?date=2026-06-29")
     assert response.status_code == 502 and "OPERA" in response.json()["detail"]
+
+
+# --- Gránulos excluidos (T-ANT-10) ---
+
+T171_TITLE = "NISAR_L2_PR_GCOV_027_171_D_075_4005_DHDH_A_{d}T014433_{d}T014508_P05023_N_F_J_001"
+T171_BAD = T171_TITLE.format(d="20260813")
+
+
+def t171(day: str):
+    return parse_title(T171_TITLE.format(d=day), 6700.0, BIG)
+
+
+def test_parral_config_excludes_t171_august_13():
+    from catalog.main import _exclusions, _load_aois
+
+    entry = _exclusions(_load_aois(ROOT / "config" / "aois")["parral"])[T171_BAD]
+    assert entry["reason"] == "product_defect" and str(entry["checked_on"]) == "2026-11-12"
+
+
+def test_excluded_granule_leaves_series_but_is_listed_with_its_reason():
+    source = ListSource([t171("20260720"), t171("20260813"), t171("20260825")])
+    body = TestClient(create_app(ROOT / "config" / "aois", source)).get("/aois/parral/series").json()
+    (series,) = body
+    assert [g["date"] for g in series["granules"]] == ["2026-07-20", "2026-08-25"]
+    assert series["max_gap_days"] == 36 and series["spans_data_gap"]
+    (excluded,) = series["excluded"]
+    assert excluded["id"] == T171_BAD and excluded["date"] == "2026-08-13"
+    assert excluded["reason"] == "product_defect" and excluded["checked_on"] == "2026-11-12"
+    assert excluded["acquired_at"] == "2026-08-13T01:44:33Z" and "\n" not in excluded["evidence"]
+
+
+def test_excluded_granule_leaves_timeline_passes_and_intervals():
+    source = ListSource([t171("20260720"), t171("20260813"), t171("20260825")])
+    body = timeline_client(source).get("/aois/parral/timeline").json()
+    assert T171_BAD not in [p["granule_id"] for p in body["passes"]]
+    (interval,) = body["intervals"]
+    assert interval["days"] == 36 and interval["crosses_gap"]
+    (excluded,) = body["excluded"]
+    assert excluded["series"] == "T171D-F075-4005-DHDH-P05023" and excluded["id"] == T171_BAD
+
+
+def test_no_exclusions_means_empty_lists():
+    assert client().get("/aois/parral/series").json()[0]["excluded"] == []
+    body = timeline_client(ListSource([granule("20260617")])).get("/aois/parral/timeline").json()
+    assert body["excluded"] == []
