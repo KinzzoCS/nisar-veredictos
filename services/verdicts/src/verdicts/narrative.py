@@ -316,3 +316,115 @@ def optical_text(
                 "The optical image gives context and does not explain the radar signal on its own."
             )
     return " ".join(parts)
+
+
+# --- T-BAL-08: contraste con OPERA DSWx-S1 ------------------------------------------------
+
+WATER_ROLE = {
+    "es": {"before": "la primera fecha de radar", "after": "la segunda fecha de radar"},
+    "en": {"before": "the first radar date", "after": "the second radar date"},
+}
+
+WATER_NOT_COMPARED = {
+    "es": {
+        "synthetic": "no se compara con datos de radar sintéticos",
+        "no_credentials": "no se comparó porque el servicio no tiene acceso a sus archivos (requieren cuenta de Earthdata)",
+        "read_failed": "no se pudo leer su capa de agua, así que no se compara",
+        "no_overlap": "no tiene píxeles válidos en común con el radar dentro de la zona",
+    },
+    "en": {
+        "synthetic": "it is not compared with synthetic radar data",
+        "no_credentials": "it was not compared because the service has no access to its files (they need an Earthdata account)",
+        "read_failed": "its water layer could not be read, so it is not compared",
+        "no_overlap": "it shares no valid pixels with the radar inside the area",
+    },
+}
+
+
+def _share(fraction: float, lang: Lang) -> str:
+    if 0 < fraction < 0.001:
+        return "< 0,1 %" if lang == "es" else "< 0.1 %"
+    return _percent(fraction * 100, lang)
+
+
+def _water_side(side: str, values: dict, lang: Lang, search_days: int) -> str:
+    """values: status, product_date, days, assessment, basis, iou, radar, reference (fracciones)."""
+    radar = WATER_ROLE[lang][side]
+    status, days = values["status"], values.get("days")
+    window = _days(search_days, lang)
+    if lang == "es":
+        if status == "catalog_unavailable":
+            return f"No se sabe si hay producto de agua OPERA DSWx-S1 cerca de {radar}: el catálogo no respondió."
+        if status == "none_in_window":
+            return f"No hay producto de agua OPERA DSWx-S1 a {window} o menos de {radar}; no hay contraste."
+        offset = f"el mismo día que {radar}" if days == 0 else (
+            f"{_days(abs(days), lang)} {'antes' if days < 0 else 'después'} de {radar}")
+        product = f"OPERA DSWx-S1 del {values['product_date']} ({offset})"
+        if status != "compared":
+            return f"Hay un producto {product}, pero {WATER_NOT_COMPARED[lang][status]}."
+        shares = f"radar {_share(values['radar'], lang)} y DSWx-S1 {_share(values['reference'], lang)} de los píxeles comparables"
+        if values["basis"] == "little_water":
+            return f"{product} y el radar coinciden: ninguno de los dos ve agua apreciable en la zona ({shares})."
+        iou = _share(values["iou"] or 0.0, lang)
+        if values["assessment"] == "agree":
+            return (f"{product} y el radar coinciden en dónde hay agua: comparten el {iou} de los píxeles "
+                    f"que alguno de los dos marca como agua ({shares}).")
+        return (f"{product} y el radar no coinciden en dónde hay agua: solo comparten el {iou} de los píxeles "
+                f"que alguno de los dos marca como agua ({shares}). Es un desacuerdo entre dos métodos "
+                "y no indica cuál de los dos acierta.")
+    if status == "catalog_unavailable":
+        return f"It is unknown whether there is an OPERA DSWx-S1 water product near {radar}: the catalog did not respond."
+    if status == "none_in_window":
+        return f"There is no OPERA DSWx-S1 water product within {window} of {radar}; there is no cross-check."
+    offset = f"the same day as {radar}" if days == 0 else (
+        f"{_days(abs(days), lang)} {'before' if days < 0 else 'after'} {radar}")
+    product = f"OPERA DSWx-S1 from {values['product_date']} ({offset})"
+    if status != "compared":
+        return f"There is a product, {product}, but {WATER_NOT_COMPARED[lang][status]}."
+    shares = f"radar {_share(values['radar'], lang)} and DSWx-S1 {_share(values['reference'], lang)} of comparable pixels"
+    if values["basis"] == "little_water":
+        return f"{product} and the radar agree: neither sees noticeable water in the area ({shares})."
+    iou = _share(values["iou"] or 0.0, lang)
+    if values["assessment"] == "agree":
+        return (f"{product} and the radar agree on where there is water: they share {iou} of the pixels "
+                f"either one marks as water ({shares}).")
+    return (f"{product} and the radar disagree on where there is water: they share only {iou} of the pixels "
+            f"either one marks as water ({shares}). This is a disagreement between two methods "
+            "and does not tell which one is right.")
+
+
+def water_text(
+    before: dict,
+    after: dict,
+    lang: Lang,
+    *,
+    search_days: int,
+    min_water_body_ha: float | None,
+    min_water_body_width_m: float | None,
+    hh_db: float,
+    hv_db: float,
+) -> str:
+    """Resumen del contraste de agua: un texto por lado y, si hay producto, sus límites."""
+    if before["status"] == after["status"] == "catalog_unavailable":
+        if lang == "es":
+            return "No se sabe si hay productos de agua OPERA DSWx-S1: el catálogo no respondió."
+        return "It is unknown whether there are OPERA DSWx-S1 water products: the catalog did not respond."
+    parts = [_water_side(side, values, lang, search_days) for side, values in (("before", before), ("after", after))]
+    found = [values for values in (before, after) if values["status"] not in ("catalog_unavailable", "none_in_window")]
+    if found and min_water_body_ha is not None and min_water_body_width_m is not None:
+        ha = _hours(min_water_body_ha, lang).removesuffix(",0").removesuffix(".0")
+        width = _hours(min_water_body_width_m, lang).removesuffix(",0").removesuffix(".0")
+        if lang == "es":
+            parts.append(f"DSWx-S1 solo detecta masas de agua abiertas de más de {ha} ha y {width} m de ancho: "
+                         "no ver agua en él no descarta agua en calles o charcos.")
+        else:
+            parts.append(f"DSWx-S1 only detects open water bodies larger than {ha} ha and {width} m wide: "
+                         "seeing no water in it does not rule out water in streets or puddles.")
+    if any(values["status"] == "compared" for values in found):
+        hh, hv = _hours(hh_db, lang), _hours(hv_db, lang)
+        if lang == "es":
+            parts.append(f"El agua del radar es la de los píxeles con HH < {hh} dB y HV < {hv} dB, "
+                         "umbrales sin calibrar.")
+        else:
+            parts.append(f"Radar water means pixels with HH < {hh} dB and HV < {hv} dB, uncalibrated thresholds.")
+    return " ".join(parts)

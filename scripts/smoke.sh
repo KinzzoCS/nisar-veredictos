@@ -254,6 +254,17 @@ for verdict in d:
     assert optical['before']['status'] and optical['after']['status'] and optical['text'], verdict['id']
 "
 
+# T-BAL-08: contraste con OPERA DSWx-S1. Con radar sintético se lista el producto pero nunca se compara.
+check "veredictos: contraste de agua" verdicts "
+for verdict in d:
+    water = verdict['evidence']['water']
+    assert water['data_kind'] == 'real' and water['text'], verdict['id']
+    for side in (water['before'], water['after']):
+        assert side['status'], verdict['id']
+        if verdict['receipt']['data_kind'] == 'synthetic':
+            assert side['status'] != 'compared' and side['assessment'] is None, verdict['id']
+"
+
 # El bucket público de Sentinel-2 sí pasa el filtro (sin red, TiTiler responde otro error, no 403).
 S2_URL="https%3A%2F%2Fsentinel-cogs.s3.us-west-2.amazonaws.com%2Fsentinel-s2-l2a-cogs%2F13%2FR%2FCK%2F2026%2F6%2FS2C_13RCK_20260628_0_L2A%2FTCI.tif"
 code=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/tiles/cog/info?url=$S2_URL")

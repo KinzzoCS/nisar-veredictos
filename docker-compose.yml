@@ -41,6 +41,11 @@ services:
 
   verdicts:
     build: ./services/verdicts
+    # EARTHDATA_TOKEN opcional: con él, verdicts lee la capa de agua de OPERA DSWx-S1 y la compara
+    # con el radar real (T-BAL-08). Sin él, lista el producto y declara que no se comparó.
+    env_file:
+      - path: .env
+        required: false
     environment:
       ARTIFACT_ROOT: /data/artifacts
       # Línea de tiempo de Antena: hora UTC de adquisición y latencia de publicación (T-BAL-02).
