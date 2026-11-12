@@ -145,6 +145,12 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - Las máscaras difieren en área, no en posición: el radar ve oscuras zonas fuera del agua óptica, posiblemente orillas expuestas o suelo liso, y el óptico ve agua en el brazo del este que el radar no ve oscuro. Los umbrales se eligieron mirando esta misma escena y no están calibrados para otras.
   - La correlación de fase de las máscaras no sirvió (picos de 0,02 e inconsistentes) y se descartó.
   - Entre órbitas, T048 (06-17) frente a T171 (06-26 y 07-08) en Parral, la correlación de fase en 4 ventanas da 0,5-1,1 px en filas y menos de 0,6 px en columnas, de forma consistente. Se pueden cruzar las dos series con ese margen.
+- 2026-11-12, **layover y sombra (T-ECO-05)**: el código está listo, pero falta la geometría.
+  - El recorte no trae la geometría del radar, y el rango de incidencia no aparece en las páginas de ASF ni de la NASA consultadas. La NASA sí publica que NISAR mira a la izquierda y que la inclinación es de 98,4°.
+  - El GCOV completo trae los cubos `metadata/radarGrid` (`incidenceAngle`, `losUnitVectorX/Y`). El PR 23 propone a Antena copiarlos en el recorte; las rutas exactas salen de la página de metadatos de ASF y falta comprobarlas en un gránulo real.
+  - `processor run` usa `radarGrid` y el DEM de `data/dem/<zona>/` (`processor fetch-dem --aoi parral`: 2 teselas GLO-30, 77 MB, sin cuenta). Si falta alguno de los dos, no marca relieve y lo avisa en el manifiesto.
+  - Criterio local por pendiente en la dirección de alcance: layover si la ladera sube más que la incidencia; sombra si baja más que 90° menos la incidencia. No incluye sombras proyectadas por crestas.
+  - Medido con 2 fechas reales de T048, el DEM real y un `radarGrid` **supuesto** (33-47°): +112 MB (1760 frente a 1648 MB de `ru_maxrss`) y unos 9 s más. Con esa geometría supuesta saldría un 0,02 % de layover y un 0,02 % de sombra; no es un resultado.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
