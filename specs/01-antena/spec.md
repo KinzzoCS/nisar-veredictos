@@ -33,11 +33,11 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 
 ## Criterios de aceptación
 
-- [ ] `ingest fetch --limit 2` con un token real deja dos recortes que `processor run` procesa sin errores.
+- [x] `ingest fetch --limit 2` con un token real deja dos recortes que `processor run` procesa sin errores.
 - [x] La línea de tiempo de Parral muestra el hueco del 27 de julio al 10 de agosto y un intervalo de 24 días a su través.
 - [ ] Todas las horas de la API están en UTC con formato ISO 8601.
 - [ ] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
-- [ ] Las fuentes ópticas no requieren cuenta y su licencia queda citada.
+- [x] Las fuentes ópticas no requieren cuenta y su licencia queda citada.
 
 ## Interfaces
 

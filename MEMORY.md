@@ -4,8 +4,9 @@ Contexto compartido para personas y agentes. Fechas absolutas; indica cómo se c
 
 ## Estado
 
-- 2026-11-09: esqueleto completo con datos sintéticos. **Todavía no se ha abierto ningún gránulo real.**
-- Evento: 14 y 15 de noviembre de 2026, según una fuente secundaria. Falta confirmarlo.
+- 2026-11-09: esqueleto completo con datos sintéticos.
+- 2026-11-11: **primeros recortes reales.** `ingest fetch --limit 2` trajo T048 del 06-17 y del 06-29, y `processor run` los procesó sin errores (T-ANT-03). Detalle en "Datos verificados".
+- Evento: sábado 14 y domingo 15 de noviembre de 2026. Confirmado por el equipo el 2026-11-11.
 - 2026-11-09: el equipo confirma que las reglas permiten llevar avances al evento.
 - 2026-11-10: roles asignados y especificaciones SDD en `specs/`.
 
@@ -57,7 +58,28 @@ Consultados en CMR el 2026-11-09, con `NISAR_L2_GCOV_PROVISIONAL_V1`, del 2026-0
 - Referencia OPERA: 40 productos DSWx-S1 en la zona dentro de la ventana. DIST-ALERT-S1 tiene 0 en la ventana.
 - Hueco permanente de adquisición del 2026-07-27 al 2026-08-10 (ASF).
 - Latencia de publicación medida el 2026-11-10 con `GET /aois/parral/timeline` contra CMR: entre 40 y 533 horas en las 19 pasadas. Se usa el campo `updated` de CMR, que en la revisión 1 coincide con la fecha `Insert` de UMM-G (comprobado en `G4240430318-ASF`). Si ASF reprocesa un gránulo, esa fecha se desplaza.
+- Sentinel-2 en Earth Search, consultado el 2026-11-11 con `GET /aois/parral/references/optical`: la zona cae en 4 teselas MGRS (13RCK, 13RDK, 13RCL y 13RDL). Las pasadas de las 17:46 UTC la cubren entera; las de las 17:56 UTC, solo en parte. Para la tormenta del 1 de julio, con nubosidad de hasta 30 % por tesela, solo hay imagen previa (2026-06-28, 26,6 %). La primera posterior que cubre la zona es la del 2026-07-03, con 39 %.
 - Cada gránulo tiene un enlace HTTPS directo en `nisar.asf.earthdatacloud.nasa.gov` (CMR, 2026-11-09). Sin token válido, NASA rechaza la lectura.
+
+### Primera lectura real (2026-11-11)
+
+Medido en el equipo de Antena (Windows, Python 3.10, fuera de Docker) con `ingest fetch --aoi parral --series T048A-F015 --limit 2` y `processor run` sobre esos recortes.
+
+| Medida | Valor |
+|---|---|
+| Recortes | 2, de unos 312 MB cada uno (624 MB en disco) |
+| Tiempo de `ingest` | 324 s para los dos, unos 2,7 min por fecha |
+| RAM máxima de `ingest` | 747 MB |
+| Red recibida | ~1,9 GB para los dos (contador de todo el equipo, aproximado), frente a ~14 GB de los gránulos completos |
+| Tiempo de `processor` | 80 s para 2 fechas y 1 par |
+| RAM máxima de `processor` | 2,25 GB con 2 fechas |
+
+- Malla: EPSG:32613 (UTM 13N), paso de 10 m, 5014 × 5488 píxeles. **Las mallas de las dos fechas son idénticas** (`xCoordinates` e `yCoordinates` iguales).
+- Capas presentes: `HHHH`, `HVHV`, `mask`, `numberOfLooks`, `inputDataExceptionMask` y `projection`.
+- `mask`: 99,99 % con valor 1 y 0,01 % con valor 0. `inputDataExceptionMask` vale 0 en todo el recorte.
+- `HHHH` en dB (p5/p50/p95): -17,3/-10,6/-4,0 el 06-17 y -18,5/-11,4/-4,7 el 06-29.
+- Par 06-17 a 06-29 con los umbrales sin calibrar: 3,5 % `change_probable`, y 15 % de los píxeles marcados como `low_looks` (código 13). Eco y Balanza deben revisar ese 15 %.
+- Identificador del gránulo, comprobado el 2026-11-11 en los dos recortes: el `granule_id` de catalog (campo `title` de CMR), el nombre del archivo que escribe `ingest` y el texto del gránulo dentro del HDF5 son idénticos, sin extensión ni sufijos. Se comprobó buscando el identificador en los bytes de cada archivo: aparece un único identificador `NISAR_L2_PR_GCOV_…`, tres veces, igual al nombre. No se leyó `identification/granuleId` con h5py, y falta comprobarlo en T171.
 
 ## Especificación GCOV
 
@@ -78,15 +100,14 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
 
 - Enunciado oficial de 2026.
 - Lista de recursos oficial del reto.
-- Lectura real de un gránulo: troceado HDF5, velocidad por HTTPS y si las mallas coinciden entre fechas. `processor` rechaza mallas distintas.
+- Troceado HDF5 de los gránulos reales. Velocidad y coincidencia de mallas ya se verificaron con T048 (ver "Primera lectura real"); falta comprobar las mallas en T171 y en más fechas. `processor` rechaza mallas distintas.
 - Harmony para extraer capas GCOV.
 - Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION` y las firmas por polarización son valores iniciales sin calibrar con banda L.
 
 ## Pendientes
 
-- Cuenta de Earthdata del equipo: el 2026-11-09 el equipo la reportó caída y no se pudo crear.
-- Probar `ingest fetch` con un token real. Se verificó con un servidor HTTP local (rangos, token, redirección a otro origen), no contra un gránulo NASA.
-- Vigilar memoria en `processor`: a 10 m, 10 fechas de la zona completa ocuparían unos 4 GB de RAM. Empezar con `--limit 2` (T-ECO-02).
+- 2026-11-11: Antena creó la cuenta de Earthdata. El token vive solo en el `.env` local, que git ignora, y **no se comparte**. Antena trae los recortes y los pasa como archivos. Si otra persona necesita leer de NASA, crea su propia cuenta de Earthdata (gratuita) y su propio token.
+- Vigilar memoria en `processor`: con 2 fechas reales usó 2,25 GB, más de lo que se estimaba (unos 4 GB para 10 fechas). Con las 10 fechas cargadas a la vez probablemente no cabe; conviene procesar por pares (T-ECO-02).
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación

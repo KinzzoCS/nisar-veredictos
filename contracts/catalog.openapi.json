@@ -76,6 +76,159 @@
         "title": "NextPassEstimate",
         "type": "object"
       },
+      "OpticalAcquisition": {
+        "properties": {
+          "acquired_at": {
+            "description": "Hora UTC de la primera tesela de la adquisición.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "covers_aoi": {
+            "description": "Las teselas juntas cubren toda la zona.",
+            "title": "Covers Aoi",
+            "type": "boolean"
+          },
+          "days_from_date": {
+            "description": "Días respecto a la fecha pedida; negativo si es anterior.",
+            "title": "Days From Date",
+            "type": "integer"
+          },
+          "max_cloud_cover": {
+            "description": "Mayor nubosidad entre sus teselas. Es de la tesela, no de la zona.",
+            "title": "Max Cloud Cover",
+            "type": "number"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "tiles": {
+            "items": {
+              "$ref": "#/components/schemas/OpticalTile"
+            },
+            "title": "Tiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platform",
+          "acquired_at",
+          "days_from_date",
+          "covers_aoi",
+          "max_cloud_cover",
+          "tiles"
+        ],
+        "title": "OpticalAcquisition",
+        "type": "object"
+      },
+      "OpticalOut": {
+        "properties": {
+          "acquisitions": {
+            "items": {
+              "$ref": "#/components/schemas/OpticalAcquisition"
+            },
+            "title": "Acquisitions",
+            "type": "array"
+          },
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "attribution": {
+            "description": "Texto de atribución que debe mostrarse junto a la imagen.",
+            "title": "Attribution",
+            "type": "string"
+          },
+          "cloud_cover_basis": {
+            "const": "tile",
+            "description": "La nubosidad es la de cada tesela MGRS completa; la zona puede estar más o menos nublada.",
+            "title": "Cloud Cover Basis",
+            "type": "string"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "license": {
+            "title": "License",
+            "type": "string"
+          },
+          "license_url": {
+            "title": "License Url",
+            "type": "string"
+          },
+          "max_cloud": {
+            "title": "Max Cloud",
+            "type": "number"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "aoi",
+          "date",
+          "days",
+          "max_cloud",
+          "source",
+          "collection",
+          "license",
+          "license_url",
+          "attribution",
+          "cloud_cover_basis",
+          "acquisitions"
+        ],
+        "title": "OpticalOut",
+        "type": "object"
+      },
+      "OpticalTile": {
+        "properties": {
+          "acquired_at": {
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "cloud_cover": {
+            "description": "Porcentaje de nubes de la tesela completa, no de la zona.",
+            "title": "Cloud Cover",
+            "type": "number"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "tile": {
+            "description": "Tesela MGRS de unos 110 km de lado.",
+            "title": "Tile",
+            "type": "string"
+          },
+          "visual_url": {
+            "description": "COG en color verdadero (TCI), legible por HTTPS sin cuenta.",
+            "title": "Visual Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tile",
+          "acquired_at",
+          "cloud_cover",
+          "visual_url"
+        ],
+        "title": "OpticalTile",
+        "type": "object"
+      },
       "SeriesGranule": {
         "properties": {
           "date": {
@@ -418,6 +571,85 @@
           }
         },
         "summary": "Aois"
+      }
+    },
+    "/aois/{aoi_id}/references/optical": {
+      "get": {
+        "operationId": "optical_aois__aoi_id__references_optical_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi_id",
+            "required": true,
+            "schema": {
+              "title": "Aoi Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha de referencia, normalmente la de una pasada NISAR.",
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "description": "Fecha de referencia, normalmente la de una pasada NISAR.",
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Días antes y después de la fecha.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "Días antes y después de la fecha.",
+              "maximum": 30,
+              "minimum": 0,
+              "title": "Days",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "Nubosidad máxima por tesela, en %. Valor inicial sin calibrar.",
+            "in": "query",
+            "name": "max_cloud",
+            "required": false,
+            "schema": {
+              "default": 30,
+              "description": "Nubosidad máxima por tesela, en %. Valor inicial sin calibrar.",
+              "maximum": 100,
+              "minimum": 0,
+              "title": "Max Cloud",
+              "type": "number"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OpticalOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Optical"
       }
     },
     "/aois/{aoi_id}/series": {
