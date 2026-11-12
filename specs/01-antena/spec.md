@@ -24,10 +24,10 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 | ID | Requisito | Prioridad |
 |---|---|---|
 | RF-ANT-01 | Listar series comparables por zona sin mezclar pista, dirección, marco, modo, polarización ni CRID | Hecho |
-| RF-ANT-02 | Traer por HTTPS solo el recorte de la zona, de forma reanudable y sin exponer el token | P0 |
-| RF-ANT-03 | Publicar una línea de tiempo por zona: pasadas con hora UTC, intervalo en días, huecos y latencia de publicación | P0 |
-| RF-ANT-04 | Estimar la siguiente pasada y marcarla como estimación | P1 |
-| RF-ANT-05 | Listar escenas Sentinel-2 L2A por fecha, dentro de ±N días y con nubosidad máxima configurable | P1 |
+| RF-ANT-02 | Traer por HTTPS solo el recorte de la zona, de forma reanudable y sin exponer el token | Hecho (T-ANT-02, T-ANT-03) |
+| RF-ANT-03 | Publicar una línea de tiempo por zona: pasadas con hora UTC, intervalo en días, huecos y latencia de publicación | Hecho (T-ANT-04) |
+| RF-ANT-04 | Estimar la siguiente pasada y marcarla como estimación | Hecho con el ciclo de 12 días (T-ANT-04); T-ANT-09 lo mejoraría con el plan de ASF |
+| RF-ANT-05 | Listar escenas Sentinel-2 L2A por fecha, dentro de ±N días y con nubosidad máxima configurable | Hecho (T-ANT-05) |
 | RF-ANT-06 | Listar productos OPERA DSWx-S1 a ±7 días de cada fecha NISAR | P1 |
 | RF-ANT-07 | Dejar un registro de ingesta por serie: gránulo, bytes, segundos y fecha de publicación | P1 |
 
