@@ -182,6 +182,11 @@ get event145 "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE&persistence_hours=
 grep -q '"cause":"timing_uncertain"' "$TMP/event145.json" || fail "evento: 145 h sin hora"
 get event_time "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE&persistence_hours=145&time=12:00"
 grep -q '"event_time":"12:00:00"' "$TMP/event_time.json" || fail "evento: hora UTC"
+# T-BAL-06: la persistencia por tipo de evento sale declarada como supuesto.
+get event_type "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE&event_type=urban_storm"
+grep -q '"persistence_hours":6' "$TMP/event_type.json" || fail "evento: persistencia por tipo"
+grep -q '"source":"event_type"' "$TMP/event_type.json" || fail "evento: origen del supuesto"
+grep -q '"calibrated":false' "$TMP/event_type.json" || fail "evento: supuesto sin calibrar"
 covered verdicts "/aois/{aoi}/events"
 
 get verdicts "/api/verdicts/aois/$AOI/series/$SERIES/verdicts"

@@ -70,6 +70,31 @@ def hypotheses(signature_counts: dict[str, int]) -> list[str]:
 
 DAY = timedelta(days=1)
 
+# Persistencias supuestas por tipo de evento, en horas. Valores iniciales sin calibrar: se
+# devuelven siempre como supuesto en la respuesta, nunca como medición.
+PERSISTENCE_BY_EVENT_TYPE = {
+    "urban_storm": 6,
+    "river_flood": 72,
+    "wildfire": 240,
+}
+DEFAULT_PERSISTENCE_HOURS = 24
+
+
+@dataclass(frozen=True)
+class Persistence:
+    hours: int
+    source: str  # "event_type", "user" o "default"
+    event_type: str | None
+
+
+def persistence(event_type: str | None, hours: int | None) -> Persistence:
+    """Horas que se suponen para el evento: las indicadas, las del tipo o el valor por omisión."""
+    if hours is not None:
+        return Persistence(hours, "user", event_type)
+    if event_type is not None:
+        return Persistence(PERSISTENCE_BY_EVENT_TYPE[event_type], "event_type", event_type)
+    return Persistence(DEFAULT_PERSISTENCE_HOURS, "default", None)
+
 
 def _span(day: date, at: datetime | None) -> tuple[datetime, datetime]:
     """Intervalo UTC en que cae algo: el instante si se conoce la hora, o el día completo si no."""

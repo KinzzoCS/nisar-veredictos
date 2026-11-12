@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Callable, Literal
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from . import narrative, optical, rules
@@ -181,13 +181,30 @@ class SeriesInfo(BaseModel):
     dates: list[dt.date]
 
 
+EventType = Literal["urban_storm", "river_flood", "wildfire"]
+
+
+class PersistenceAssumption(BaseModel):
+    persistence_hours: int = Field(description="Horas que se supone que dura el evento. Nunca es una medición.")
+    source: Literal["event_type", "user", "default"] = Field(
+        description="event_type: valor de la tabla por tipo; user: persistence_hours de la consulta; "
+        "default: valor por omisión, sin tipo ni horas."
+    )
+    event_type: EventType | None
+    calibrated: bool = Field(description="Siempre false: las persistencias son valores iniciales sin calibrar.")
+    hours_by_event_type: dict[str, int] = Field(description="Tabla completa de persistencias supuestas, en horas.")
+    text: str = Field(description="El supuesto redactado en el idioma pedido; también va en summary.does_not_prove.")
+
+
 class EventVerdict(BaseModel):
     aoi: str
     event_date: dt.date
     event_time: dt.time | None = Field(
         description="Hora UTC de inicio del evento, si se indicó. Sin ella, puede empezar en cualquier momento de su día."
     )
+    event_type: EventType | None = Field(description="Tipo de evento indicado en la consulta, si lo hay.")
     persistence_hours: int
+    assumption: PersistenceAssumption
     state: Literal["observable", "not_observable"] = Field(
         description="Responde otra pregunta que los pares: si alguna pasada cayó mientras duraba el evento, en horas UTC. "
         "observable exige que caiga dentro en todos los casos posibles y no afirma ningún cambio: hay que consultar "
@@ -523,12 +540,22 @@ def create_app(
 
     @app.get("/aois/{aoi}/events", response_model=EventVerdict)
     def event(
+        request: Request,
         aoi: str,
         date: dt.date,
-        persistence_hours: int = Query(24, ge=1, le=720),
+        persistence_hours: int = Query(
+            24, ge=1, le=720,
+            description="Horas que dura el evento. Si se da, manda sobre event_type. Sin ninguno de los dos, 24 h.",
+        ),
+        event_type: EventType | None = Query(
+            None, description="Tipo de evento: fija una persistencia supuesta (urban_storm 6 h, river_flood 72 h, wildfire 240 h)."
+        ),
         time: dt.time | None = Query(None, description="Hora UTC de inicio del evento, HH:MM. Opcional."),
         lang: narrative.Lang = "es",
     ) -> EventVerdict:
+        # El 24 por omisión se mantiene en el contrato; solo cuenta como "user" si la consulta lo trae.
+        explicit = persistence_hours if "persistence_hours" in request.query_params else None
+        assumed = rules.persistence(event_type, explicit)
         manifests = manifests_or_404(aoi)
         passes, pass_times = [], {}
         for manifest in manifests:
@@ -540,13 +567,22 @@ def create_app(
                 if found is not None:
                     pass_times[day] = found.acquired_at
         event_time = time.replace(tzinfo=None) if time else None
-        status = rules.event_status(passes, date, persistence_hours, event_time, pass_times)
+        status = rules.event_status(passes, date, assumed.hours, event_time, pass_times)
         synthetic = any(manifest["data_kind"] == "synthetic" for manifest in manifests)
         return EventVerdict(
             aoi=aoi,
             event_date=date,
             event_time=event_time,
-            persistence_hours=persistence_hours,
+            event_type=event_type,
+            persistence_hours=assumed.hours,
+            assumption=PersistenceAssumption(
+                persistence_hours=assumed.hours,
+                source=assumed.source,
+                event_type=assumed.event_type,
+                calibrated=False,
+                hours_by_event_type=dict(rules.PERSISTENCE_BY_EVENT_TYPE),
+                text=narrative.persistence_text(assumed, lang),
+            ),
             state=status.state,
             cause=status.cause,
             cause_label=narrative.CAUSES[lang][status.cause] if status.cause else None,
@@ -554,7 +590,7 @@ def create_app(
             next_pass=status.next_pass,
             next_pass_acquired_at=status.next_pass_at,
             data_kind="synthetic" if synthetic else "real",
-            summary=Summary(**narrative.event_summary(status, date.isoformat(), lang, synthetic)),
+            summary=Summary(**narrative.event_summary(status, date.isoformat(), lang, synthetic, assumed)),
         )
 
     @app.get("/aois/{aoi}/series/{series_id}/pixel", response_model=PixelSeries)

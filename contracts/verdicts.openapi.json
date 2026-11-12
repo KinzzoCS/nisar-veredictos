@@ -7,6 +7,9 @@
             "title": "Aoi",
             "type": "string"
           },
+          "assumption": {
+            "$ref": "#/components/schemas/PersistenceAssumption"
+          },
           "cause": {
             "anyOf": [
               {
@@ -54,6 +57,23 @@
             ],
             "description": "Hora UTC de inicio del evento, si se indicó. Sin ella, puede empezar en cualquier momento de su día.",
             "title": "Event Time"
+          },
+          "event_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "urban_storm",
+                  "river_flood",
+                  "wildfire"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Tipo de evento indicado en la consulta, si lo hay.",
+            "title": "Event Type"
           },
           "next_pass": {
             "anyOf": [
@@ -113,7 +133,9 @@
           "aoi",
           "event_date",
           "event_time",
+          "event_type",
           "persistence_hours",
+          "assumption",
           "state",
           "cause",
           "cause_label",
@@ -590,6 +612,69 @@
         "title": "PassFreshness",
         "type": "object"
       },
+      "PersistenceAssumption": {
+        "properties": {
+          "calibrated": {
+            "description": "Siempre false: las persistencias son valores iniciales sin calibrar.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "event_type": {
+            "anyOf": [
+              {
+                "enum": [
+                  "urban_storm",
+                  "river_flood",
+                  "wildfire"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Type"
+          },
+          "hours_by_event_type": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "description": "Tabla completa de persistencias supuestas, en horas.",
+            "title": "Hours By Event Type",
+            "type": "object"
+          },
+          "persistence_hours": {
+            "description": "Horas que se supone que dura el evento. Nunca es una medición.",
+            "title": "Persistence Hours",
+            "type": "integer"
+          },
+          "source": {
+            "description": "event_type: valor de la tabla por tipo; user: persistence_hours de la consulta; default: valor por omisión, sin tipo ni horas.",
+            "enum": [
+              "event_type",
+              "user",
+              "default"
+            ],
+            "title": "Source",
+            "type": "string"
+          },
+          "text": {
+            "description": "El supuesto redactado en el idioma pedido; también va en summary.does_not_prove.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "persistence_hours",
+          "source",
+          "event_type",
+          "calibrated",
+          "hours_by_event_type",
+          "text"
+        ],
+        "title": "PersistenceAssumption",
+        "type": "object"
+      },
       "PixelChange": {
         "properties": {
           "pair": {
@@ -1057,15 +1142,40 @@
             }
           },
           {
+            "description": "Horas que dura el evento. Si se da, manda sobre event_type. Sin ninguno de los dos, 24 h.",
             "in": "query",
             "name": "persistence_hours",
             "required": false,
             "schema": {
               "default": 24,
+              "description": "Horas que dura el evento. Si se da, manda sobre event_type. Sin ninguno de los dos, 24 h.",
               "maximum": 720,
               "minimum": 1,
               "title": "Persistence Hours",
               "type": "integer"
+            }
+          },
+          {
+            "description": "Tipo de evento: fija una persistencia supuesta (urban_storm 6 h, river_flood 72 h, wildfire 240 h).",
+            "in": "query",
+            "name": "event_type",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "urban_storm",
+                    "river_flood",
+                    "wildfire"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Tipo de evento: fija una persistencia supuesta (urban_storm 6 h, river_flood 72 h, wildfire 240 h).",
+              "title": "Event Type"
             }
           },
           {

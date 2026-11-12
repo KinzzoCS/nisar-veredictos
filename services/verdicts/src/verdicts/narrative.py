@@ -167,7 +167,39 @@ def pair_summary(
     return {"detected": prefix + detected, "does_not_prove": limits, "missing": missing}
 
 
-def event_summary(status: rules.EventStatus, event: str, lang: Lang, synthetic: bool) -> dict:
+EVENT_TYPES = {
+    "es": {"urban_storm": "una tormenta urbana", "river_flood": "una crecida de río", "wildfire": "un incendio"},
+    "en": {"urban_storm": "an urban storm", "river_flood": "a river flood", "wildfire": "a wildfire"},
+}
+
+
+def persistence_text(persistence: rules.Persistence, lang: Lang) -> str:
+    """Declara de dónde sale la duración usada: siempre es un supuesto, nunca una medición."""
+    hours = persistence.hours
+    if lang == "es":
+        if persistence.source == "event_type":
+            return (f"Supuesto: el evento dura {hours} h, valor inicial sin calibrar para "
+                    f"{EVENT_TYPES[lang][persistence.event_type]}; no se midió.")
+        if persistence.source == "user":
+            return f"Supuesto: el evento dura {hours} h, según la consulta; no se midió."
+        return (f"Supuesto: el evento dura {hours} h, valor por omisión sin calibrar; no se midió. "
+                "Los parámetros event_type o persistence_hours lo cambian.")
+    if persistence.source == "event_type":
+        return (f"Assumption: the event lasts {hours} h, an initial uncalibrated value for "
+                f"{EVENT_TYPES[lang][persistence.event_type]}; it was not measured.")
+    if persistence.source == "user":
+        return f"Assumption: the event lasts {hours} h, as given in the query; it was not measured."
+    return (f"Assumption: the event lasts {hours} h, an uncalibrated default; it was not measured. "
+            "The event_type or persistence_hours parameters change it.")
+
+
+def event_summary(
+    status: rules.EventStatus,
+    event: str,
+    lang: Lang,
+    synthetic: bool,
+    persistence: rules.Persistence | None = None,
+) -> dict:
     previous = status.previous_pass.isoformat() if status.previous_pass else "-"
     following = status.next_pass.isoformat() if status.next_pass else "-"
     seen = status.seen_by.isoformat() if status.seen_by else following
@@ -198,6 +230,8 @@ def event_summary(status: rules.EventStatus, event: str, lang: Lang, synthetic: 
             else:
                 limits = "This does not mean the event did not happen; the radar could not record it."
                 missing = "It would need a more frequent source or local reports."
+    if persistence is not None:
+        limits = f"{limits} {persistence_text(persistence, lang)}"
     prefix = SYNTHETIC_PREFIX[lang] if synthetic else ""
     return {"detected": prefix + detected, "does_not_prove": limits, "missing": missing}
 
