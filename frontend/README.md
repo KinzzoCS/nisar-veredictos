@@ -2,6 +2,27 @@
 
 Esta carpeta es del equipo de frontend: framework, estructura y diseño son decisión vuestra. Backend no la toca.
 
+## Arrancar
+
+Vite + React + TypeScript, que genera un sitio estático. Necesita Node 20 o superior y la pila de `docker compose` levantada en `http://localhost:8080`.
+
+```bash
+npm install
+npm run dev        # http://localhost:5173
+npm test           # pruebas (Vitest)
+npm run build      # sitio estático en dist/
+```
+
+Otro origen para la API: copia `.env.example` a `.env.local` y cambia `VITE_API_BASE`.
+
+| Carpeta | Dueño | Qué hay |
+|---|---|---|
+| `src/mapa/` | Atlas | El mapa. Expone la interfaz de `src/types/map.ts` (`specs/04-atlas/plan.md`) |
+| `src/api/` | Faro | Cliente tipado. `verdicts.d.ts` se genera con `npm run gen:types`; una prueba falla si no coincide con el contrato |
+| `src/i18n/` | Faro | Textos de interfaz en `es.json` y `en.json`, con las mismas claves (lo comprueba una prueba) |
+| `src/components/` | Faro | Tarjeta, consulta de evento, etc. `MapSlot` ocupa el sitio del mapa hasta T-FAR-05 |
+| `content/` | Faro | Glosario y explicación del radar |
+
 ## Qué tenéis disponible
 
 Con `docker compose up --build` en la raíz, todo se consume desde `http://localhost:8080`, con CORS abierto para desarrollo. Los datos son sintéticos hasta que llegue la serie real, y la forma de las respuestas no cambia.
