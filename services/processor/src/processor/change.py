@@ -15,7 +15,7 @@ INVALID_OR_PARTIAL = 11
 INPUT_EXCEPTION = 12
 LOW_LOOKS = 13
 NO_DATA = 14
-# Reservado: GCOV no trae layover ni sombra; hay que calcularlos aparte.
+# Layover o sombra, calculados con el DEM y radarGrid (terrain.py); GCOV no los trae.
 TERRAIN = 15
 STATE_NODATA = 255
 STABLE_DB = 2.0
@@ -91,10 +91,13 @@ def otsu(values: np.ndarray, bins: int = 256) -> float:
     return float(centers[int(np.nanargmax(np.nan_to_num(between)))])
 
 
-def _state_for_unobservable(a: Scene, b: Scene, params: Params) -> np.ndarray:
+def _state_for_unobservable(a: Scene, b: Scene, params: Params, terrain: np.ndarray | None = None) -> np.ndarray:
     state = np.full(a.hh.shape, NO_CHANGE, np.uint8)
     for scene in (a, b):
         state[scene.looks < params.min_looks] = LOW_LOOKS
+    if terrain is not None:
+        # El relieve explica mejor que los pocos looks por qué no se ve: va encima.
+        state[terrain] = TERRAIN
     for scene in (a, b):
         state[~(np.isfinite(scene.hh) & np.isfinite(scene.hv) & (scene.hh > 0) & (scene.hv > 0))] = NO_DATA
     for scene in (a, b):
@@ -132,12 +135,14 @@ def _signature_counts(hh: np.ndarray, hv: np.ndarray) -> dict[str, int]:
     return result
 
 
-def compare(a: Scene, b: Scene, params: Params = Params()) -> PairResult:
+def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray | None = None) -> PairResult:
     if a.hh.shape != b.hh.shape or a.transform != b.transform:
         raise ValueError(f"Mallas distintas: {a.meta.granule_id} y {b.meta.granule_id}")
 
-    state = _state_for_unobservable(a, b, params)
+    state = _state_for_unobservable(a, b, params, terrain)
     both = observable(a, params.min_looks) & observable(b, params.min_looks)
+    if terrain is not None:
+        both &= ~terrain
     state[~both & (state == NO_CHANGE)] = NO_DATA
 
     change = {}

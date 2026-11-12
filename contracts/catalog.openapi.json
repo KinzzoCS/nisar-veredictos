@@ -37,6 +37,103 @@
         "title": "Aoi",
         "type": "object"
       },
+      "ExcludedGranule": {
+        "properties": {
+          "acquired_at": {
+            "description": "Inicio de la adquisición, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "checked_on": {
+            "description": "Fecha de la comprobación.",
+            "format": "date",
+            "title": "Checked On",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Cómo se comprobó.",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "id": {
+            "description": "granule_id excluido, el título de CMR sin extensión.",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Código del motivo. product_defect: el fallo está en el producto publicado.",
+            "title": "Reason",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "acquired_at",
+          "reason",
+          "evidence",
+          "checked_on"
+        ],
+        "title": "ExcludedGranule",
+        "type": "object"
+      },
+      "ExcludedPass": {
+        "properties": {
+          "acquired_at": {
+            "description": "Inicio de la adquisición, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "checked_on": {
+            "description": "Fecha de la comprobación.",
+            "format": "date",
+            "title": "Checked On",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Cómo se comprobó.",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "id": {
+            "description": "granule_id excluido, el título de CMR sin extensión.",
+            "title": "Id",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Código del motivo. product_defect: el fallo está en el producto publicado.",
+            "title": "Reason",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "date",
+          "acquired_at",
+          "reason",
+          "evidence",
+          "checked_on",
+          "series"
+        ],
+        "title": "ExcludedPass",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -74,6 +171,190 @@
           "basis"
         ],
         "title": "NextPassEstimate",
+        "type": "object"
+      },
+      "OperaAcquisition": {
+        "properties": {
+          "acquired_at": {
+            "description": "time_start de CMR de la primera tesela de la pasada, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "covers_aoi": {
+            "description": "Las cajas de sus teselas contienen la zona. No dice si hay datos válidos en toda ella.",
+            "title": "Covers Aoi",
+            "type": "boolean"
+          },
+          "days_from_date": {
+            "description": "Días entre la fecha UTC de la pasada y la pedida; negativo si es anterior.",
+            "title": "Days From Date",
+            "type": "integer"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "tiles": {
+            "items": {
+              "$ref": "#/components/schemas/OperaTileOut"
+            },
+            "title": "Tiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platform",
+          "acquired_at",
+          "days_from_date",
+          "covers_aoi",
+          "tiles"
+        ],
+        "title": "OperaAcquisition",
+        "type": "object"
+      },
+      "OperaOut": {
+        "properties": {
+          "acquisitions": {
+            "description": "Vacía si no hay productos en la ventana.",
+            "items": {
+              "$ref": "#/components/schemas/OperaAcquisition"
+            },
+            "title": "Acquisitions",
+            "type": "array"
+          },
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "attribution": {
+            "description": "Texto de atribución que debe mostrarse junto al producto.",
+            "title": "Attribution",
+            "type": "string"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "coverage_basis": {
+            "const": "tile_bbox",
+            "description": "covers_aoi usa la caja de cada tesela MGRS, no los píxeles válidos.",
+            "title": "Coverage Basis",
+            "type": "string"
+          },
+          "data_access": {
+            "const": "earthdata_login",
+            "description": "wtr_url y conf_url piden cuenta de Earthdata; browse_url no.",
+            "title": "Data Access",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "days": {
+            "title": "Days",
+            "type": "integer"
+          },
+          "doi": {
+            "title": "Doi",
+            "type": "string"
+          },
+          "min_water_body_ha": {
+            "description": "Superficie mínima de una masa de agua abierta que el producto detecta.",
+            "title": "Min Water Body Ha",
+            "type": "number"
+          },
+          "min_water_body_width_m": {
+            "description": "Anchura mínima de una masa de agua abierta que el producto detecta.",
+            "title": "Min Water Body Width M",
+            "type": "number"
+          },
+          "product_spec_url": {
+            "title": "Product Spec Url",
+            "type": "string"
+          },
+          "source": {
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "aoi",
+          "date",
+          "days",
+          "source",
+          "collection",
+          "doi",
+          "attribution",
+          "product_spec_url",
+          "min_water_body_ha",
+          "min_water_body_width_m",
+          "coverage_basis",
+          "data_access",
+          "acquisitions"
+        ],
+        "title": "OperaOut",
+        "type": "object"
+      },
+      "OperaTileOut": {
+        "properties": {
+          "acquired_at": {
+            "description": "time_start de CMR, en UTC.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "browse_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Vista previa PNG del bucket público de PO.DAAC, sin cuenta ni georreferencia.",
+            "title": "Browse Url"
+          },
+          "conf_url": {
+            "description": "GeoTIFF B03_CONF, confianza. Pide cuenta de Earthdata. Vacío si CMR no lo publica.",
+            "title": "Conf Url",
+            "type": "string"
+          },
+          "id": {
+            "description": "Título del gránulo en CMR, sin extensión.",
+            "title": "Id",
+            "type": "string"
+          },
+          "produced_at": {
+            "description": "Hora de producción que figura en el título, en UTC.",
+            "format": "date-time",
+            "title": "Produced At",
+            "type": "string"
+          },
+          "tile": {
+            "description": "Tesela MGRS sin la T inicial.",
+            "title": "Tile",
+            "type": "string"
+          },
+          "wtr_url": {
+            "description": "GeoTIFF B01_WTR, clasificación de agua. Pide cuenta de Earthdata.",
+            "title": "Wtr Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tile",
+          "acquired_at",
+          "produced_at",
+          "wtr_url",
+          "conf_url",
+          "browse_url"
+        ],
+        "title": "OperaTileOut",
         "type": "object"
       },
       "OpticalAcquisition": {
@@ -272,11 +553,20 @@
             "title": "Direction",
             "type": "string"
           },
+          "excluded": {
+            "description": "Gránulos de la serie que existen en CMR pero se declararon inservibles en la zona.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedGranule"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
           "frame": {
             "title": "Frame",
             "type": "integer"
           },
           "granules": {
+            "description": "Fechas utilizables, sin las excluidas.",
             "items": {
               "$ref": "#/components/schemas/SeriesGranule"
             },
@@ -324,7 +614,8 @@
           "contains_aoi",
           "max_gap_days",
           "spans_data_gap",
-          "granules"
+          "granules",
+          "excluded"
         ],
         "title": "SeriesOut",
         "type": "object"
@@ -399,6 +690,14 @@
             "title": "Aoi",
             "type": "string"
           },
+          "excluded": {
+            "description": "Pasadas que existen pero se declararon inservibles; no están en passes ni en intervals.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedPass"
+            },
+            "title": "Excluded",
+            "type": "array"
+          },
           "gaps": {
             "items": {
               "$ref": "#/components/schemas/TimelineGap"
@@ -440,7 +739,8 @@
           "passes",
           "intervals",
           "gaps",
-          "next_pass_estimates"
+          "next_pass_estimates",
+          "excluded"
         ],
         "title": "TimelineOut",
         "type": "object"
@@ -571,6 +871,71 @@
           }
         },
         "summary": "Aois"
+      }
+    },
+    "/aois/{aoi_id}/references/opera": {
+      "get": {
+        "operationId": "opera_water_aois__aoi_id__references_opera_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "aoi_id",
+            "required": true,
+            "schema": {
+              "title": "Aoi Id",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Fecha de referencia, normalmente la de una pasada NISAR.",
+            "in": "query",
+            "name": "date",
+            "required": true,
+            "schema": {
+              "description": "Fecha de referencia, normalmente la de una pasada NISAR.",
+              "format": "date",
+              "title": "Date",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Días antes y después de la fecha.",
+            "in": "query",
+            "name": "days",
+            "required": false,
+            "schema": {
+              "default": 7,
+              "description": "Días antes y después de la fecha.",
+              "maximum": 30,
+              "minimum": 0,
+              "title": "Days",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/OperaOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Opera Water"
       }
     },
     "/aois/{aoi_id}/references/optical": {
