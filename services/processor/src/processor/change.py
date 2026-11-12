@@ -41,6 +41,9 @@ class Params:
     min_cluster_pixels: int = 4
     # Umbral inicial sin calibrar con banda L: desviación de la mediana de una fecha respecto a la serie.
     qa_outlier_db: float = 1.5
+    # Filtro multitemporal de speckle (T-ECO-08). Apagado por omisión: mezcla información entre fechas.
+    multitemporal: bool = False
+    multitemporal_window: int = 7
 
 
 @dataclass

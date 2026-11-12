@@ -13,6 +13,7 @@ import rasterio.shutil
 from .change import STATE_CODES, STATE_NODATA, Params, compare, smooth, observable, to_db
 from .gcov import GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from .qa import finalize_qa, scene_stats
+from .multitemporal import MultitemporalFilter
 from .terrain import terrain_mask
 
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
@@ -31,6 +32,11 @@ TERRAIN_NOTICE = (
     "primera fecha ({detail}), con un criterio local por pendiente: no incluye sombras proyectadas por crestas."
 )
 NO_TERRAIN_NOTICE = "Layover y sombra no se marcaron: {reason}. Las laderas empinadas pueden aparecer como cambio o sin cambio."
+MULTITEMPORAL_NOTICE = (
+    "Filtro multitemporal de speckle (Quegan y Yu, ventana {window}×{window}, {dates} fechas) aplicado antes de "
+    "calcular QA, capas y cambios: cada fecha conserva su media local, pero su textura fina sale del promedio de la "
+    "serie, así que un cambio fuerte en una fecha se ve atenuado en las demás."
+)
 SYNTHETIC_NOTICE = "DATOS SINTÉTICOS: sirven para probar el sistema y no describen ningún lugar real."
 
 
@@ -107,6 +113,22 @@ def _write_pair(
     }
 
 
+def _multitemporal(ordered, bbox: list[float], params: Params) -> MultitemporalFilter:
+    """Primera pasada: acumula la textura de todas las fechas, leyendo una escena cada vez."""
+    speckle = None
+    for _, path in ordered:
+        scene = read_scene(path, bbox)
+        speckle = speckle or MultitemporalFilter(scene.hh.shape, params.multitemporal_window)
+        speckle.add(scene, observable(scene, params.min_looks))
+        del scene
+    return speckle
+
+
+def _read(path: Path, bbox: list[float], params: Params, speckle: MultitemporalFilter | None) -> Scene:
+    scene = read_scene(path, bbox)
+    return speckle.apply(scene, observable(scene, params.min_looks)) if speckle else scene
+
+
 def process_series(
     paths: list[Path],
     aoi: dict,
@@ -130,8 +152,9 @@ def process_series(
     crs = None
     previous: Scene | None = None
     terrain, terrain_detail = None, "no hay DEM"
+    speckle = _multitemporal(ordered, aoi["bbox"], params) if params.multitemporal else None
     for index, (_, path) in enumerate(ordered):
-        scene = read_scene(path, aoi["bbox"])
+        scene = _read(path, aoi["bbox"], params, speckle)
         crs = crs or scene.crs
         if index == 0 and dem_sources:
             # La geometría casi no cambia entre pasadas de la misma órbita: basta la primera fecha.
@@ -147,7 +170,7 @@ def process_series(
 
     if len(ordered) > 2:
         # La primera fecha se vuelve a leer: guardarla toda la serie costaría una escena más de RAM.
-        first = read_scene(ordered[0][1], aoi["bbox"])
+        first = _read(ordered[0][1], aoi["bbox"], params, speckle)
         pairs.append(_write_pair(first, previous, "full_window", prefix, artifact_root, params, terrain))
         del first
     del previous
@@ -164,6 +187,7 @@ def process_series(
             else NO_TERRAIN_NOTICE.format(reason=terrain_detail)
         ]
         + [QA_NOTICE.format(params.qa_outlier_db)]
+        + ([MULTITEMPORAL_NOTICE.format(window=params.multitemporal_window, dates=len(ordered))] if speckle else [])
     )
     manifest = {
         "schema_version": 1,
