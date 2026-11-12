@@ -12,6 +12,7 @@ import rasterio.shutil
 
 from .change import STATE_CODES, STATE_NODATA, Params, compare, smooth, observable, to_db
 from .gcov import GranuleError, GranuleMeta, Scene, read_scene
+from .qa import date_qa
 
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 BASE_NOTICES = [
@@ -20,6 +21,10 @@ BASE_NOTICES = [
     "Layover y sombra no vienen en GCOV y todavía no se calculan.",
     "Umbrales estimados sobre la propia escena: indicador del modelo, no error calibrado.",
 ]
+QA_NOTICE = (
+    "El control de calidad marca una fecha si su mediana se aparta más de {:g} dB de la serie. "
+    "Ese umbral no está calibrado y la marca es una advertencia, no una exclusión."
+)
 SYNTHETIC_NOTICE = "DATOS SINTÉTICOS: sirven para probar el sistema y no describen ningún lugar real."
 
 
@@ -70,14 +75,14 @@ def process_series(
     prefix = f"{aoi['id']}/{series_id}"
     target = artifact_root / aoi["id"] / series_id
     dates = []
-    for scene in scenes:
+    for scene, qa in zip(scenes, date_qa(scenes, params)):
         stamp = scene.meta.date.replace("-", "")
         layers = {}
         for name in ("hh", "hv"):
             relative = f"{prefix}/dates/{stamp}/{name}_db.tif"
             _write_cog(artifact_root / relative, _db(scene, name, params), scene, float("nan"), "average")
             layers[f"{name}_db"] = relative
-        dates.append({"date": scene.meta.date, "granule": scene.meta.granule_id, **layers})
+        dates.append({"date": scene.meta.date, "granule": scene.meta.granule_id, **layers, "qa": qa})
 
     combinations = [(a, b, "consecutive") for a, b in zip(scenes, scenes[1:])]
     if len(scenes) > 2:
@@ -108,7 +113,11 @@ def process_series(
             }
         )
 
-    notices = ([SYNTHETIC_NOTICE] if reference.data_kind == "synthetic" else []) + BASE_NOTICES
+    notices = (
+        ([SYNTHETIC_NOTICE] if reference.data_kind == "synthetic" else [])
+        + BASE_NOTICES
+        + [QA_NOTICE.format(params.qa_outlier_db)]
+    )
     manifest = {
         "schema_version": 1,
         "aoi": aoi["id"],
