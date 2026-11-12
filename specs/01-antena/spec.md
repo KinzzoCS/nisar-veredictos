@@ -30,6 +30,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 | RF-ANT-05 | Listar escenas Sentinel-2 L2A por fecha, dentro de ±N días y con nubosidad máxima configurable | Hecho (T-ANT-05) |
 | RF-ANT-06 | Listar productos OPERA DSWx-S1 a ±N días de una fecha (7 por defecto), agrupados por pasada de Sentinel-1, sin versiones reprocesadas repetidas, con su cobertura de la zona y enlaces que dicen si requieren cuenta. Si no hay ninguno, lo dice | Hecho (T-ANT-06) |
 | RF-ANT-07 | Dejar un registro de ingesta por serie: gránulo, bytes, segundos y fecha de publicación | P1 |
+| RF-ANT-08 | Excluir los gránulos defectuosos declarados en `config/aois`, con motivo, evidencia y fecha de comprobación. `catalog` los quita de las series y de la línea de tiempo y los lista aparte en `excluded`; `ingest` no los trae | Hecho (T-ANT-10) |
 | RF-ANT-09 | Copiar al recorte `metadata/radarGrid`, si el gránulo lo trae, recortado a los nodos que cubren la ventana más 2 por lado, con todas las alturas y sin cambiar valores (`contracts/gcov-subset.md`) | Hecho (T-ANT-11) |
 
 ## Criterios de aceptación
@@ -39,6 +40,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 - [ ] Todas las horas de la API están en UTC con formato ISO 8601.
 - [ ] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
 - [x] Las fuentes ópticas no requieren cuenta y su licencia queda citada.
+- [x] Un gránulo excluido no aparece en `granules` ni en `passes`, sí en `excluded` con su motivo, y `ingest` no lo descarga.
 
 ### OPERA DSWx-S1 (RF-ANT-06)
 

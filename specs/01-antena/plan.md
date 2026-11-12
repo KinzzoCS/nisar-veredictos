@@ -108,6 +108,31 @@ Dobles construidos con títulos reales de Parral, sin guardar respuestas complet
 - La fuente recibe la ventana de `window(date, days)`.
 - La prueba de contrato existente cubre la ruta nueva.
 
+## Gránulos excluidos (T-ANT-10)
+
+Un gránulo con metadatos normales puede traer píxeles inservibles. Le pasa a T171 del 2026-08-13: la vista previa de ASF ya muestra la anomalía. Si se usa, salen cambios falsos en los dos pares que lo tocan. La exclusión se declara a mano en la zona, con su evidencia, y nunca se deduce sola.
+
+### Configuración
+
+Cada serie de `config/aois/<zona>.yaml` admite `exclude`, una lista con:
+
+| Campo | Contenido |
+|---|---|
+| `granule` | `granule_id` exacto, el título de CMR sin extensión |
+| `reason` | Código corto. Hoy solo `product_defect`: el fallo está en el producto publicado, no en el recorte |
+| `evidence` | Cómo se comprobó, en una frase que se pueda repetir |
+| `checked_on` | Fecha de la comprobación, `YYYY-MM-DD` |
+
+### API
+
+- `GET /aois/{id}/series`: el gránulo sale de `granules`, y `max_gap_days`, `spans_data_gap` y `contains_aoi` se calculan sin él. `excluded[]` lo lista con `id`, `date`, `acquired_at`, `reason`, `evidence` y `checked_on`.
+- `GET /aois/{id}/timeline`: el gránulo sale de `passes` y de `intervals`, así que el intervalo pasa a unir las fechas vecinas. `excluded[]` lo lista con los mismos campos y `series`. Así Balanza no cuenta como observación una pasada que no sirve, y la línea de tiempo coincide con los artefactos de Eco.
+- Ambos campos son aditivos y siempre están, vacíos si no hay exclusiones.
+
+### Ingesta
+
+`ingest fetch` salta los gránulos de `exclude` aunque `catalog` aún los liste, y los informa aparte. Si el archivo ya está en disco, lo avisa y no lo borra, porque `processor` lee toda la carpeta y debe apartarse a mano.
+
 ## Datos
 
 - Sentinel-2 L2A desde Earth Search (`https://earth-search.aws.element84.com/v1`), colección `sentinel-2-l2a`, sin cuenta. Licencia: datos Copernicus, de acceso libre y con atribución.

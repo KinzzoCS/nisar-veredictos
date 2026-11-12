@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 from .cmr import CmrSource, GranuleSource
 from . import opera
 from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, group_acquisitions, window
-from .pairing import Granule, build_series
+from .pairing import Granule, build_series, series_id
 from .timeline import build_timeline
 
 
@@ -34,6 +34,15 @@ class SeriesGranule(BaseModel):
     download_url: str
 
 
+class ExcludedGranule(BaseModel):
+    id: str = Field(description="granule_id excluido, el título de CMR sin extensión.")
+    date: date
+    acquired_at: datetime = Field(description="Inicio de la adquisición, en UTC.")
+    reason: str = Field(description="Código del motivo. product_defect: el fallo está en el producto publicado.")
+    evidence: str = Field(description="Cómo se comprobó.")
+    checked_on: date = Field(description="Fecha de la comprobación.")
+
+
 class SeriesOut(BaseModel):
     id: str
     track: int
@@ -46,7 +55,10 @@ class SeriesOut(BaseModel):
     contains_aoi: bool
     max_gap_days: int
     spans_data_gap: bool
-    granules: list[SeriesGranule]
+    granules: list[SeriesGranule] = Field(description="Fechas utilizables, sin las excluidas.")
+    excluded: list[ExcludedGranule] = Field(
+        description="Gránulos de la serie que existen en CMR pero se declararon inservibles en la zona."
+    )
 
 
 class TimelinePass(BaseModel):
@@ -80,6 +92,10 @@ class NextPassEstimate(BaseModel):
     basis: Literal["12-day cycle"]
 
 
+class ExcludedPass(ExcludedGranule):
+    series: str
+
+
 class TimelineOut(BaseModel):
     aoi: str
     published_at_basis: Literal["cmr_updated"] = Field(
@@ -89,6 +105,9 @@ class TimelineOut(BaseModel):
     intervals: list[TimelineInterval]
     gaps: list[TimelineGap]
     next_pass_estimates: list[NextPassEstimate]
+    excluded: list[ExcludedPass] = Field(
+        description="Pasadas que existen pero se declararon inservibles; no están en passes ni en intervals."
+    )
 
 
 class OpticalTile(BaseModel):
@@ -170,6 +189,33 @@ def _load_aois(aoi_dir: Path) -> dict[str, dict]:
     return result
 
 
+def _exclusions(aoi: dict) -> dict[str, dict]:
+    """granule_id -> entrada de `exclude` de cualquier serie de la zona."""
+    return {
+        entry["granule"]: entry
+        for item in aoi.get("series", [])
+        for entry in item.get("exclude") or []
+    }
+
+
+def _split(aoi: dict, granules: list[Granule]) -> tuple[list[Granule], list[tuple[Granule, dict]]]:
+    rules = _exclusions(aoi)
+    usable = [g for g in granules if g.id not in rules]
+    excluded = sorted(((g, rules[g.id]) for g in granules if g.id in rules), key=lambda pair: pair[0].acquired_at)
+    return usable, excluded
+
+
+def _excluded_fields(granule: Granule, entry: dict) -> dict:
+    return {
+        "id": granule.id,
+        "date": granule.start,
+        "acquired_at": granule.acquired_at,
+        "reason": entry["reason"],
+        "evidence": " ".join(str(entry["evidence"]).split()),
+        "checked_on": entry["checked_on"],
+    }
+
+
 def create_app(
     aoi_dir: Path | None = None,
     source: GranuleSource | None = None,
@@ -209,7 +255,7 @@ def create_app(
     @app.get("/aois/{aoi_id}/series", response_model=list[SeriesOut])
     def series(aoi_id: str, min_dates: int = Query(2, ge=2)) -> list[SeriesOut]:
         aoi = aoi_or_404(aoi_id)
-        granules = granules_for(aoi)
+        usable, excluded = _split(aoi, granules_for(aoi))
         return [
             SeriesOut(
                 id=item.id,
@@ -227,15 +273,21 @@ def create_app(
                     SeriesGranule(id=g.id, date=g.start, size_mb=g.size_mb, download_url=g.download_url)
                     for g in item.granules
                 ],
+                excluded=[
+                    ExcludedGranule(**_excluded_fields(g, entry))
+                    for g, entry in excluded
+                    if g.group_key == (item.track, item.direction, item.frame, item.mode, item.polarization, item.crid)
+                ],
             )
-            for item in build_series(granules, aoi["bbox"], min_dates)
+            for item in build_series(usable, aoi["bbox"], min_dates)
         ]
 
     @app.get("/aois/{aoi_id}/timeline", response_model=TimelineOut)
     def timeline(aoi_id: str) -> TimelineOut:
         aoi = aoi_or_404(aoi_id)
+        usable, excluded = _split(aoi, granules_for(aoi))
         # Una sola pasada también cuenta: dice cuándo se pudo observar la zona.
-        series_list = build_series(granules_for(aoi), aoi["bbox"], min_dates=1)
+        series_list = build_series(usable, aoi["bbox"], min_dates=1)
         result = build_timeline(
             series_list,
             date.fromisoformat(aoi["window"]["start"]),
@@ -249,6 +301,7 @@ def create_app(
             intervals=[TimelineInterval(**vars(item)) for item in result.intervals],
             gaps=[TimelineGap(**vars(item)) for item in result.gaps],
             next_pass_estimates=[NextPassEstimate(**vars(item)) for item in result.next_pass_estimates],
+            excluded=[ExcludedPass(series=series_id(*g.group_key), **_excluded_fields(g, entry)) for g, entry in excluded],
         )
 
     @app.get("/aois/{aoi_id}/references/optical", response_model=OpticalOut)
