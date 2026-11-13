@@ -195,6 +195,13 @@ class OperaTileOut(BaseModel):
     wtr_url: str = Field(description="GeoTIFF B01_WTR, clasificación de agua. Pide cuenta de Earthdata.")
     conf_url: str = Field(description="GeoTIFF B03_CONF, confianza. Pide cuenta de Earthdata. Vacío si CMR no lo publica.")
     browse_url: str | None = Field(description="Vista previa PNG del bucket público de PO.DAAC, sin cuenta ni georreferencia.")
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR. "
+        "Sirve para situar browse_url en el mapa. null si CMR no la publica.",
+    )
 
 
 class OperaAcquisition(BaseModel):
@@ -452,6 +459,7 @@ def create_app(
                             wtr_url=t.wtr_url,
                             conf_url=t.conf_url,
                             browse_url=t.browse_url,
+                            bbox=list(t.box) if t.box else None,
                         )
                         for t in p.tiles
                     ],

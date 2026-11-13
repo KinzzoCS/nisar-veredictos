@@ -385,6 +385,23 @@
             "title": "Acquired At",
             "type": "string"
           },
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR. Sirve para situar browse_url en el mapa. null si CMR no la publica.",
+            "title": "Bbox"
+          },
           "browse_url": {
             "anyOf": [
               {
