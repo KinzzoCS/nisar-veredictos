@@ -329,3 +329,66 @@ input[type='time'] {
     grid-template-columns: 1fr;
   }
 }
+
+/* Modo historia (T-FAR-06). */
+.story {
+  margin: 1.5rem 0 2.5rem;
+  padding: 1rem 1.25rem 1.25rem;
+  border: 1px solid #d0d7de;
+  border-radius: 0.5rem;
+  background: #f6f8fa;
+}
+
+.story h2 {
+  margin-top: 0;
+}
+
+.story-steps {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0.75rem 0 1rem;
+  padding: 0;
+  list-style: none;
+}
+
+/* El paso activo se marca con borde y peso, no solo con color. */
+.story-steps button[aria-current='step'] {
+  border: 2px solid #1f2328;
+  font-weight: 700;
+  background: #ffffff;
+}
+
+.story-scene h3 {
+  margin: 0 0 0.5rem;
+}
+
+.story-scene .verdict-card {
+  margin-top: 0.75rem;
+}
+
+.story-map-link {
+  margin-top: 0.75rem;
+}
+
+.story-count {
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.story-pixel ul {
+  padding-left: 1.25rem;
+}
+
+.story-pager {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}
+
+button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}

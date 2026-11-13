@@ -1,19 +1,8 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
 import { verdictsApi, type EventVerdict, type Lang } from '../api/client'
+import { EVENT_TYPES, EXAMPLE, type Query } from '../story/data'
 import { SyntheticNotice } from './SyntheticBadge'
-
-type EventType = NonNullable<EventVerdict['event_type']>
-const EVENT_TYPES: EventType[] = ['urban_storm', 'river_flood', 'wildfire']
-
-interface Query {
-  date: string
-  eventType: EventType | ''
-  time: string
-}
-
-/** Tormenta del 1 de julio de 2026 en Parral: primer incidente a las 15:37 hora local (MEMORY.md). */
-const EXAMPLE: Query = { date: '2026-07-01', eventType: 'urban_storm', time: '21:37' }
 
 type Result =
   | { key: string; status: 'error' }
@@ -23,14 +12,22 @@ function keyOf(q: Query, lang: Lang) {
   return `${q.date}|${q.eventType}|${q.time}|${lang}`
 }
 
-function EventAnswer({ event, headingRef }: { event: EventVerdict; headingRef: Ref<HTMLHeadingElement> }) {
+export function EventAnswer({
+  event,
+  headingRef,
+  headingId = 'event-answer-heading',
+}: {
+  event: EventVerdict
+  headingRef?: Ref<HTMLHeadingElement>
+  headingId?: string
+}) {
   const { t } = useTranslation()
   const observable = event.state === 'observable'
   return (
-    <article className={`verdict-card event-${event.state}`} aria-labelledby="event-answer-heading">
+    <article className={`verdict-card event-${event.state}`} aria-labelledby={headingId}>
       {event.data_kind === 'synthetic' && <SyntheticNotice />}
       <header className="verdict-head">
-        <h3 id="event-answer-heading" className="verdict-state" tabIndex={-1} ref={headingRef}>
+        <h3 id={headingId} className="verdict-state" tabIndex={-1} ref={headingRef}>
           <span className="verdict-icon" aria-hidden="true">
             {observable ? '◉' : '⊘'}
           </span>{' '}

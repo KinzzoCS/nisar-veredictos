@@ -90,6 +90,26 @@ Consume `GET /aois/{aoi}/events?date=&event_type=&time=&lang=`. Responde otra pr
 
 Fuera de esta entrega: elegir la duración en horas a mano (`persistence_hours`); el tipo de evento ya fija una duración supuesta y declarada. Tampoco se enlaza la respuesta con el par de fechas del mapa.
 
+### Modo historia de Parral (T-FAR-06)
+
+Tres escenas al principio de la página, una visible cada vez. Cada escena trae su respuesta en vivo de la API: los textos de Faro presentan la escena, pero **no afirman el resultado**, porque los artefactos pueden reprocesarse.
+
+| Escena | Datos | Qué presenta Faro |
+|---|---|---|
+| 1. La tormenta | `GET /aois/parral/events?date=2026-07-01&event_type=urban_storm&time=21:37` | La tormenta del 1 de julio, citada con el boletín de Protección Civil de Chihuahua (22,8 mm en una hora, enlace a la fuente), y la pregunta de si el satélite pudo verla |
+| 2. Agosto | `GET /aois/parral/series/T048A-F015/verdicts/20260816_20260828` | Un par de fechas de agosto, sin desplazamiento de toda la escena. Qué dice el veredicto y qué no prueba. No menciona la lluvia: sería sugerir una causa que es solo hipótesis. Con la corrección de T-ECO-07 queda en 5,18 %, justo sobre el umbral del 5 %, así que su estado puede cambiar si se recalibra; la escena lo muestra en vivo |
+| 3. La mina | `GET /aois/parral/series/T048A-F015/pixel?lon=-105.66631&lat=26.93807` | Un punto junto a la Mina La Prieta (según OpenStreetMap, consultado el 2026-11-13), con el recuento en vivo de pares sin cambio detectable |
+
+- [x] Una navegación con los tres pasos (botones con `aria-current` en el paso activo) y botones "Anterior" y "Siguiente". Todo se usa con teclado.
+- [x] Cada escena muestra su respuesta con los componentes de la app: la respuesta de la consulta de evento en la 1 y la tarjeta de veredicto en la 2. La 3 muestra el recuento de pares por estado y la lista por par.
+- [x] La escena 2 tiene un botón "Ver este par en el mapa" que elige esa serie y ese par en el selector y lleva el foco allí.
+- [x] La escena 1 enlaza la fuente de la tormenta. La 3 no llama "jales" al punto: OpenStreetMap solo marca la mina.
+- [x] Con datos sintéticos, cada escena lo dice. Si una llamada falla, la escena lo avisa con `role="alert"`, y las demás siguen funcionando.
+- [x] Al cambiar de idioma, cada escena vuelve a pedir sus textos.
+- [x] Ningún texto de la historia afirma una causa ni un resultado que la API no dé (lo comprueba la prueba de lenguaje sobre `src/i18n/`), ni sugiere una causa por contexto (por ejemplo, la lluvia en la escena 2), ni presenta los datos como procesados en directo.
+
+Fuera de esta entrega: animaciones, centrar el mapa en el punto de la escena 3 (el mapa de Atlas no ofrece seleccionar un punto desde fuera) y coordenadas verificadas de los jales.
+
 ## Interfaces
 
 - **Consume:** API de veredictos y la interfaz del mapa de Atlas.
