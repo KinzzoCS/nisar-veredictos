@@ -31,9 +31,23 @@ export function estiloMapaBase(): StyleSpecification {
   };
 }
 
-/** Contorno de la zona como polígono GeoJSON cerrado. */
-export function contornoZona(aoi: Bbox): Feature<Polygon> {
+/** La zona cruza el antimeridiano (180°): su oeste está a la derecha de su este, p. ej. [170, s, -170, n]. */
+export function cruzaAntimeridiano(aoi: Bbox): boolean {
+  return aoi[0] > aoi[2];
+}
+
+/**
+ * La misma zona con el este sin saltos, para MapLibre: si cruza el antimeridiano, el este pasa
+ * a más de 180° ([170, s, -170, n] → [170, s, 190, n]). Sirve para encuadrar y para el contorno.
+ */
+export function bboxContinuo(aoi: Bbox): Bbox {
   const [o, s, e, n] = validarBbox(aoi);
+  return [o, s, cruzaAntimeridiano(aoi) ? e + 360 : e, n];
+}
+
+/** Contorno de la zona como polígono GeoJSON cerrado. Si cruza el antimeridiano, no da la vuelta al mundo. */
+export function contornoZona(aoi: Bbox): Feature<Polygon> {
+  const [o, s, e, n] = bboxContinuo(aoi);
   return {
     type: "Feature",
     properties: {},
@@ -44,13 +58,17 @@ export function contornoZona(aoi: Bbox): Feature<Polygon> {
   };
 }
 
+/**
+ * Comprueba [oeste, sur, este, norte] en WGS84. Oeste mayor que este es válido: la zona cruza
+ * el antimeridiano (ver `bboxContinuo`). Solo se rechaza un ancho nulo.
+ */
 export function validarBbox(aoi: Bbox): Bbox {
   const [o, s, e, n] = aoi;
   const ok =
     aoi.length === 4 &&
     aoi.every(Number.isFinite) &&
-    o >= -180 && e <= 180 && s >= -90 && n <= 90 &&
-    o < e && s < n;
+    o >= -180 && o <= 180 && e >= -180 && e <= 180 && s >= -90 && n <= 90 &&
+    o !== e && s < n;
   if (!ok) throw new Error(`Extensión no válida: ${JSON.stringify(aoi)}`);
   return aoi;
 }

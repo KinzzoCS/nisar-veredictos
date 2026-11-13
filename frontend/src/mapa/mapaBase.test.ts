@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   ATRIBUCION_OSM,
+  bboxContinuo,
   contornoZona,
+  cruzaAntimeridiano,
   estiloMapaBase,
   formatoCoordenada,
   textoExtension,
@@ -27,12 +29,38 @@ describe("mapa base", () => {
   });
 
   it.each<[string, Bbox]>([
-    ["oeste mayor que este", [-105.4, 26.7, -105.95, 27.15]],
+    ["ancho nulo", [-105.4, 26.7, -105.4, 27.15]],
     ["sur mayor que norte", [-105.95, 27.15, -105.4, 26.7]],
     ["fuera de rango", [-200, 26.7, -105.4, 27.15]],
     ["no finito", [Number.NaN, 26.7, -105.4, 27.15]],
   ])("rechaza una extensión con %s", (_, bbox) => {
     expect(() => validarBbox(bbox)).toThrow();
+  });
+});
+
+describe("zonas que cruzan el antimeridiano", () => {
+  // Por ejemplo, Fiyi: de 177° E a 178° O.
+  const FIYI: Bbox = [177, -19, -178, -16];
+
+  it("son válidas aunque el oeste sea mayor que el este", () => {
+    expect(validarBbox(FIYI)).toEqual(FIYI);
+    expect(cruzaAntimeridiano(FIYI)).toBe(true);
+    expect(cruzaAntimeridiano(PARRAL)).toBe(false);
+  });
+
+  it("se encuadran con el este pasado de 180°, sin saltos", () => {
+    expect(bboxContinuo(FIYI)).toEqual([177, -19, 182, -16]);
+    expect(bboxContinuo(PARRAL)).toEqual(PARRAL);
+  });
+
+  it("el contorno no da la vuelta al mundo", () => {
+    const anillo = contornoZona(FIYI).geometry.coordinates[0];
+    const lons = anillo.map(([lon]) => lon);
+    expect(Math.max(...lons) - Math.min(...lons)).toBe(5);
+  });
+
+  it("la extensión se describe con los valores originales", () => {
+    expect(textoExtension(FIYI)).toBe("O 177° · S −19° · E −178° · N −16°");
   });
 });
 

@@ -41,8 +41,8 @@ export function etiquetaEstado(estado: string | null, idioma: Idioma): string {
   if (estado === null) return t.sinDato;
   if (estado === "change_probable") return t.cambioProbable;
   if (estado === "no_change" || estado === "no_detectable_change") return t.sinCambio;
-  const causa = t.causas[estado];
-  return causa ? `${t.noObservable}: ${causa}` : estado;
+  // Cualquier otro estado es una causa de no observable; si es nueva y no tiene texto, su código.
+  return `${t.noObservable}: ${t.causas[estado] ?? estado}`;
 }
 
 export function formatoValorDb(x: number | null, idioma: Idioma): string {

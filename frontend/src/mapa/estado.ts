@@ -10,7 +10,11 @@
 export const SIN_CAMBIO = 0;
 export const CAMBIO_PROBABLE = 1;
 
-/** Códigos de lo no observable con su clave de causa en la API (`cause`). */
+/**
+ * Códigos conocidos de lo no observable con su clave de causa en la API (`cause`).
+ * No es la lista cerrada: cualquier código en el rango reservado cuenta como no observable,
+ * para que una causa nueva de Eco nunca se vea como «sin cambio».
+ */
 export const CAUSAS_NO_OBSERVABLE: Record<number, string> = {
   10: "outside_scene",
   11: "invalid_or_partial",
@@ -20,15 +24,22 @@ export const CAUSAS_NO_OBSERVABLE: Record<number, string> = {
   15: "terrain",
 };
 
+/** Rango reservado para lo no observable. Hoy Eco usa del 10 al 15. */
+export const PRIMER_CODIGO_NO_OBSERVABLE = 10;
+export const ULTIMO_CODIGO_NO_OBSERVABLE = 63;
+
 export function esNoObservable(codigo: number): boolean {
-  return codigo in CAUSAS_NO_OBSERVABLE;
+  return codigo >= PRIMER_CODIGO_NO_OBSERVABLE && codigo <= ULTIMO_CODIGO_NO_OBSERVABLE;
 }
 
 /** Paleta que codifica cada estado en el canal rojo, con alfa 255. "Sin cambio" es transparente. */
 export function paletaCodificada(): Record<string, string> {
   const hex = (n: number) => n.toString(16).padStart(2, "0");
   const paleta: Record<string, string> = { [SIN_CAMBIO]: "#00000000" };
-  for (const c of [CAMBIO_PROBABLE, ...Object.keys(CAUSAS_NO_OBSERVABLE).map(Number)]) {
+  paleta[CAMBIO_PROBABLE] = `#${hex(CAMBIO_PROBABLE)}0000ff`;
+  // Todo el rango reservado, no solo las causas conocidas: si TiTiler no encuentra un código
+  // en la paleta lo deja transparente, y una causa nueva se leería como «sin cambio».
+  for (let c = PRIMER_CODIGO_NO_OBSERVABLE; c <= ULTIMO_CODIGO_NO_OBSERVABLE; c++) {
     paleta[c] = `#${hex(c)}0000ff`;
   }
   return paleta;
