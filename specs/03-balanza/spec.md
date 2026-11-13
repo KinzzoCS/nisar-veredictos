@@ -46,6 +46,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 - [x] Una pasada que catalog excluye (`excluded[]`) aparece en `receipt.excluded_passes` y en `summary.missing` del par que la abarca, y no cuenta como pasada para un evento.
 - [x] Un desacuerdo con DSWx-S1 se redacta como desacuerdo entre dos métodos; la prueba de lenguaje falla si un texto de agua habla de error o fallo.
 - [x] Los textos de `/events` (`summary`, `cause_label` y `assumption.text`) no nombran parámetros de la API: dicen qué dato hay que indicar, no cómo se llama en la consulta.
+- [x] Los textos de `/events` hablan de la «duración supuesta» del evento y nunca la dan por hecha («mientras duraba»), porque la duración es un supuesto sin calibrar.
 
 ## Interfaces
 
