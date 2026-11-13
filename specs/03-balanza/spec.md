@@ -29,9 +29,9 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 | RF-BAL-04 | Contraste óptico: escena Sentinel-2 anterior y posterior más cercana, con URL de tesela y licencia | Hecho |
 | RF-BAL-05 | La prueba de humo cubre todas las rutas nuevas, incluidas las de Antena | Hecho |
 | RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | Hecho |
-| RF-BAL-07 | Contraste con OPERA DSWx-S1: acuerdo o desacuerdo sobre agua, presentado como desacuerdo y no como error | P1 |
-| RF-BAL-08 | Calibrar reglas con datos reales junto a Eco | P1 |
-| RF-BAL-09 | Las fechas con bandera de calidad de Eco se reflejan en el texto y en el recibo | P1 |
+| RF-BAL-07 | Contraste con OPERA DSWx-S1: acuerdo o desacuerdo sobre agua, presentado como desacuerdo y no como error | Hecho (T-BAL-08); falta probarlo con radar real y token de Earthdata |
+| RF-BAL-08 | Calibrar reglas con datos reales junto a Eco | En curso: `MIN_CHANGED_FRACTION` provisional del 5 % sobre el cambio corregido de Eco (T-ECO-07) |
+| RF-BAL-09 | Las fechas con bandera de calidad de Eco se reflejan en el texto y en el recibo | Hecho (T-BAL-07), con aviso de desplazamiento de la escena |
 
 ## Criterios de aceptación
 
@@ -39,10 +39,16 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 - [x] La prueba de lenguaje falla si una plantilla contiene "confirmado", "causado por" o "daño".
 - [x] El gateway solo deja pasar a TiTiler artefactos propios y el host público de COG de Sentinel-2.
 - [ ] Ningún veredicto se emite sin `data_kind`.
+- [x] Cada veredicto trae `evidence.water` con el producto DSWx-S1 más cercano a cada fecha, o por qué no lo hay.
+- [x] Con radar sintético el producto se lista y nunca se compara.
+- [x] Una fecha con `radiometric_outlier` aparece en `summary.missing` y en `receipt.quality`.
+- [x] Si toda la escena cambia de nivel más de 1,5 dB entre las dos fechas, `summary.does_not_prove` avisa de que el porcentaje puede reflejar ese desplazamiento y no un cambio local, sin cambiar el estado.
+- [x] Una pasada que catalog excluye (`excluded[]`) aparece en `receipt.excluded_passes` y en `summary.missing` del par que la abarca, y no cuenta como pasada para un evento.
+- [x] Un desacuerdo con DSWx-S1 se redacta como desacuerdo entre dos métodos; la prueba de lenguaje falla si un texto de agua habla de error o fallo.
 
 ## Interfaces
 
-- **Consume:** manifiesto de Eco y API de catálogo de Antena (línea de tiempo y referencias).
+- **Consume:** manifiesto de Eco, API de catálogo de Antena (línea de tiempo y referencias) y, con token de Earthdata, la capa B01_WTR de OPERA DSWx-S1 en PO.DAAC.
 - **Produce:** API de veredictos, teselas y entrada única en el puerto 8080.
 
 ## Fuera de alcance

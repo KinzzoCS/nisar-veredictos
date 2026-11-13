@@ -160,6 +160,10 @@
             "title": "Expected At",
             "type": "string"
           },
+          "observation_plan": {
+            "$ref": "#/components/schemas/ObservationPlan",
+            "description": "Si el plan de observación de NISAR incluye esta pasada. No cambia expected_at."
+          },
           "series": {
             "title": "Series",
             "type": "string"
@@ -168,9 +172,84 @@
         "required": [
           "series",
           "expected_at",
-          "basis"
+          "basis",
+          "observation_plan"
         ],
         "title": "NextPassEstimate",
+        "type": "object"
+      },
+      "ObservationPlan": {
+        "properties": {
+          "checked_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cuándo consultó ingest el plan, en UTC.",
+            "title": "Checked At"
+          },
+          "config_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "LSAR_CONFIG_ID de la observación planificada.",
+            "title": "Config Id"
+          },
+          "plan": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Título del gránulo de NISAR_COP que se usó, con su versión.",
+            "title": "Plan"
+          },
+          "same_config": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "La configuración coincide con la del plan de la última pasada adquirida. null si falta alguna.",
+            "title": "Same Config"
+          },
+          "status": {
+            "description": "Qué dice el plan diario de NISAR (NISAR_COP) para la hora estimada. planned: una observación L-SAR cubre de 10 s antes a 40 s después. partial: la cubre solo en parte. not_planned: hay plan y no la cubre. no_plan: no hay plan publicado para esa hora. unknown: catalog no tiene el resumen de `ingest plan` o no coincide con esta pasada. Un plan no garantiza la adquisición: en el hueco de 2026-07-27 a 2026-08-02 hubo planes y no se adquirió nada.",
+            "enum": [
+              "planned",
+              "partial",
+              "not_planned",
+              "no_plan",
+              "unknown"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "plan",
+          "config_id",
+          "same_config",
+          "checked_at"
+        ],
+        "title": "ObservationPlan",
         "type": "object"
       },
       "OperaAcquisition": {
@@ -305,6 +384,23 @@
             "format": "date-time",
             "title": "Acquired At",
             "type": "string"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR. Sirve para situar browse_url en el mapa. null si CMR no la publica.",
+            "title": "Bbox"
           },
           "browse_url": {
             "anyOf": [

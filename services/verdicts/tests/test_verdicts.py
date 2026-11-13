@@ -184,16 +184,22 @@ def _clock():
 
 
 class FakeTimeline:
-    def __init__(self, passes=None, fail=False):
+    def __init__(self, passes=None, fail=False, excluded=()):
         self.calls = 0
         self.fail = fail
         self.result = passes or {}
+        self.dropped = list(excluded)
 
     def passes(self, aoi):
         self.calls += 1
         if self.fail:
             raise CatalogUnavailable(aoi)
         return self.result
+
+    def excluded(self, aoi):
+        if self.fail:
+            raise CatalogUnavailable(aoi)
+        return self.dropped
 
 
 def _as_real(manifest_root, **pair_changes):

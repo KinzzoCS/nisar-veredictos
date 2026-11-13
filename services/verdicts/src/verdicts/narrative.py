@@ -103,6 +103,12 @@ def freshness_text(age_days: int, latency_hours: float | None, latency_status: s
     return f"{age} {latency}"
 
 
+def _fraction(value: float, lang: Lang) -> str:
+    """Fracción como porcentaje sin decimales sobrantes: 0.05 -> "5 %"."""
+    text = f"{value * 100:.1f}".removesuffix(".0")
+    return (text.replace(".", ",") if lang == "es" else text) + " %"
+
+
 def pair_summary(
     decision: rules.Decision,
     start: str,
@@ -124,6 +130,13 @@ def pair_summary(
         if decision.state == rules.CHANGE_PROBABLE:
             detected = f"Entre {start} y {end} ({span}) cambió la señal de radar en el {changed} de la superficie observada."
             limits = "No identifica la causa ni mide sus consecuencias; explicarlo requiere otra fuente o verificación en campo."
+        elif decision.state == rules.NO_DETECTABLE_CHANGE and decision.changed_fraction > 0:
+            detected = (
+                f"Entre {start} y {end} ({span}) la señal de radar superó el umbral en el {changed} de la superficie "
+                f"observada, por debajo del {_fraction(rules.MIN_CHANGED_FRACTION, lang)} que exige el veredicto "
+                "(valor sin calibrar): el ruido del radar puede dar cifras de ese orden, así que no lo contamos como cambio."
+            )
+            limits = "No demuestra que nada cambiara: lo pequeño, lo breve o lo ocurrido entre pasadas puede no aparecer."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
             detected = f"Entre {start} y {end} ({span}) no detectamos cambios sobre el umbral en el {observed} observado de la zona."
             limits = "No demuestra que nada cambiara: lo pequeño, lo breve o lo ocurrido entre pasadas puede no aparecer."
@@ -145,6 +158,13 @@ def pair_summary(
         if decision.state == rules.CHANGE_PROBABLE:
             detected = f"Between {start} and {end} ({span}), the radar signal changed over {changed} of the observed surface."
             limits = "It does not identify the cause or measure its consequences; explaining it needs another source or field checks."
+        elif decision.state == rules.NO_DETECTABLE_CHANGE and decision.changed_fraction > 0:
+            detected = (
+                f"Between {start} and {end} ({span}), the radar signal exceeded the threshold over {changed} of the "
+                f"observed surface, below the {_fraction(rules.MIN_CHANGED_FRACTION, lang)} the verdict requires "
+                "(an uncalibrated value): radar noise can give figures of that size, so we do not count it as change."
+            )
+            limits = "It does not prove nothing changed: small, brief or between-pass changes may not appear."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
             detected = f"Between {start} and {end} ({span}), we detected no change above the threshold in the {observed} of the area observed."
             limits = "It does not prove nothing changed: small, brief or between-pass changes may not appear."
@@ -316,3 +336,190 @@ def optical_text(
                 "The optical image gives context and does not explain the radar signal on its own."
             )
     return " ".join(parts)
+
+
+# --- T-BAL-08: contraste con OPERA DSWx-S1 ------------------------------------------------
+
+WATER_ROLE = {
+    "es": {"before": "la primera fecha de radar", "after": "la segunda fecha de radar"},
+    "en": {"before": "the first radar date", "after": "the second radar date"},
+}
+
+WATER_NOT_COMPARED = {
+    "es": {
+        "synthetic": "no se compara con datos de radar sintéticos",
+        "no_credentials": "no se comparó porque el servicio no tiene acceso a sus archivos (requieren cuenta de Earthdata)",
+        "read_failed": "no se pudo leer su capa de agua, así que no se compara",
+        "no_overlap": "no tiene píxeles válidos en común con el radar dentro de la zona",
+        "partial_overlap": ("solo se pudo comparar el {compared} de la zona, menos del {minimum} que hace falta para "
+                            "hablar de acuerdo o desacuerdo, porque el producto no tiene datos en el resto"),
+    },
+    "en": {
+        "synthetic": "it is not compared with synthetic radar data",
+        "no_credentials": "it was not compared because the service has no access to its files (they need an Earthdata account)",
+        "read_failed": "its water layer could not be read, so it is not compared",
+        "no_overlap": "it shares no valid pixels with the radar inside the area",
+        "partial_overlap": ("only {compared} of the area could be compared, less than the {minimum} needed to "
+                            "speak of agreement or disagreement, because the product has no data in the rest"),
+    },
+}
+
+
+def _not_compared(status: str, values: dict, lang: Lang) -> str:
+    return WATER_NOT_COMPARED[lang][status].format(
+        compared=_share(values.get("compared", 0.0), lang), minimum=_share(values.get("minimum", 0.5), lang)
+    )
+
+
+def _share(fraction: float, lang: Lang) -> str:
+    if 0 < fraction < 0.001:
+        return "< 0,1 %" if lang == "es" else "< 0.1 %"
+    return _percent(fraction * 100, lang)
+
+
+def _water_side(side: str, values: dict, lang: Lang, search_days: int) -> str:
+    """values: status, product_date, days, assessment, basis, iou, radar, reference (fracciones)."""
+    radar = WATER_ROLE[lang][side]
+    status, days = values["status"], values.get("days")
+    window = _days(search_days, lang)
+    if lang == "es":
+        if status == "catalog_unavailable":
+            return f"No se sabe si hay producto de agua OPERA DSWx-S1 cerca de {radar}: el catálogo no respondió."
+        if status == "none_in_window":
+            return f"No hay producto de agua OPERA DSWx-S1 a {window} o menos de {radar}; no hay contraste."
+        offset = f"el mismo día que {radar}" if days == 0 else (
+            f"{_days(abs(days), lang)} {'antes' if days < 0 else 'después'} de {radar}")
+        product = f"OPERA DSWx-S1 del {values['product_date']} ({offset})"
+        if status != "compared":
+            return f"Hay un producto {product}, pero {_not_compared(status, values, lang)}."
+        shares = f"radar {_share(values['radar'], lang)} y DSWx-S1 {_share(values['reference'], lang)} de los píxeles comparables"
+        if values["basis"] == "little_water":
+            return f"{product} y el radar coinciden: ninguno de los dos ve agua apreciable en la zona ({shares})."
+        iou = _share(values["iou"] or 0.0, lang)
+        if values["assessment"] == "agree":
+            return (f"{product} y el radar coinciden en dónde hay agua: comparten el {iou} de los píxeles "
+                    f"que alguno de los dos marca como agua ({shares}).")
+        return (f"{product} y el radar no coinciden en dónde hay agua: solo comparten el {iou} de los píxeles "
+                f"que alguno de los dos marca como agua ({shares}). Es un desacuerdo entre dos métodos "
+                "y no indica cuál de los dos acierta.")
+    if status == "catalog_unavailable":
+        return f"It is unknown whether there is an OPERA DSWx-S1 water product near {radar}: the catalog did not respond."
+    if status == "none_in_window":
+        return f"There is no OPERA DSWx-S1 water product within {window} of {radar}; there is no cross-check."
+    offset = f"the same day as {radar}" if days == 0 else (
+        f"{_days(abs(days), lang)} {'before' if days < 0 else 'after'} {radar}")
+    product = f"OPERA DSWx-S1 from {values['product_date']} ({offset})"
+    if status != "compared":
+        return f"There is a product, {product}, but {_not_compared(status, values, lang)}."
+    shares = f"radar {_share(values['radar'], lang)} and DSWx-S1 {_share(values['reference'], lang)} of comparable pixels"
+    if values["basis"] == "little_water":
+        return f"{product} and the radar agree: neither sees noticeable water in the area ({shares})."
+    iou = _share(values["iou"] or 0.0, lang)
+    if values["assessment"] == "agree":
+        return (f"{product} and the radar agree on where there is water: they share {iou} of the pixels "
+                f"either one marks as water ({shares}).")
+    return (f"{product} and the radar disagree on where there is water: they share only {iou} of the pixels "
+            f"either one marks as water ({shares}). This is a disagreement between two methods "
+            "and does not tell which one is right.")
+
+
+def water_text(
+    before: dict,
+    after: dict,
+    lang: Lang,
+    *,
+    search_days: int,
+    min_water_body_ha: float | None,
+    min_water_body_width_m: float | None,
+    hh_db: float,
+    hv_db: float,
+) -> str:
+    """Resumen del contraste de agua: un texto por lado y, si hay producto, sus límites."""
+    if before["status"] == after["status"] == "catalog_unavailable":
+        if lang == "es":
+            return "No se sabe si hay productos de agua OPERA DSWx-S1: el catálogo no respondió."
+        return "It is unknown whether there are OPERA DSWx-S1 water products: the catalog did not respond."
+    parts = [_water_side(side, values, lang, search_days) for side, values in (("before", before), ("after", after))]
+    found = [values for values in (before, after) if values["status"] not in ("catalog_unavailable", "none_in_window")]
+    if found and min_water_body_ha is not None and min_water_body_width_m is not None:
+        ha = _hours(min_water_body_ha, lang).removesuffix(",0").removesuffix(".0")
+        width = _hours(min_water_body_width_m, lang).removesuffix(",0").removesuffix(".0")
+        if lang == "es":
+            parts.append(f"DSWx-S1 solo detecta masas de agua abiertas de más de {ha} ha y {width} m de ancho: "
+                         "no ver agua en él no descarta agua en calles o charcos.")
+        else:
+            parts.append(f"DSWx-S1 only detects open water bodies larger than {ha} ha and {width} m wide: "
+                         "seeing no water in it does not rule out water in streets or puddles.")
+    if any(values["status"] == "compared" for values in found):
+        hh, hv = _hours(hh_db, lang), _hours(hv_db, lang)
+        if lang == "es":
+            parts.append(f"El agua del radar es la de los píxeles con HH < {hh} dB y HV < {hv} dB, "
+                         "umbrales sin calibrar.")
+        else:
+            parts.append(f"Radar water means pixels with HH < {hh} dB and HV < {hv} dB, uncalibrated thresholds.")
+    return " ".join(parts)
+
+
+# --- T-BAL-07: control de calidad de Eco y desplazamiento de la escena ----------------------
+
+def _db(value: float | None, lang: Lang) -> str:
+    if value is None:
+        return "?"
+    text = f"{value:+.1f}"
+    return text.replace(".", ",") if lang == "es" else text
+
+
+def quality_flag_text(day: str, deviation_hh: float | None, deviation_hv: float | None, threshold: float, lang: Lang) -> str:
+    """Una fecha que el control de calidad de Eco marca como desviada: se avisa, no se excluye."""
+    hh, hv, limit = _db(deviation_hh, lang), _db(deviation_hv, lang), _hours(threshold, lang)
+    if lang == "es":
+        return (f"El control de calidad marca la imagen del {day}: su mediana se aparta {hh} dB en HH y {hv} dB en HV "
+                f"de la de la serie, más de {limit} dB (umbral sin calibrar). Es una advertencia, no una exclusión.")
+    return (f"Quality control flags the {day} image: its median departs {hh} dB in HH and {hv} dB in HV "
+            f"from the series median, more than {limit} dB (uncalibrated threshold). It is a warning, not an exclusion.")
+
+
+def scene_shift_text(
+    hh: float | None, hv: float | None, same_direction: bool | None, lang: Lang, corrected: bool = False
+) -> str:
+    """Aviso de que el nivel de toda la escena cambió entre las dos fechas.
+
+    corrected: processor ya descontó ese desplazamiento antes de medir el cambio (stats.scene_shift_*).
+    """
+    if lang == "es":
+        together = {True: ", en el mismo sentido", False: ", en sentidos opuestos", None: ""}[same_direction]
+        shift = (f"Entre las dos fechas cambió el nivel de toda la escena (mediana de HH {_db(hh, lang)} dB y de HV "
+                 f"{_db(hv, lang)} dB{together}), quizá por humedad del suelo o por un efecto radiométrico.")
+        if corrected:
+            return (f"{shift} Ese desplazamiento general se descontó antes de medir el cambio, suponiendo que es "
+                    "igual en toda la zona; si no lo es, parte de lo que queda puede seguir siendo general y no local.")
+        return f"{shift} El porcentaje de cambio puede reflejar ese desplazamiento general y no un cambio local."
+    together = {True: ", in the same direction", False: ", in opposite directions", None: ""}[same_direction]
+    shift = (f"The level of the whole scene changed between the two dates (median HH {_db(hh, lang)} dB and HV "
+             f"{_db(hv, lang)} dB{together}), perhaps from soil moisture or a radiometric effect.")
+    if corrected:
+        return (f"{shift} That general shift was removed before measuring change, assuming it is the same across "
+                "the whole area; if it is not, part of what remains may still be general rather than local.")
+    return f"{shift} The change percentage may reflect that general shift rather than a local change."
+
+
+# --- Pasadas excluidas por catalog (excluded[] de la línea de tiempo, Antena) ----------------
+
+EXCLUSION_REASONS = {
+    "es": {"product_defect": "defecto del producto publicado"},
+    "en": {"product_defect": "defect in the published product"},
+}
+
+
+def excluded_pass_text(day: str, reason: str, used_by_pair: bool, lang: Lang) -> str:
+    """Una pasada que existe pero catalog declaró inservible: se dice, no se oculta."""
+    label = EXCLUSION_REASONS[lang].get(reason, reason)
+    if lang == "es":
+        if used_by_pair:
+            return (f"El catálogo excluye la pasada del {day} ({label}) y este par la usa: "
+                    "su resultado no debe interpretarse.")
+        return f"Además falta la pasada del {day} de esta serie: el catálogo la excluye ({label})."
+    if used_by_pair:
+        return (f"The catalog excludes the {day} pass ({label}) and this pair uses it: "
+                "its result should not be interpreted.")
+    return f"The {day} pass of this series is also missing: the catalog excludes it ({label})."

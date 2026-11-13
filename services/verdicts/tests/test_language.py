@@ -86,7 +86,9 @@ def literal_texts() -> list[tuple[str, str]]:
 
 def _decisions() -> list[rules.Decision]:
     states = [rules.Decision(rules.CHANGE_PROBABLE, None, 0.9, 0.12),
-              rules.Decision(rules.NO_DETECTABLE_CHANGE, None, 0.95, 0.0)]
+              rules.Decision(rules.NO_DETECTABLE_CHANGE, None, 0.95, 0.0),
+              # Por debajo de MIN_CHANGED_FRACTION, pero con píxeles sobre el umbral (T-BAL-09).
+              rules.Decision(rules.NO_DETECTABLE_CHANGE, None, 0.95, 0.03)]
     states += [rules.Decision(rules.NOT_OBSERVABLE, cause, 0.2, 0.0) for cause in rules.UNOBSERVABLE_CAUSES]
     return states
 
@@ -132,7 +134,74 @@ def rendered_texts() -> list[tuple[str, dict]]:
     for lang, before, after in itertools.product(("es", "en"), OPTICAL_SIDES, OPTICAL_SIDES):
         text = narrative.optical_text(before, after, lang, max_cloud=30.0, search_days=10)
         found.append((f"optical {lang} {before[0]}/{after[0]}", {"optical": text}))
+    found += water_texts()
+    # T-BAL-07: fechas marcadas por el QA de Eco y desplazamiento de la escena, en cada sentido.
+    for lang in ("es", "en"):
+        for hh, hv in ((1.89, 1.6), (-2.1, None), (None, None)):
+            text = narrative.quality_flag_text("2026-10-15", hh, hv, 1.5, lang)
+            found.append((f"qa {lang} {hh}/{hv}", {"qa": text}))
+        for (hh, hv, same), corrected in itertools.product(
+            ((1.8, 1.7, True), (-1.9, 0.4, False), (None, 2.0, None)), (False, True)
+        ):
+            text = narrative.scene_shift_text(hh, hv, same, lang, corrected)
+            found.append((f"shift {lang} {hh}/{hv}/{same} corrected={corrected}", {"shift": text}))
+        # Pasadas excluidas por catalog: motivo conocido y desconocido, dentro del par o usada por él.
+        for reason, used in itertools.product(("product_defect", "otro_motivo"), (True, False)):
+            text = narrative.excluded_pass_text("2026-08-13", reason, used, lang)
+            found.append((f"excluded {lang} {reason} used={used}", {"excluded": text}))
     return found
+
+
+# T-BAL-08: cada estado del contraste con DSWx-S1, con producto antes, el mismo día y después.
+WATER_SIDES = [{"status": "catalog_unavailable"}, {"status": "none_in_window"}] + [
+    {"status": status, "product_date": "2026-06-27", "days": days, "compared": 0.211, "minimum": 0.5}
+    for status in narrative.WATER_NOT_COMPARED["es"]
+    for days in (-2, 0, 3)
+] + [
+    {"status": "compared", "product_date": "2026-06-27", "days": -2, "assessment": assessment, "basis": basis,
+     "iou": iou, "radar": radar, "reference": reference}
+    for assessment, basis, iou, radar, reference in (
+        ("agree", "little_water", None, 0.0, 0.0004),
+        ("agree", "water_overlap", 0.71, 0.021, 0.018),
+        ("disagree", "water_overlap", 0.0, 0.012, 0.0),
+        ("disagree", "water_overlap", 0.23, 0.04, 0.009),
+    )
+]
+
+
+def water_texts() -> list[tuple[str, dict]]:
+    found = []
+    for lang, before, after in itertools.product(("es", "en"), WATER_SIDES, WATER_SIDES):
+        text = narrative.water_text(
+            before, after, lang, search_days=7, min_water_body_ha=3, min_water_body_width_m=200,
+            hh_db=-15.0, hv_db=-23.0,
+        )
+        label = f"water {lang} {before['status']}/{before.get('assessment')} {after['status']}/{after.get('assessment')}"
+        found.append((label, {"water": text}))
+    return found
+
+
+# RF-BAL-07: un desacuerdo con DSWx-S1 se presenta como desacuerdo entre métodos, nunca como error de una fuente.
+ERROR_WORDS = r"\b(error\w*|erróne\w*|erroneo\w*|incorrect\w*|equivoc\w*|fall[oóaeé]\w*|wrong|mistak\w*|fail\w*|false)\b"
+
+
+def test_water_disagreement_is_never_called_an_error():
+    failures = [
+        f"{label}: {summary['water']!r}"
+        for label, summary in water_texts()
+        if re.search(ERROR_WORDS, _normalize(summary["water"]))
+    ]
+    assert not failures, "\n".join(failures)
+    disagree = [s["water"] for label, s in water_texts() if "compared/disagree" in label]
+    assert disagree and all(
+        "desacuerdo entre dos métodos" in text or "disagreement between two methods" in text for text in disagree
+    )
+
+
+@pytest.mark.parametrize("bad", ["El radar se equivoca.", "DSWx-S1 tiene un error.", "The radar is wrong.",
+                                 "The product failed.", "La máscara falla."])
+def test_error_checker_catches_error_wording(bad):
+    assert re.search(ERROR_WORDS, _normalize(bad))
 
 
 # T-BAL-04: cada estado del contraste óptico, con escena el mismo día y con días de distancia.

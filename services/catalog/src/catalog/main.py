@@ -5,18 +5,41 @@ import os
 from collections.abc import Callable
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import Annotated, Literal, TypeVar
 
 import httpx
 import yaml
 from fastapi import FastAPI, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import AfterValidator, BaseModel, Field
 
 from .cmr import CmrSource, GranuleSource
-from . import opera
+from . import opera, plan
 from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, group_acquisitions, window
 from .pairing import Granule, build_series, series_id
 from .timeline import build_timeline
+
+T = TypeVar("T")
+
+# Lo que puede pasar al leer un servicio externo: sin red, error HTTP, o un cuerpo que no es
+# JSON (ValueError) o no trae lo esperado (KeyError). Todo acaba en 502, nunca en datos parciales.
+UPSTREAM_ERRORS = (httpx.HTTPError, ValueError, KeyError)
+
+
+def _upstream(call: Callable[[], T], detail: str) -> T:
+    try:
+        return call()
+    except UPSTREAM_ERRORS as exc:
+        raise HTTPException(502, detail) from exc
+
+
+def _as_utc(value: datetime) -> datetime:
+    """Toda hora de la API sale en UTC. Una hora sin zona es un fallo del código, no se adivina."""
+    if value.tzinfo is None:
+        raise ValueError("hora sin zona horaria")
+    return value.astimezone(timezone.utc)
+
+
+UtcDatetime = Annotated[datetime, AfterValidator(_as_utc)]
 
 
 class Aoi(BaseModel):
@@ -37,7 +60,7 @@ class SeriesGranule(BaseModel):
 class ExcludedGranule(BaseModel):
     id: str = Field(description="granule_id excluido, el título de CMR sin extensión.")
     date: date
-    acquired_at: datetime = Field(description="Inicio de la adquisición, en UTC.")
+    acquired_at: UtcDatetime = Field(description="Inicio de la adquisición, en UTC.")
     reason: str = Field(description="Código del motivo. product_defect: el fallo está en el producto publicado.")
     evidence: str = Field(description="Cómo se comprobó.")
     checked_on: date = Field(description="Fecha de la comprobación.")
@@ -64,8 +87,8 @@ class SeriesOut(BaseModel):
 class TimelinePass(BaseModel):
     series: str
     granule_id: str
-    acquired_at: datetime = Field(description="Inicio de la adquisición, en UTC.")
-    published_at: datetime | None = Field(
+    acquired_at: UtcDatetime = Field(description="Inicio de la adquisición, en UTC.")
+    published_at: UtcDatetime | None = Field(
         description="Última actualización del gránulo en CMR, en UTC. Aproxima la publicación."
     )
     latency_hours: float | None = Field(description="Horas entre la adquisición y published_at.")
@@ -74,8 +97,8 @@ class TimelinePass(BaseModel):
 
 class TimelineInterval(BaseModel):
     series: str
-    start: datetime
-    end: datetime
+    start: UtcDatetime
+    end: UtcDatetime
     days: int = Field(description="Días entre dos pasadas consecutivas de la misma serie.")
     crosses_gap: bool = Field(description="El intervalo atraviesa un hueco de adquisición conocido.")
 
@@ -86,10 +109,31 @@ class TimelineGap(BaseModel):
     source: str
 
 
+class ObservationPlan(BaseModel):
+    status: Literal["planned", "partial", "not_planned", "no_plan", "unknown"] = Field(
+        description=(
+            "Qué dice el plan diario de NISAR (NISAR_COP) para la hora estimada. planned: una observación L-SAR "
+            "cubre de 10 s antes a 40 s después. partial: la cubre solo en parte. not_planned: hay plan y no la "
+            "cubre. no_plan: no hay plan publicado para esa hora. unknown: catalog no tiene el resumen de "
+            "`ingest plan` o no coincide con esta pasada. Un plan no garantiza la adquisición: en el hueco de "
+            "2026-07-27 a 2026-08-02 hubo planes y no se adquirió nada."
+        )
+    )
+    plan: str | None = Field(description="Título del gránulo de NISAR_COP que se usó, con su versión.")
+    config_id: str | None = Field(description="LSAR_CONFIG_ID de la observación planificada.")
+    same_config: bool | None = Field(
+        description="La configuración coincide con la del plan de la última pasada adquirida. null si falta alguna."
+    )
+    checked_at: UtcDatetime | None = Field(description="Cuándo consultó ingest el plan, en UTC.")
+
+
 class NextPassEstimate(BaseModel):
     series: str
-    expected_at: datetime = Field(description="Estimación, no plan de observación: última pasada más N ciclos.")
+    expected_at: UtcDatetime = Field(description="Estimación, no plan de observación: última pasada más N ciclos.")
     basis: Literal["12-day cycle"]
+    observation_plan: ObservationPlan = Field(
+        description="Si el plan de observación de NISAR incluye esta pasada. No cambia expected_at."
+    )
 
 
 class ExcludedPass(ExcludedGranule):
@@ -113,14 +157,14 @@ class TimelineOut(BaseModel):
 class OpticalTile(BaseModel):
     id: str
     tile: str = Field(description="Tesela MGRS de unos 110 km de lado.")
-    acquired_at: datetime
+    acquired_at: UtcDatetime
     cloud_cover: float = Field(description="Porcentaje de nubes de la tesela completa, no de la zona.")
     visual_url: str = Field(description="COG en color verdadero (TCI), legible por HTTPS sin cuenta.")
 
 
 class OpticalAcquisition(BaseModel):
     platform: str
-    acquired_at: datetime = Field(description="Hora UTC de la primera tesela de la adquisición.")
+    acquired_at: UtcDatetime = Field(description="Hora UTC de la primera tesela de la adquisición.")
     days_from_date: int = Field(description="Días respecto a la fecha pedida; negativo si es anterior.")
     covers_aoi: bool = Field(description="Las teselas juntas cubren toda la zona.")
     max_cloud_cover: float = Field(description="Mayor nubosidad entre sus teselas. Es de la tesela, no de la zona.")
@@ -146,16 +190,23 @@ class OpticalOut(BaseModel):
 class OperaTileOut(BaseModel):
     id: str = Field(description="Título del gránulo en CMR, sin extensión.")
     tile: str = Field(description="Tesela MGRS sin la T inicial.")
-    acquired_at: datetime = Field(description="time_start de CMR, en UTC.")
-    produced_at: datetime = Field(description="Hora de producción que figura en el título, en UTC.")
+    acquired_at: UtcDatetime = Field(description="time_start de CMR, en UTC.")
+    produced_at: UtcDatetime = Field(description="Hora de producción que figura en el título, en UTC.")
     wtr_url: str = Field(description="GeoTIFF B01_WTR, clasificación de agua. Pide cuenta de Earthdata.")
     conf_url: str = Field(description="GeoTIFF B03_CONF, confianza. Pide cuenta de Earthdata. Vacío si CMR no lo publica.")
     browse_url: str | None = Field(description="Vista previa PNG del bucket público de PO.DAAC, sin cuenta ni georreferencia.")
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR. "
+        "Sirve para situar browse_url en el mapa. null si CMR no la publica.",
+    )
 
 
 class OperaAcquisition(BaseModel):
     platform: str
-    acquired_at: datetime = Field(description="time_start de CMR de la primera tesela de la pasada, en UTC.")
+    acquired_at: UtcDatetime = Field(description="time_start de CMR de la primera tesela de la pasada, en UTC.")
     days_from_date: int = Field(description="Días entre la fecha UTC de la pasada y la pedida; negativo si es anterior.")
     covers_aoi: bool = Field(description="Las cajas de sus teselas contienen la zona. No dice si hay datos válidos en toda ella.")
     tiles: list[OperaTileOut]
@@ -222,8 +273,10 @@ def create_app(
     clock: Callable[[], datetime] | None = None,
     optical_source: SceneSource | None = None,
     opera_source: opera.OperaSource | None = None,
+    plan_dir: Path | None = None,
 ) -> FastAPI:
     directory = aoi_dir or Path(os.environ.get("AOI_DIR", "/config/aois"))
+    plans = plan_dir or Path(os.environ.get("PLAN_DIR", "/data/plan"))
     granule_source = source or CmrSource()
     scene_source = optical_source or EarthSearchSource()
     water_source = opera_source or opera.CmrOperaSource()
@@ -237,12 +290,12 @@ def create_app(
         return aoi
 
     def granules_for(aoi: dict) -> list[Granule]:
-        try:
-            return granule_source.granules(
+        return _upstream(
+            lambda: granule_source.granules(
                 aoi["collection"], aoi["bbox"], aoi["window"]["start"], aoi["window"]["end"]
-            )
-        except httpx.HTTPError as exc:
-            raise HTTPException(502, "El catálogo CMR no respondió") from exc
+            ),
+            "El catálogo CMR no respondió o su respuesta no se pudo leer",
+        )
 
     @app.get("/health")
     def health() -> dict[str, str]:
@@ -294,13 +347,20 @@ def create_app(
             date.fromisoformat(aoi["window"]["end"]),
             now(),
         )
+        observation = plan.load_plan(plans, aoi["id"])
         return TimelineOut(
             aoi=aoi["id"],
             published_at_basis="cmr_updated",
             passes=[TimelinePass(**vars(item)) for item in result.passes],
             intervals=[TimelineInterval(**vars(item)) for item in result.intervals],
             gaps=[TimelineGap(**vars(item)) for item in result.gaps],
-            next_pass_estimates=[NextPassEstimate(**vars(item)) for item in result.next_pass_estimates],
+            next_pass_estimates=[
+                NextPassEstimate(
+                    **vars(item),
+                    observation_plan=ObservationPlan(**vars(plan.status_for(observation, item.series, item.expected_at))),
+                )
+                for item in result.next_pass_estimates
+            ],
             excluded=[ExcludedPass(series=series_id(*g.group_key), **_excluded_fields(g, entry)) for g, entry in excluded],
         )
 
@@ -315,10 +375,10 @@ def create_app(
     ) -> OpticalOut:
         aoi = aoi_or_404(aoi_id)
         start, end = window(date, days)
-        try:
-            scenes = scene_source.scenes(aoi["bbox"], start, end)
-        except httpx.HTTPError as exc:
-            raise HTTPException(502, "Earth Search no respondió; no hay escenas ópticas") from exc
+        scenes = _upstream(
+            lambda: scene_source.scenes(aoi["bbox"], start, end),
+            "Earth Search no respondió o su respuesta no se pudo leer; no hay escenas ópticas",
+        )
         acquisitions = group_acquisitions(scenes, aoi["bbox"], date, max_cloud)
         years = sorted({acq.acquired_at.year for acq in acquisitions}) or [date.year]
         return OpticalOut(
@@ -362,10 +422,10 @@ def create_app(
     ) -> OperaOut:
         aoi = aoi_or_404(aoi_id)
         start, end = window(date, days)
-        try:
-            tiles = water_source.tiles(aoi["bbox"], start, end)
-        except httpx.HTTPError as exc:
-            raise HTTPException(502, "CMR no respondió; no hay referencias OPERA") from exc
+        tiles = _upstream(
+            lambda: water_source.tiles(aoi["bbox"], start, end),
+            "CMR no respondió o su respuesta no se pudo leer; no hay referencias OPERA",
+        )
         passes = opera.group_passes(tiles, aoi["bbox"], date)
         years = sorted({p.acquired_at.year for p in passes}) or [date.year]
         return OperaOut(
@@ -399,6 +459,7 @@ def create_app(
                             wtr_url=t.wtr_url,
                             conf_url=t.conf_url,
                             browse_url=t.browse_url,
+                            bbox=list(t.box) if t.box else None,
                         )
                         for t in p.tiles
                     ],
