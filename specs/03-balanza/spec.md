@@ -38,7 +38,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 - [x] Un par que cruza el hueco de agosto dice "24 días" y lo explica.
 - [x] La prueba de lenguaje falla si una plantilla contiene "confirmado", "causado por" o "daño".
 - [x] El gateway solo deja pasar a TiTiler artefactos propios y el host público de COG de Sentinel-2.
-- [ ] Ningún veredicto se emite sin `data_kind`.
+- [x] Ningún veredicto se emite sin `data_kind`: es obligatorio en `Receipt`, sin valor por defecto, y FastAPI valida cada respuesta con su `response_model`.
 - [x] Cada veredicto trae `evidence.water` con el producto DSWx-S1 más cercano a cada fecha, o por qué no lo hay.
 - [x] Con radar sintético el producto se lista y nunca se compara.
 - [x] Una fecha con `radiometric_outlier` aparece en `summary.missing` y en `receipt.quality`.
