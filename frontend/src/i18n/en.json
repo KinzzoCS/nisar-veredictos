@@ -3,12 +3,19 @@
     "title": "NISAR Verdicts",
     "tagline": "What changed, what was not detected and what cannot be known, with the data behind it."
   },
-  "language": { "label": "Language", "es": "Español", "en": "English" },
+  "language": {
+    "label": "Language",
+    "es": "Español",
+    "en": "English"
+  },
   "series": {
     "loading": "Loading data…",
     "error": "Could not reach the API. Check that the stack is running."
   },
-  "dataKind": { "real": "real", "synthetic": "synthetic" },
+  "dataKind": {
+    "real": "real",
+    "synthetic": "synthetic"
+  },
   "synthetic": {
     "banner": "Synthetic data: it shows how the application works and does not describe what happened in Parral.",
     "card": "This verdict uses synthetic data."
@@ -42,7 +49,10 @@
     "maturity": "Maturity",
     "series": "Series",
     "seriesValue": "{{id}}: track {{track}}, {{direction}}, frame {{frame}}",
-    "direction": { "A": "ascending", "D": "descending" },
+    "direction": {
+      "A": "ascending",
+      "D": "descending"
+    },
     "modePolarization": "Mode and polarization",
     "crid": "Processing version (CRID)",
     "granules": "Granules",
@@ -64,6 +74,36 @@
     },
     "optical": "Optical comparison (Sentinel-2)",
     "water": "Water comparison (OPERA DSWx-S1)"
+  },
+  "event": {
+    "heading": "Could the satellite see an event?",
+    "intro": "Tell us when something happened (a storm, a river flood, a wildfire) and we will tell you whether NISAR passed over the area while it lasted. It does not say whether anything changed.",
+    "date": "Event date",
+    "type": "Event type",
+    "types": {
+      "none": "Not specified",
+      "urban_storm": "Storm in the city",
+      "river_flood": "River flood",
+      "wildfire": "Wildfire"
+    },
+    "time": "Start time (UTC, optional)",
+    "timeHelp": "In Parral, UTC is local time plus 6 hours: 15:37 in Parral is 21:37 UTC.",
+    "submit": "Check",
+    "example": "Try the storm of 1 July 2026",
+    "loading": "Checking…",
+    "error": "The check could not be done. Review the date and try again.",
+    "state": {
+      "observable": "Observable: there was a pass while the event lasted",
+      "not_observable": "Not observable"
+    },
+    "cause": "Reason: {{cause}}",
+    "observableNote": "This does not say that anything changed: for that, look at the verdict for the date pair that includes that pass.",
+    "detected": "What we found",
+    "previousPass": "Previous pass",
+    "nextPass": "Next pass",
+    "none": "none",
+    "assumption": "Assumed duration",
+    "excluded": "Excluded passes"
   },
   "map": {
     "label": "Map",

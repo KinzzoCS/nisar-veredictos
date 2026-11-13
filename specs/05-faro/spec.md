@@ -74,6 +74,22 @@ Consume `crearMapa` de `frontend/src/mapa/` (interfaz en `specs/04-atlas/plan.md
 
 Fuera de esta entrega: un selector de capa propio de Faro (se usa el del mapa) y la escena de la historia (T-FAR-06).
 
+### Consulta de evento (T-FAR-03)
+
+Consume `GET /aois/{aoi}/events?date=&event_type=&time=&lang=`. Responde otra pregunta que la tarjeta: si el satélite pasó mientras duraba el evento, no si algo cambió.
+
+- [x] Un formulario con rótulos visibles pide la fecha (obligatoria), el tipo de evento (sin especificar, tormenta en la ciudad, crecida de río o incendio) y la hora de inicio en UTC (opcional, con la ayuda de que en Parral es UTC−6). Se envía con Enter o con el botón.
+- [x] Un botón de ejemplo rellena la tormenta del 1 de julio de 2026 en Parral y hace la consulta.
+- [x] La respuesta dice el estado con icono y texto: "Observable: hubo una pasada mientras duraba el evento" o "No observable", nunca solo con color. Con `not_observable` muestra `cause_label` como motivo.
+- [x] Siempre muestra juntos "Qué encontramos", "Qué no prueba" y "Qué falta" (`summary`), la pasada anterior y la siguiente (o "ninguna" si no hay) y el supuesto de duración (`assumption.text`) bajo el rótulo "Duración supuesta" (el texto de la API ya empieza por "Supuesto:").
+- [x] Si la respuesta es `observable`, se dice que eso no afirma ningún cambio y que hay que mirar el veredicto del par.
+- [x] Si `data_kind` es `synthetic`, la respuesta lleva el aviso de datos sintéticos. Si hay `excluded_passes`, se listan con su motivo.
+- [x] Al cambiar de idioma se repite la última consulta con el `lang` nuevo.
+- [x] Mientras se consulta, la respuesta anterior no se muestra como actual. Si la API falla o rechaza la consulta, se avisa con `role="alert"`.
+- [x] La respuesta recibe el foco, o un lector de pantalla la anuncia, al llegar.
+
+Fuera de esta entrega: elegir la duración en horas a mano (`persistence_hours`); el tipo de evento ya fija una duración supuesta y declarada. Tampoco se enlaza la respuesta con el par de fechas del mapa.
+
 ## Interfaces
 
 - **Consume:** API de veredictos y la interfaz del mapa de Atlas.

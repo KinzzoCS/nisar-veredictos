@@ -4,6 +4,7 @@ import { verdictsApi, type Lang, type SeriesInfo, type Verdict } from './api/cli
 import { hasOpticalScene, mapOptionsFor } from './api/mapOptions'
 import { LanguageSwitch } from './components/LanguageSwitch'
 import { AtlasMap } from './components/AtlasMap'
+import { EventQuery } from './components/EventQuery'
 import { SyntheticBanner } from './components/SyntheticBadge'
 import { VerdictCard } from './components/VerdictCard'
 
@@ -158,6 +159,8 @@ export default function App() {
             busy={verdicts.status === 'loading' || mapVerdict !== verdict}
           />
         )}
+
+        {aoi && <EventQuery aoi={aoi} lang={lang} />}
       </main>
 
       <footer className="muted">
