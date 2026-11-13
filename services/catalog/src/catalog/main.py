@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Query
 from pydantic import AfterValidator, BaseModel, Field
 
 from .cmr import CmrSource, GranuleSource
-from . import opera
+from . import opera, plan
 from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, group_acquisitions, window
 from .pairing import Granule, build_series, series_id
 from .timeline import build_timeline
@@ -109,10 +109,31 @@ class TimelineGap(BaseModel):
     source: str
 
 
+class ObservationPlan(BaseModel):
+    status: Literal["planned", "partial", "not_planned", "no_plan", "unknown"] = Field(
+        description=(
+            "Qué dice el plan diario de NISAR (NISAR_COP) para la hora estimada. planned: una observación L-SAR "
+            "cubre de 10 s antes a 40 s después. partial: la cubre solo en parte. not_planned: hay plan y no la "
+            "cubre. no_plan: no hay plan publicado para esa hora. unknown: catalog no tiene el resumen de "
+            "`ingest plan` o no coincide con esta pasada. Un plan no garantiza la adquisición: en el hueco de "
+            "2026-07-27 a 2026-08-02 hubo planes y no se adquirió nada."
+        )
+    )
+    plan: str | None = Field(description="Título del gránulo de NISAR_COP que se usó, con su versión.")
+    config_id: str | None = Field(description="LSAR_CONFIG_ID de la observación planificada.")
+    same_config: bool | None = Field(
+        description="La configuración coincide con la del plan de la última pasada adquirida. null si falta alguna."
+    )
+    checked_at: UtcDatetime | None = Field(description="Cuándo consultó ingest el plan, en UTC.")
+
+
 class NextPassEstimate(BaseModel):
     series: str
     expected_at: UtcDatetime = Field(description="Estimación, no plan de observación: última pasada más N ciclos.")
     basis: Literal["12-day cycle"]
+    observation_plan: ObservationPlan = Field(
+        description="Si el plan de observación de NISAR incluye esta pasada. No cambia expected_at."
+    )
 
 
 class ExcludedPass(ExcludedGranule):
@@ -245,8 +266,10 @@ def create_app(
     clock: Callable[[], datetime] | None = None,
     optical_source: SceneSource | None = None,
     opera_source: opera.OperaSource | None = None,
+    plan_dir: Path | None = None,
 ) -> FastAPI:
     directory = aoi_dir or Path(os.environ.get("AOI_DIR", "/config/aois"))
+    plans = plan_dir or Path(os.environ.get("PLAN_DIR", "/data/plan"))
     granule_source = source or CmrSource()
     scene_source = optical_source or EarthSearchSource()
     water_source = opera_source or opera.CmrOperaSource()
@@ -317,13 +340,20 @@ def create_app(
             date.fromisoformat(aoi["window"]["end"]),
             now(),
         )
+        observation = plan.load_plan(plans, aoi["id"])
         return TimelineOut(
             aoi=aoi["id"],
             published_at_basis="cmr_updated",
             passes=[TimelinePass(**vars(item)) for item in result.passes],
             intervals=[TimelineInterval(**vars(item)) for item in result.intervals],
             gaps=[TimelineGap(**vars(item)) for item in result.gaps],
-            next_pass_estimates=[NextPassEstimate(**vars(item)) for item in result.next_pass_estimates],
+            next_pass_estimates=[
+                NextPassEstimate(
+                    **vars(item),
+                    observation_plan=ObservationPlan(**vars(plan.status_for(observation, item.series, item.expected_at))),
+                )
+                for item in result.next_pass_estimates
+            ],
             excluded=[ExcludedPass(series=series_id(*g.group_key), **_excluded_fields(g, entry)) for g, entry in excluded],
         )
 

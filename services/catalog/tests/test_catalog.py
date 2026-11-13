@@ -121,8 +121,8 @@ class BrokenSource:
         raise httpx.ConnectError("sin red")
 
 
-def timeline_client(source):
-    return TestClient(create_app(ROOT / "config" / "aois", source, clock=lambda: NOW))
+def timeline_client(source, plan_dir=ROOT / "no-existe"):
+    return TestClient(create_app(ROOT / "config" / "aois", source, clock=lambda: NOW, plan_dir=plan_dir))
 
 
 def test_parse_title_keeps_acquisition_time_in_utc():
@@ -169,7 +169,14 @@ def test_timeline_reports_publication_latency_or_null():
 def test_next_pass_is_an_estimate_after_now():
     body = timeline_client(ListSource([granule(d) for d in T048_DATES])).get("/aois/parral/timeline").json()
     assert body["next_pass_estimates"] == [
-        {"series": "T048A-F015-4005-DHDH-P05023", "expected_at": "2026-11-20T09:42:25Z", "basis": "12-day cycle"}
+        {
+            "series": "T048A-F015-4005-DHDH-P05023",
+            "expected_at": "2026-11-20T09:42:25Z",
+            "basis": "12-day cycle",
+            "observation_plan": {
+                "status": "unknown", "plan": None, "config_id": None, "same_config": None, "checked_at": None,
+            },
+        }
     ]
 
 
@@ -515,6 +522,70 @@ def test_no_exclusions_means_empty_lists():
     assert body["excluded"] == []
 
 
+# --- Plan de observación (T-ANT-09) ---
+
+PLAN_TITLE = "dcop_2026324_c037_d11_s1b_o7b_o2s1c_v01"
+
+
+def write_plan(directory, expected_at="2026-11-20T09:42:25Z", status="planned", series="T048A-F015-4005-DHDH-P05023"):
+    body = {
+        "schema": "observation-plan/1",
+        "aoi": "parral",
+        "checked_at": "2026-11-12T20:00:00Z",
+        "series": [{
+            "series": "T048A-F015",
+            "catalog_series": series,
+            "passes": [{
+                "expected_at": expected_at, "status": status, "plan": PLAN_TITLE,
+                "config_id": "156", "same_config": True,
+            }],
+        }],
+    }
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "parral.json").write_text(json.dumps(body), encoding="utf-8")
+    return directory
+
+
+def next_pass(plan_dir):
+    source = ListSource([granule(d) for d in T048_DATES])
+    (estimate,) = timeline_client(source, plan_dir).get("/aois/parral/timeline").json()["next_pass_estimates"]
+    return estimate
+
+
+def test_plan_file_marks_the_next_pass_without_changing_the_estimate(tmp_path):
+    estimate = next_pass(write_plan(tmp_path))
+    assert estimate["expected_at"] == "2026-11-20T09:42:25Z" and estimate["basis"] == "12-day cycle"
+    assert estimate["observation_plan"] == {
+        "status": "planned", "plan": PLAN_TITLE, "config_id": "156", "same_config": True,
+        "checked_at": "2026-11-12T20:00:00Z",
+    }
+
+
+def test_plan_states_pass_through(tmp_path):
+    for status in ("partial", "not_planned", "no_plan"):
+        assert next_pass(write_plan(tmp_path / status, status=status))["observation_plan"]["status"] == status
+
+
+def test_plan_for_another_time_or_series_is_unknown(tmp_path):
+    late = next_pass(write_plan(tmp_path / "tarde", expected_at="2026-11-20T09:43:30Z"))
+    other = next_pass(write_plan(tmp_path / "otra", series="T171D-F075-4005-DHDH-P05023"))
+    close = next_pass(write_plan(tmp_path / "cerca", expected_at="2026-11-20T09:42:50Z"))
+    assert late["observation_plan"]["status"] == "unknown" and other["observation_plan"]["status"] == "unknown"
+    assert close["observation_plan"]["status"] == "planned"
+
+
+def test_unreadable_plan_file_is_unknown(tmp_path):
+    (tmp_path / "parral.json").write_text("{roto", encoding="utf-8")
+    assert next_pass(tmp_path)["observation_plan"]["status"] == "unknown"
+    (tmp_path / "parral.json").write_text(json.dumps({"schema": "otro/1"}), encoding="utf-8")
+    assert next_pass(tmp_path)["observation_plan"]["status"] == "unknown"
+
+
+def test_plan_field_description_warns_that_a_plan_is_not_an_acquisition():
+    schema = public_app.openapi()["components"]["schemas"]["ObservationPlan"]
+    assert "no garantiza la adquisición" in schema["properties"]["status"]["description"]
+
+
 # --- Criterios de aceptación: fallos externos en 502 y horas en UTC ---
 
 import re
@@ -526,7 +597,7 @@ from pydantic import ValidationError
 from catalog import cmr as cmr_module
 from catalog import opera as opera_module
 from catalog.cmr import CmrSource
-from catalog.main import NextPassEstimate
+from catalog.main import NextPassEstimate, ObservationPlan
 from catalog.opera import CmrOperaSource
 from catalog.optical import EarthSearchSource
 from catalog.pairing import parse_utc
@@ -572,10 +643,19 @@ def test_parse_utc_handles_z_offsets_naive_and_short_fractions():
 
 def test_api_models_convert_offsets_to_utc_and_reject_naive_times():
     local = datetime.fromisoformat("2026-11-20T03:42:25-06:00")
-    estimate = NextPassEstimate(series="T048", expected_at=local, basis="12-day cycle")
-    assert estimate.model_dump(mode="json")["expected_at"] == "2026-11-20T09:42:25Z"
+    checked = datetime.fromisoformat("2026-11-12T14:00:00-06:00")
+    plan = ObservationPlan(status="planned", plan=PLAN_TITLE, config_id="156", same_config=True, checked_at=checked)
+    estimate = NextPassEstimate(series="T048", expected_at=local, basis="12-day cycle", observation_plan=plan)
+    dumped = estimate.model_dump(mode="json")
+    assert dumped["expected_at"] == "2026-11-20T09:42:25Z"
+    assert dumped["observation_plan"]["checked_at"] == "2026-11-12T20:00:00Z"
     with pytest.raises(ValidationError):
-        NextPassEstimate(series="T048", expected_at=datetime(2026, 11, 20, 9, 42, 25), basis="12-day cycle")
+        NextPassEstimate(
+            series="T048", expected_at=datetime(2026, 11, 20, 9, 42, 25), basis="12-day cycle", observation_plan=plan
+        )
+    with pytest.raises(ValidationError):
+        ObservationPlan(status="unknown", plan=None, config_id=None, same_config=None,
+                        checked_at=datetime(2026, 11, 12, 20, 0, 0))
 
 
 def test_every_api_time_is_utc_iso8601():

@@ -135,6 +135,22 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - Probado el 2026-11-12 con T048 del 06-17 y T171 del 06-26. Las capas de `frequencyA` salen idénticas a los recortes anteriores. La incidencia a 0 m sobre la zona va de 38,0° a 41,8° en T048 y de 39,5° a 43,2° en T171.
   - `ingest` tardó 350 s y 370 s por fecha, frente a unos 130-160 s sin `radarGrid`. Falta saber si es la red o la lectura de los cubos.
 
+## Plan de observación de NISAR
+
+Comprobado el 2026-11-12 por Antena con CMR, con los XML bajados con el token y con `ingest plan --aoi parral` contra NASA (T-ANT-09).
+
+- Colección `NISAR_COP` en CMR (`C2727904608-ASF`), un plan diario desde el 2025-08-21 (481 gránulos el 2026-11-12). Se publica con unos 10 días de adelanto: ese día ya estaba el del 2026-11-22. CMR lo lista sin cuenta. El XML (~1,3 MB) está en `nisar.asf.earthdatacloud.nasa.gov/NISAR/DCOP/` y **pide token**: sin él, redirige a URS.
+- El XML (`FORMAT_VERSION` 2.4) trae `OBS` con `TYPE` (`lsar`, `ssar` o `joint`), horas `REF_START_DATETIME` y `REF_END_DATETIME` en `AAAA-DDDTHH:MM:SS.ffffff` UTC y `LSAR_CONFIG_ID`. **No trae pista, marco ni geometría.**
+- La hora de la pasada sobre Parral es muy estable: T048 a las 12:24:31-34 UTC y T171 a las 01:44:32-36 UTC entre el 06-17 y el 10-15.
+- Cruzando esa hora (de 10 s antes a 40 s después) con el plan, en las 27 fechas del ciclo de T048 y T171 entre el 2026-06-17 y el 2026-11-20:
+  - Las 19 pasadas con GCOV publicado tenían una observación `lsar` con `LSAR_CONFIG_ID` 156 que las cubría enteras.
+  - T171 del 2026-08-01 estaba planificada y no hay dato. Hay planes del 07-27 al 08-02 aunque ASF declara el hueco de adquisición: **un plan no garantiza la adquisición.**
+  - No hay planes del 08-03 al 08-09, así que T048 del 08-04 queda sin plan.
+  - Ningún dato publicado cayó en una pasada sin plan.
+  - Las pasadas siguientes están planificadas con 156: T048 el 10-27, 11-08 y 11-20, y T171 el 10-24, 11-05 y 11-17.
+- Algunos días tienen versiones posteriores del plan (`v02` del 07-24 al 07-26). Se usa siempre la mayor.
+- No sabemos qué modo corresponde a cada `LSAR_CONFIG_ID`: falta la tabla de modos (`ModeTable_v54_Final_20260506.xlsx`, citada en el XML).
+
 ## Caso de Parral
 
 - Tormenta del 1 de julio de 2026 con calles inundadas: cae entre las pasadas del 29 de junio y el 8 de julio. Es el ejemplo de `not_observable`. La noticia salió de extractos de búsqueda; hay que abrirla antes de usarla en la demo.
