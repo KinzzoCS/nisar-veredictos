@@ -446,3 +446,10 @@
   background: #fff7ed;
   color: #7c2d12;
 }
+
+/* Con scene_shift.corrected (PR 42): nota informativa, no un aviso. */
+.atlas-leyenda .atlas-aviso-escena-corregido {
+  border-left-color: #4b5563;
+  background: #f3f4f6;
+  color: #1f2937;
+}

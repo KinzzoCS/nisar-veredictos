@@ -1,3 +1,4 @@
+import type { AvisoEscena } from "./escena";
 import { COLOR_CAMBIO } from "./estado";
 import type { Idioma } from "./textos";
 import { TEXTOS } from "./textos";
@@ -38,8 +39,8 @@ export interface EstadoLeyenda {
   opacidad: number;
   rango: [number, number] | null;
   causa?: string;
-  /** El cambio de este par puede ser de nivel de toda la escena (scene_shift.exceeds_threshold). */
-  avisoEscena?: boolean;
+  /** Cambio de nivel de toda la escena en este par (ver escena.ts). */
+  avisoEscena?: AvisoEscena;
 }
 
 interface Manejadores {
@@ -103,7 +104,12 @@ export function crearLeyenda(contenedor: HTMLElement, m: Manejadores) {
 
     const lista = el("ul", "atlas-leyenda");
     // Va junto a lo que muestra cambio (el estado o la escala en dB), nunca suelto.
-    const aviso = e.avisoEscena ? el("small", "atlas-aviso-escena", t.avisoEscena) : null;
+    const aviso =
+      e.avisoEscena === "sin_corregir"
+        ? el("small", "atlas-aviso-escena", t.avisoEscena)
+        : e.avisoEscena === "corregido"
+          ? el("small", "atlas-aviso-escena atlas-aviso-escena-corregido", t.notaEscenaCorregida)
+          : null;
     if (e.capa === "state") {
       const cambio = entrada("atlas-muestra-cambio", t.cambioProbable);
       if (aviso) cambio.querySelector(".atlas-entrada")!.append(aviso);

@@ -5,6 +5,7 @@ Módulo de mapa de Atlas. Especificación: [`specs/04-atlas`](../../../specs/04-
 ## Uso
 
 ```ts
+import { avisoEscena } from "./mapa/escena";
 import { crearMapa } from "./mapa/mapa";
 
 const GATEWAY = "http://localhost:8080";
@@ -16,8 +17,9 @@ const mapa = crearMapa(document.getElementById("mapa")!, {
   dataKind: veredicto.receipt.data_kind, // "synthetic" muestra el distintivo
   layers: conHost(veredicto.layers),     // plantillas de la API con el host delante
   causaNoObservable: veredicto.cause_label ?? undefined,
-  // Cambio de nivel de toda la escena (PR 37): la leyenda avisa de que puede no ser local.
-  desplazamientoEscena: veredicto.evidence.scene_shift?.exceeds_threshold ?? false,
+  // Cambio de nivel de toda la escena (PR 37 y 42), con avisoEscena de "./mapa/escena":
+  // sin corregir, la leyenda avisa de que puede no ser local; corregido, anota que se descontó.
+  desplazamientoEscena: avisoEscena(veredicto.evidence.scene_shift),
   idioma: "es",                         // o "en"
   // Serie por píxel de la serie activa: al seleccionar un punto, el mapa la pide y la enseña.
   pixelUrl: `${GATEWAY}/api/verdicts/aois/parral/series/${serie.id}/pixel`,
