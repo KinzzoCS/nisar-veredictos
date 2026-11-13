@@ -9,5 +9,5 @@
 | T-BAL-05 | Prueba de humo con todas las rutas nuevas | P0 | T-ANT-04, T-BAL-04 | hecha |
 | T-BAL-06 | Eventos con horas UTC y persistencias declaradas | P1 | T-ANT-04 | hecha |
 | T-BAL-07 | Reflejar las banderas de calidad de Eco en textos y recibo, y avisar del desplazamiento de la escena | P1 | T-ECO-03 | hecha |
-| T-BAL-08 | Contraste con OPERA DSWx-S1 | P1 | T-ANT-06, cuenta de Earthdata | hecha con dobles y CMR real; falta la prueba con radar real y token |
+| T-BAL-08 | Contraste con OPERA DSWx-S1 | P1 | T-ANT-06, cuenta de Earthdata | hecha; probada con radar real y token el 2026-11-12 |
 | T-BAL-09 | Calibrar reglas con datos reales | P1 | T-ECO-07 | en curso: 5 % provisional y aviso con `stats.scene_shift_*` |

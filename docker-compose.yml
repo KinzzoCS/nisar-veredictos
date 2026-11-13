@@ -51,8 +51,13 @@ services:
       # Opcional, del .env local: con él, verdicts lee la capa de agua de OPERA DSWx-S1 y la compara con el
       # radar real (T-BAL-08); sin él, lista el producto y dice que no se comparó. Solo esta variable, no todo el .env.
       EARTHDATA_TOKEN: ${EARTHDATA_TOKEN:-}
+      # Con token y radar real, el contraste con OPERA se calcula al arrancar, en segundo plano, y se guarda
+      # en disco: la primera carga de T048 tardaba ~63 s y el gateway cortaba a los 60 s. Sin token no hace nada.
+      VERDICTS_WARM_CACHE: "1"
+      VERDICTS_CACHE_DIR: /cache
     volumes:
       - ./data:/data:ro
+      - ./data/cache/verdicts:/cache
     depends_on:
       seed:
         condition: service_completed_successfully

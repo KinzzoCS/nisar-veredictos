@@ -1,5 +1,6 @@
 """Contraste con OPERA DSWx-S1 (T-BAL-08, RF-BAL-07): acuerdo o desacuerdo sobre agua, nunca un error."""
 import json
+import threading
 from datetime import date, datetime, timezone
 
 import httpx
@@ -376,3 +377,75 @@ def test_http_opera_passes_tile_bbox_through_or_drops_it(value, expected):
         lambda: 0.0,
     )
     assert source.products("parral", JUNE_29, 7).acquisitions[0].tiles[0].bbox == expected
+
+
+# --- Caché en disco y calentamiento (revisión de Antena: la primera carga real tardaba ~63 s) -----------------
+
+def _disk_client(manifest_root, cache_dir, opera, fetcher, **kwargs):
+    contrast = water.WaterContrast(manifest_root, fetcher, cache_dir)
+    return TestClient(create_app(manifest_root, clock=_clock, opera_source=opera, water_contrast=contrast, **kwargs))
+
+
+def _same_and_elsewhere():
+    same = np.zeros((40, 40))
+    same[:, :20] = 1
+    elsewhere = np.zeros((40, 40))
+    elsewhere[:, 25:] = 1
+    return same, elsewhere
+
+
+def test_disk_cache_survives_a_restart(manifest_root, tmp_path):
+    opera, fetcher = _real_with_products(manifest_root, *_same_and_elsewhere())
+    first = _disk_client(manifest_root, tmp_path, opera, fetcher).get(VERDICT).json()["evidence"]["water"]
+    assert len(fetcher.urls) == 2 and len(list((tmp_path / "water").glob("*.json"))) == 2
+    restarted = FakeFetcher(fail=True)
+    again = _disk_client(manifest_root, tmp_path, opera, restarted).get(VERDICT).json()["evidence"]["water"]
+    assert restarted.urls == []
+    assert again["before"] == first["before"] and again["after"]["status"] == "compared"
+
+
+def test_regenerated_radar_is_compared_again(manifest_root, tmp_path):
+    opera, fetcher = _real_with_products(manifest_root, *_same_and_elsewhere())
+    _disk_client(manifest_root, tmp_path, opera, fetcher).get(VERDICT)
+    _radar(manifest_root, "20260629", _water_columns(0, 30, -20, -10), _water_columns(0, 30, -26, -18))
+    later = FakeFetcher(fetcher.tiles)
+    _disk_client(manifest_root, tmp_path, opera, later).get(VERDICT)
+    assert len(later.urls) == 1  # solo la fecha que processor volvió a escribir
+
+
+def test_unreadable_cache_file_is_ignored(manifest_root, tmp_path):
+    opera, fetcher = _real_with_products(manifest_root, *_same_and_elsewhere())
+    _disk_client(manifest_root, tmp_path, opera, fetcher).get(VERDICT)
+    for path in (tmp_path / "water").glob("*.json"):
+        path.write_text("{roto", encoding="utf-8")
+    later = FakeFetcher(fetcher.tiles)
+    before = _disk_client(manifest_root, tmp_path, opera, later).get(VERDICT).json()["evidence"]["water"]["before"]
+    assert before["status"] == "compared" and len(later.urls) == 2
+
+
+def test_failed_download_is_not_stored(manifest_root, tmp_path):
+    _as_real(manifest_root)
+    _disk_client(manifest_root, tmp_path, FakeOpera(PARRAL_PASSES), FakeFetcher(fail=True)).get(VERDICT)
+    assert not list(tmp_path.glob("water/*.json"))
+
+
+def test_warm_up_compares_real_series_in_the_background(manifest_root, tmp_path):
+    opera, fetcher = _real_with_products(manifest_root, *_same_and_elsewhere())
+    with _disk_client(manifest_root, tmp_path, opera, fetcher, warm_cache=True):
+        for thread in [t for t in threading.enumerate() if t.name == "warm-water"]:
+            thread.join(timeout=30)
+    assert len(fetcher.urls) == 2 and len(list((tmp_path / "water").glob("*.json"))) == 2
+
+
+def test_warm_up_does_nothing_without_token(manifest_root):
+    _as_real(manifest_root)
+    opera = FakeOpera(PARRAL_PASSES)
+    with _disk_client(manifest_root, None, opera, None, warm_cache=True):
+        pass
+    assert opera.calls == []
+
+
+def test_cache_dir_comes_from_environment(tmp_path):
+    assert water.contrast_from_env(tmp_path, {}.get).cache_dir is None
+    env = {"VERDICTS_CACHE_DIR": str(tmp_path / "c")}.get
+    assert water.contrast_from_env(tmp_path, env).cache_dir == tmp_path / "c"

@@ -8,6 +8,10 @@
 # Las rutas de Antena que consultan CMR o Earth Search dependen de la red. Sin
 # red responden 502 con su motivo; eso se acepta y se avisa, salvo con
 # SMOKE_REQUIRE_NETWORK=1, que lo convierte en fallo.
+#
+# Vale para la pila sintética y para la real: mira el data_kind de la serie en
+# /series y ajusta lo que depende de él. SMOKE_DATA=synthetic o SMOKE_DATA=real
+# lo fija y falla si la pila trae otra cosa.
 set -euo pipefail
 
 BASE="${BASE:-http://localhost:8080}"
@@ -22,6 +26,16 @@ EVENT_DATE=2026-07-01
 
 COVERED=()
 WARNINGS=()
+
+# En Windows, python3 puede ser el alias de la Microsoft Store, que no ejecuta nada.
+if python3 -c "" >/dev/null 2>&1; then
+  PY=python3
+elif python -c "" >/dev/null 2>&1; then
+  PY=python
+else
+  echo "FALLO: hace falta python3 o python" >&2
+  exit 1
+fi
 
 fail() {
   echo "FALLO: $*" >&2
@@ -50,7 +64,7 @@ expect_code() {
 # Ejecuta código Python sobre el JSON de $TMP/$2.json, disponible como `d`.
 check() {
   local what=$1 name=$2 code=$3
-  python3 - "$TMP/$name.json" "$code" <<'PY' || fail "$what"
+  "$PY" - "$TMP/$name.json" "$code" <<'PY' || fail "$what"
 import json, sys
 d = json.load(open(sys.argv[1], encoding="utf-8"))
 exec(sys.argv[2])
@@ -66,7 +80,7 @@ external() {
     200) return 0 ;;
     502)
       local reason
-      reason=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1], encoding='utf-8'))['detail'])" "$TMP/$name.json") \
+      reason=$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1], encoding='utf-8'))['detail'])" "$TMP/$name.json") \
         || fail "$path respondió 502 sin motivo"
       test "$REQUIRE_NETWORK" = "1" && fail "$path sin red: $reason"
       WARNINGS+=("$path no se validó: $reason")
@@ -174,12 +188,24 @@ for s in d:
 covered verdicts "/aois/{aoi}/series"
 expect_code 404 "/api/verdicts/aois/no-existe/series"
 
+# Datos de la serie principal: sintéticos o reales. Lo que depende de ello se comprueba según el caso.
+DATA_KIND=$("$PY" -c "import json,sys; print({s['id']: s for s in json.load(open(sys.argv[1], encoding='utf-8'))}[sys.argv[2]]['data_kind'])" "$TMP/verdicts_series.json" "$SERIES")
+if [ -n "${SMOKE_DATA:-}" ] && [ "$SMOKE_DATA" != "$DATA_KIND" ]; then
+  fail "SMOKE_DATA=$SMOKE_DATA, pero $SERIES trae datos $DATA_KIND"
+fi
+echo "Datos de $SERIES: $DATA_KIND"
+
 get event "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE"
 grep -q '"cause":"no_acquisition_during_event"' "$TMP/event.json" || fail "evento: causa"
 grep -q '"next_pass":"2026-07-08"' "$TMP/event.json" || fail "evento: siguiente pasada"
-# El corte se cuenta en horas: con 145 h ya no sale "observable", sino la duda declarada.
+# El corte se cuenta en horas: con 145 h ya no sale "observable". Con sintéticos no se sabe la hora de la
+# pasada y sale la duda declarada; con datos reales catalog da la hora (07-08 01:44 UTC) y no llega.
 get event145 "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE&persistence_hours=145"
-grep -q '"cause":"timing_uncertain"' "$TMP/event145.json" || fail "evento: 145 h sin hora"
+if [ "$DATA_KIND" = synthetic ]; then
+  grep -q '"cause":"timing_uncertain"' "$TMP/event145.json" || fail "evento: 145 h sin hora"
+else
+  grep -q '"state":"not_observable"' "$TMP/event145.json" || fail "evento: 145 h con la hora real"
+fi
 get event_time "/api/verdicts/aois/$AOI/events?date=$EVENT_DATE&persistence_hours=145&time=12:00"
 grep -q '"event_time":"12:00:00"' "$TMP/event_time.json" || fail "evento: hora UTC"
 # T-BAL-06: la persistencia por tipo de evento sale declarada como supuesto.
@@ -191,11 +217,21 @@ covered verdicts "/aois/{aoi}/events"
 
 get verdicts "/api/verdicts/aois/$AOI/series/$SERIES/verdicts"
 verdicts=$(cat "$TMP/verdicts.json")
-echo "$verdicts" | grep -q '"data_kind":"synthetic"' || fail "veredictos: data_kind"
-echo "$verdicts" | grep -q '"state":"change_probable"' || fail "veredictos: change_probable"
+echo "$verdicts" | grep -q "\"data_kind\":\"$DATA_KIND\"" || fail "veredictos: data_kind"
 # T-BAL-02: días entre fechas y frescura del dato en cada veredicto.
 echo "$verdicts" | grep -q '"interval_days":' || fail "veredictos: interval_days"
-echo "$verdicts" | grep -q '"latency_status":"synthetic"' || fail "veredictos: latency_status"
+if [ "$DATA_KIND" = synthetic ]; then
+  # Los sintéticos se generan con cambio, y la latencia no aplica.
+  echo "$verdicts" | grep -q '"state":"change_probable"' || fail "veredictos: change_probable"
+  echo "$verdicts" | grep -q '"latency_status":"synthetic"' || fail "veredictos: latency_status"
+else
+  # Con datos reales vale cualquier estado; la latencia sale de catalog o se dice por qué no se sabe.
+  check "veredictos: latencia real" verdicts "
+for v in d:
+    for side in ('before', 'after'):
+        assert v['receipt']['freshness'][side]['latency_status'] != 'synthetic', v['id']
+"
+fi
 # Ningún veredicto sin data_kind.
 check "veredictos: data_kind en todos" verdicts "
 assert d and all(v['receipt']['data_kind'] in ('real', 'synthetic') for v in d)
@@ -207,7 +243,7 @@ get verdicts_en "/api/verdicts/aois/$AOI/series/$SERIES/verdicts?lang=en"
 check "veredictos en inglés" verdicts_en "assert d and all(v['summary'] for v in d)"
 
 # Un par concreto coincide con el de la lista.
-pair_id=$(python3 -c "import json,sys; print(json.load(open(sys.argv[1], encoding='utf-8'))[-1]['id'])" "$TMP/verdicts.json")
+pair_id=$("$PY" -c "import json,sys; print(json.load(open(sys.argv[1], encoding='utf-8'))[-1]['id'])" "$TMP/verdicts.json")
 get verdict "/api/verdicts/aois/$AOI/series/$SERIES/verdicts/$pair_id"
 check "veredicto por par" verdict "assert d['id'] == '$pair_id' and d['receipt']['data_kind']"
 covered verdicts "/aois/{aoi}/series/{series_id}/verdicts/{pair_id}"
@@ -227,7 +263,7 @@ expect_code 422 "/api/verdicts/aois/$AOI/series/$SERIES/pixel?lon=500&lat=26.93"
 
 # Tesela real con las URLs que entrega la API, a un zoom que cubre la zona.
 for layer in state change_hh; do
-  template=$(echo "$verdicts" | python3 -c "import json,sys; print(json.load(sys.stdin)[-1]['layers']['$layer'])")
+  template=$(echo "$verdicts" | "$PY" -c "import json,sys; print(json.load(sys.stdin)[-1]['layers']['$layer'])")
   tile=$(echo "$template" | sed 's/{z}/9/; s/{x}/106/; s/{y}/216/')
   content_type=$(curl -fsS -o "$TMP/tile.png" -w '%{content_type}' "$BASE$tile") || fail "tesela $layer"
   test "$content_type" = "image/png" || fail "tesela $layer: $content_type"
@@ -304,7 +340,7 @@ done
 printf '%s\n' "${COVERED[@]}" >"$TMP/covered.txt"
 for service in catalog verdicts; do
   get "openapi_$service" "/api/$service/openapi.json"
-  python3 - "$TMP/openapi_$service.json" "$TMP/covered.txt" "$service" <<'PY' || fail "rutas de $service sin prueba de humo"
+  "$PY" - "$TMP/openapi_$service.json" "$TMP/covered.txt" "$service" <<'PY' || fail "rutas de $service sin prueba de humo"
 import json, sys
 spec = json.load(open(sys.argv[1], encoding="utf-8"))
 service = sys.argv[3]
