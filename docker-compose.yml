@@ -36,8 +36,11 @@ services:
     build: ./services/catalog
     environment:
       AOI_DIR: /config/aois
+      # Plan de observación de NISAR que escribe `ingest plan`; sin archivo, la línea de tiempo dice unknown.
+      PLAN_DIR: /data/plan
     volumes:
       - ./config/aois:/config/aois:ro
+      - ./data:/data:ro
 
   verdicts:
     build: ./services/verdicts
