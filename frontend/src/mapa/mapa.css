@@ -1,0 +1,448 @@
+.atlas-mapa {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 320px;
+  font-family: system-ui, sans-serif;
+}
+
+.atlas-lienzo {
+  position: absolute;
+  inset: 0;
+}
+
+.atlas-mapa .maplibregl-canvas:focus-visible {
+  outline: 3px solid #1b1f3b;
+  outline-offset: -3px;
+}
+
+.atlas-extension,
+.atlas-sintetico {
+  position: absolute;
+  left: 10px;
+  z-index: 2;
+  padding: 6px 10px;
+  border-radius: 4px;
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.atlas-extension {
+  top: 10px;
+  display: flex;
+  flex-direction: column;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-sintetico {
+  top: 64px;
+  background: #7a1f00;
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.atlas-mapa .maplibregl-ctrl-scale {
+  border-color: #1b1f3b;
+  color: #1b1f3b;
+}
+
+.atlas-panel {
+  position: absolute;
+  right: 10px;
+  top: 80px;
+  z-index: 2;
+  width: 230px;
+  max-height: calc(100% - 130px);
+  overflow-y: auto;
+  padding: 10px 12px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.atlas-capas {
+  margin: 0 0 8px;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.atlas-capas legend,
+.atlas-opacidad {
+  font-weight: 600;
+}
+
+.atlas-capas label {
+  cursor: pointer;
+}
+
+.atlas-opacidad {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.atlas-opacidad input {
+  flex: 1;
+  min-width: 0;
+}
+
+.atlas-panel input:focus-visible {
+  outline: 2px solid #1b1f3b;
+  outline-offset: 2px;
+}
+
+.atlas-leyenda {
+  list-style: none;
+  margin: 0;
+  padding: 8px 0 0;
+  border-top: 1px solid #d1d5db;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.atlas-leyenda li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+}
+
+.atlas-leyenda small {
+  display: block;
+  color: #4b5563;
+}
+
+.atlas-entrada {
+  display: flex;
+  flex-direction: column;
+}
+
+.atlas-muestra {
+  flex: none;
+  width: 22px;
+  height: 16px;
+  margin-top: 1px;
+  border: 1px solid #1b1f3b;
+}
+
+.atlas-muestra-vacia {
+  background: transparent;
+}
+
+/* Mismo dibujo que la trama del mapa (estado.ts): rayas diagonales gris oscuro sobre gris claro. */
+.atlas-muestra-trama {
+  background: repeating-linear-gradient(
+    135deg,
+    #374151 0 2px,
+    #d1d5db 2px 5.7px
+  );
+}
+
+.atlas-escala {
+  flex-direction: column;
+}
+
+.atlas-degradado {
+  width: 100%;
+  height: 12px;
+  border: 1px solid #1b1f3b;
+}
+
+.atlas-marcas {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-causa {
+  margin-top: 2px;
+}
+
+/* ---- Selección de punto (T-ATL-04) ---- */
+
+.atlas-cruz {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: 28px;
+  height: 28px;
+  margin: -14px 0 0 -14px;
+  pointer-events: none;
+  display: none;
+  background:
+    linear-gradient(#1b1f3b, #1b1f3b) center / 2px 100% no-repeat,
+    linear-gradient(#1b1f3b, #1b1f3b) center / 100% 2px no-repeat;
+  filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 1px #fff);
+}
+
+.atlas-ayuda {
+  position: absolute;
+  left: 50%;
+  top: calc(50% + 22px);
+  z-index: 2;
+  transform: translateX(-50%);
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: #1b1f3b;
+  color: #fff;
+  font-size: 12px;
+  white-space: nowrap;
+  pointer-events: none;
+  display: none;
+}
+
+.atlas-foco-teclado .atlas-cruz,
+.atlas-foco-teclado .atlas-ayuda {
+  display: block;
+}
+
+.atlas-solo-lector {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.atlas-serie {
+  color: #1b1f3b;
+  font: 13px/1.35 system-ui, sans-serif;
+  max-height: 340px;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+
+.atlas-serie h2 {
+  margin: 0 18px 2px 0;
+  font-size: 14px;
+}
+
+.atlas-serie p {
+  margin: 0 0 4px;
+}
+
+.atlas-serie-coord {
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-serie-nota {
+  color: #4b5563;
+}
+
+.atlas-serie-error {
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.atlas-serie-sintetico {
+  display: inline-block;
+  padding: 1px 6px;
+  border-radius: 3px;
+  background: #7a1f00;
+  color: #fff;
+  font-weight: 600;
+}
+
+.atlas-serie-grafica {
+  display: block;
+  width: 100%;
+  height: auto;
+  margin: 4px 0;
+  font-size: 9px;
+  fill: #4b5563;
+}
+
+.atlas-serie-tabla {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 4px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.atlas-serie-tabla caption {
+  text-align: left;
+  font-weight: 600;
+  padding-bottom: 2px;
+}
+
+.atlas-serie-tabla th,
+.atlas-serie-tabla td {
+  padding: 1px 4px;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: left;
+}
+
+.atlas-serie-cambio td {
+  font-weight: 600;
+}
+
+.atlas-serie summary {
+  cursor: pointer;
+  margin-top: 4px;
+}
+
+/* ---- Comparador óptico (T-ATL-07) ---- */
+
+/* El mapa óptico va encima del radar, recortado a la derecha del deslizador
+   (clip-path en comparador.ts). Los controles de MapLibre (z-index 2) y los
+   paneles de Atlas quedan por encima; el ratón y el teclado los recibe el radar. */
+.atlas-optico {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+}
+
+/* El marcador y la ventana del punto se ven también sobre el lado óptico. */
+.atlas-mapa .maplibregl-marker,
+.atlas-mapa .maplibregl-popup {
+  z-index: 3;
+}
+
+.atlas-divisor {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: 2;
+  width: 0;
+  border-left: 2px solid #ffffff;
+  box-shadow: 0 0 0 1px rgba(27, 31, 59, 0.6);
+  pointer-events: none;
+}
+
+.atlas-divisor-asa {
+  position: absolute;
+  top: 50%;
+  left: -1px;
+  width: 32px;
+  height: 32px;
+  margin: -16px 0 0 -16px;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+  background: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.4);
+  cursor: ew-resize;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+/* Flechas ◀ ▶ dibujadas con bordes, sin depender de una fuente. */
+.atlas-divisor-asa::before,
+.atlas-divisor-asa::after {
+  content: "";
+  position: absolute;
+  top: 50%;
+  margin-top: -5px;
+  border: 5px solid transparent;
+}
+
+.atlas-divisor-asa::before {
+  left: 2px;
+  border-right-color: #ffffff;
+}
+
+.atlas-divisor-asa::after {
+  right: 2px;
+  border-left-color: #ffffff;
+}
+
+.atlas-divisor-asa:focus-visible {
+  outline: 3px solid #f59e0b;
+  outline-offset: 2px;
+}
+
+.atlas-divisor-etiqueta {
+  position: absolute;
+  top: calc(50% + 22px);
+  padding: 2px 6px;
+  border-radius: 3px;
+  background: rgba(27, 31, 59, 0.9);
+  color: #ffffff;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.atlas-divisor-radar {
+  right: 6px;
+}
+
+.atlas-divisor-optico {
+  left: 6px;
+}
+
+.atlas-optico-panel {
+  position: absolute;
+  left: 10px;
+  bottom: 44px;
+  z-index: 2;
+  width: 240px;
+  padding: 8px 10px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.96);
+  color: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+.atlas-optico-panel p {
+  margin: 2px 0 0;
+}
+
+.atlas-optico-lados {
+  margin: 0 0 4px;
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.atlas-optico-lados legend {
+  width: 100%;
+  margin-bottom: 4px;
+  padding: 0;
+  font-weight: 600;
+}
+
+.atlas-optico-lados label {
+  cursor: pointer;
+}
+
+.atlas-optico-lados input:focus-visible {
+  outline: 2px solid #1b1f3b;
+  outline-offset: 2px;
+}
+
+.atlas-optico-aviso {
+  color: #9a3412;
+  font-weight: 600;
+}
+
+.atlas-optico-atribucion {
+  display: block;
+  margin-top: 4px;
+  color: #4b5563;
+}
+
+/* Aviso de desplazamiento de toda la escena (PR 37), junto a lo que muestra cambio. */
+.atlas-leyenda .atlas-aviso-escena {
+  margin-top: 4px;
+  padding: 3px 6px;
+  border-left: 3px solid #9a3412;
+  background: #fff7ed;
+  color: #7c2d12;
+}

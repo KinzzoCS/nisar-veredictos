@@ -26,7 +26,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 | RF-ANT-01 | Listar series comparables por zona sin mezclar pista, dirección, marco, modo, polarización ni CRID | Hecho |
 | RF-ANT-02 | Traer por HTTPS solo el recorte de la zona, de forma reanudable y sin exponer el token | Hecho (T-ANT-02, T-ANT-03) |
 | RF-ANT-03 | Publicar una línea de tiempo por zona: pasadas con hora UTC, intervalo en días, huecos y latencia de publicación | Hecho (T-ANT-04) |
-| RF-ANT-04 | Estimar la siguiente pasada y marcarla como estimación | Hecho con el ciclo de 12 días (T-ANT-04); T-ANT-09 lo mejoraría con el plan de ASF |
+| RF-ANT-04 | Estimar la siguiente pasada con el ciclo de 12 días, marcarla como estimación y decir si el plan de observación de NISAR (`NISAR_COP`) la incluye, como plan y nunca como adquisición segura. Si no se sabe, lo dice | Hecho (T-ANT-04, T-ANT-09) |
 | RF-ANT-05 | Listar escenas Sentinel-2 L2A por fecha, dentro de ±N días y con nubosidad máxima configurable | Hecho (T-ANT-05) |
 | RF-ANT-06 | Listar productos OPERA DSWx-S1 a ±N días de una fecha (7 por defecto), agrupados por pasada de Sentinel-1, sin versiones reprocesadas repetidas, con su cobertura de la zona y enlaces que dicen si requieren cuenta. Si no hay ninguno, lo dice | Hecho (T-ANT-06) |
 | RF-ANT-07 | Dejar junto a los recortes de cada serie un registro de ingesta (`ingest.json`) con, por gránulo, los bytes pedidos a NASA y los escritos en disco, los segundos de lectura, la hora UTC de la lectura y la fecha de publicación según `catalog`. Lo que no se midió queda en `null`, nunca estimado | Hecho (T-ANT-07) |
@@ -37,10 +37,33 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 
 - [x] `ingest fetch --limit 2` con un token real deja dos recortes que `processor run` procesa sin errores.
 - [x] La línea de tiempo de Parral muestra el hueco del 27 de julio al 10 de agosto y un intervalo de 24 días a su través.
-- [ ] Todas las horas de la API están en UTC con formato ISO 8601.
-- [ ] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
+- [x] Todas las horas de la API están en UTC con formato ISO 8601.
+- [x] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
 - [x] Las fuentes ópticas no requieren cuenta y su licencia queda citada.
 - [x] Un gránulo excluido no aparece en `granules` ni en `passes`, sí en `excluded` con su motivo, y `ingest` no lo descarga.
+
+### Plan de observación (RF-ANT-04, T-ANT-09)
+
+Se comprueban con dobles de CMR y de los XML de `NISAR_COP` que reproducen los planes reales de Parral (ver `MEMORY.md`):
+
+- [x] `ingest plan --aoi parral` escribe `data/plan/parral.json` con cada pasada prevista por serie, desde la última adquirida más 12 días hasta el horizonte pedido, con su estado y el plan que la respalda.
+- [x] Una pasada cubierta por una observación L-SAR desde 10 s antes hasta 40 s después de la hora prevista queda `planned`, con el plan y su `config_id`. Si la observación la cubre solo en parte, `partial`. Si hay plan ese día y ninguna observación la toca, `not_planned`. Si no hay plan publicado, `no_plan`.
+- [x] Si un día tiene varias versiones del plan, se usa la más reciente y se cita.
+- [x] Cada serie declara la `config_id` del plan en su última pasada adquirida, y cada pasada dice si coincide con ella.
+- [x] `GET /aois/{id}/timeline` añade `observation_plan` a cada elemento de `next_pass_estimates` sin cambiar `expected_at` ni `basis`. Sin archivo de plan, o sin una pasada prevista que coincida en menos de 60 s, el estado es `unknown`.
+- [x] La descripción del campo dice que un plan no garantiza la adquisición.
+- [x] El token solo lo usa `ingest`. No aparece en el archivo ni en los errores, y `catalog` no lo lee.
+- [x] `contracts/catalog.openapi.json` se regenera, el cambio es aditivo y su prueba de contrato pasa.
+
+### Horas UTC y fallos externos (T-ANT-12)
+
+Detalle de los dos primeros criterios sin marcar hasta el 2026-11-12:
+
+- [x] Cada hora de la API sale como `AAAA-MM-DDTHH:MM:SS[.ffffff]Z`. Lo comprueba una prueba que recorre todas las rutas GET con datos en todas sus listas; si se añade una ruta sin incluirla, falla.
+- [x] Una hora con otra zona horaria, de CMR o de Earth Search, sale convertida a UTC. Una hora sin zona que llegue de fuera se toma como UTC, que es la referencia de CMR y de STAC.
+- [x] Una hora sin zona creada por el propio `catalog` es un fallo del código: el modelo de respuesta la rechaza, nunca adivina la zona.
+- [x] CMR, Earth Search u OPERA caídos, con error HTTP, con una respuesta que no es JSON o sin los campos esperados devuelven 502 con el servicio en `detail`. Nunca un 500 ni una lista vacía.
+- [x] Si falla una página posterior a la primera, la respuesta es 502 y no la lista de las páginas ya leídas.
 
 ### Registro de ingesta (RF-ANT-07)
 
@@ -71,8 +94,8 @@ Se comprueban con dobles de CMR que reproducen los títulos reales de Parral (ve
 
 ## Interfaces
 
-- **Consume:** NASA CMR (público, también para OPERA DSWx-S1 de PO.DAAC), NASA Earthdata (token), Earth Search STAC para Sentinel-2 (público).
-- **Produce:** API de catálogo, recortes GCOV en `data/raw/real/` y un registro `ingest.json` por serie junto a ellos. El registro es interno de Antena: no es un contrato, y ningún servicio lo lee todavía.
+- **Consume:** NASA CMR (público, también para OPERA DSWx-S1 de PO.DAAC), NASA Earthdata (token, para los recortes y el plan diario `NISAR_COP`), Earth Search STAC para Sentinel-2 (público).
+- **Produce:** API de catálogo, recortes GCOV en `data/raw/real/`, un registro `ingest.json` por serie junto a ellos y el resumen del plan de observación en `data/plan/<zona>.json`. El registro es interno de Antena: no es un contrato, y ningún servicio lo lee todavía. El resumen del plan solo lo lee `catalog`.
 
 ## Fuera de alcance
 
@@ -83,6 +106,7 @@ Se comprueban con dobles de CMR que reproducen los títulos reales de Parral (ve
 
 ## Preguntas abiertas
 
-- ¿Ofrece ASF el plan de observación en un formato legible por máquina, para RF-ANT-04?
+- ¿Ofrece ASF el plan de observación en un formato legible por máquina, para RF-ANT-04? **Respondida el 2026-11-12:** sí, la colección `NISAR_COP` de CMR, con un XML diario. No trae pista ni marco, así que se cruza con la hora prevista por el ciclo. Detalle en `plan.md`.
+- ¿Qué `LSAR_CONFIG_ID` corresponde a cada modo? En Parral todas las pasadas de 40 MHz DHDH tienen 156, pero falta la tabla de modos (`ModeTable_v54`) para confirmarlo.
 - ¿Qué nubosidad máxima es útil en el monzón de Chihuahua?
 - ¿El hueco de DSWx-S1 en Parral entre el 2026-06-28 y el 2026-09-13 es definitivo o se rellenará? Hay que volver a consultar CMR antes de la demo.

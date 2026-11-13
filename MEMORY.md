@@ -53,6 +53,9 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-11 | `verdicts` toma la hora UTC y la latencia de la línea de tiempo de catalog por HTTP, no del manifiesto (T-BAL-02) | No cambia el contrato de Eco; si catalog cae, el veredicto sale y declara `latency_status` |
 | 2026-11-11 | Contraste óptico (T-BAL-04): escena Sentinel-2 a ±10 días, ≤ 30 % de nubes por tesela; si no hay, se muestra la menos nublada y se dice. Se busca también con radar sintético | Responde la pregunta abierta de Balanza sin ocultar datos; las escenas son reales y lo declaran |
 | 2026-11-12 | La prueba de humo (T-BAL-05) compara las rutas probadas con el OpenAPI de catalog y verdicts: una ruta GET nueva sin prueba en `scripts/smoke.sh` hace fallar la CI. Las rutas que dependen de CMR o Earth Search aceptan un 502 con motivo y lo avisan; `SMOKE_REQUIRE_NETWORK=1` lo vuelve fallo | Cumple RF-BAL-05 también para rutas futuras; la CI no se cae si un servicio externo falla |
+| 2026-11-12 | Mapa con **MapLibre GL JS 6.16.0** (BSD-3-Clause) y mapa base de **teselas raster de OpenStreetMap** con atribución visible (T-ATL-01) | Licencias de los paquetes comprobadas con `npm view` (MapLibre BSD-3-Clause; Vite y Vitest MIT). Las teselas de OSM son ODbL y exigen atribución visible; su política de uso (operations.osmfoundation.org/policies/tiles) no admite tráfico alto, así que valen para la demo y no para producción. Esa política no se releyó el 2026-11-12: conviene revisarla antes de la entrega. EOX cloudless se descarta por las restricciones de algunas ediciones |
+| 2026-11-12 | El mapa es una función, `crearMapa(contenedor, opciones)`, que no depende del framework y vive en `frontend/src/mapa/` dentro de la app de Faro (Vite + React + TypeScript, PR 27). Atlas solo añade esa carpeta, la dependencia `maplibre-gl` y el script `dev:mapa` | Faro monta el mapa desde React con `actualizar()` y `destruir()`. Carpeta y forma confirmadas por Faro el 2026-11-12 |
+| 2026-11-12 | El mapa pide `state` con su propia paleta: sustituye el parámetro `colormap` de la plantilla para que cada píxel lleve su código (0, 1, 10-15) en el canal rojo, y pinta en el navegador el cambio probable en color sólido y lo no observable con trama diagonal (T-ATL-03) | TiTiler no dibuja tramas, y lo no observable debe distinguirse sin depender del color (constitución IX.2). La trama va en una capa propia, siempre visible y con opacidad mínima del 70 %. Depende de dos cosas de Balanza y Eco: que la API siga aceptando `colormap` y que `state` use remuestreo `nearest`. Probado solo con teselas generadas en el navegador, no con la API |
 
 ## Datos verificados
 
@@ -135,10 +138,30 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - Probado el 2026-11-12 con T048 del 06-17 y T171 del 06-26. Las capas de `frequencyA` salen idénticas a los recortes anteriores. La incidencia a 0 m sobre la zona va de 38,0° a 41,8° en T048 y de 39,5° a 43,2° en T171.
   - `ingest` tardó 350 s y 370 s por fecha, frente a unos 130-160 s sin `radarGrid`. Falta saber si es la red o la lectura de los cubos.
 
+## Plan de observación de NISAR
+
+Comprobado el 2026-11-12 por Antena con CMR, con los XML bajados con el token y con `ingest plan --aoi parral` contra NASA (T-ANT-09).
+
+- Colección `NISAR_COP` en CMR (`C2727904608-ASF`), un plan diario desde el 2025-08-21 (481 gránulos el 2026-11-12). Se publica con unos 10 días de adelanto: ese día ya estaba el del 2026-11-22. CMR lo lista sin cuenta. El XML (~1,3 MB) está en `nisar.asf.earthdatacloud.nasa.gov/NISAR/DCOP/` y **pide token**: sin él, redirige a URS.
+- El XML (`FORMAT_VERSION` 2.4) trae `OBS` con `TYPE` (`lsar`, `ssar` o `joint`), horas `REF_START_DATETIME` y `REF_END_DATETIME` en `AAAA-DDDTHH:MM:SS.ffffff` UTC y `LSAR_CONFIG_ID`. **No trae pista, marco ni geometría.**
+- La hora de la pasada sobre Parral es muy estable: T048 a las 12:24:31-34 UTC y T171 a las 01:44:32-36 UTC entre el 06-17 y el 10-15.
+- Cruzando esa hora (de 10 s antes a 40 s después) con el plan, en las 27 fechas del ciclo de T048 y T171 entre el 2026-06-17 y el 2026-11-20:
+  - Las 19 pasadas con GCOV publicado tenían una observación `lsar` con `LSAR_CONFIG_ID` 156 que las cubría enteras.
+  - T171 del 2026-08-01 estaba planificada y no hay dato. Hay planes del 07-27 al 08-02 aunque ASF declara el hueco de adquisición: **un plan no garantiza la adquisición.**
+  - No hay planes del 08-03 al 08-09, así que T048 del 08-04 queda sin plan.
+  - Ningún dato publicado cayó en una pasada sin plan.
+  - Las pasadas siguientes están planificadas con 156: T048 el 10-27, 11-08 y 11-20, y T171 el 10-24, 11-05 y 11-17.
+- Algunos días tienen versiones posteriores del plan (`v02` del 07-24 al 07-26). Se usa siempre la mayor.
+- No sabemos qué modo corresponde a cada `LSAR_CONFIG_ID`: falta la tabla de modos (`ModeTable_v54_Final_20260506.xlsx`, citada en el XML).
+
 ## Caso de Parral
 
-- Tormenta del 1 de julio de 2026 con calles inundadas: cae entre las pasadas del 29 de junio y el 8 de julio. Es el ejemplo de `not_observable`. La noticia salió de extractos de búsqueda; hay que abrirla antes de usarla en la demo.
-- La cifra de lluvia es contradictoria entre fuentes (unos 30 mm frente a 228 mm): no usarla.
+- Tormenta del miércoles 1 de julio de 2026 en Hidalgo del Parral: **verificada el 2026-11-12** leyendo el boletín de la Coordinación Estatal de Protección Civil en el sitio del Gobierno del Estado ([chihuahua.gob.mx](https://www.chihuahua.gob.mx/index.php/prensa/registra-parral-228-milimetros-de-lluvia-en-el-lapso-de-una-hora), publicado el 01/07/2026, con galería de seis fotos). Lo confirman, también leídas, [El Tiempo de Parral](https://www.tiempo.com.mx/local/en-una-hora-llovio-228-mm-y-parral-sufrio-por-inundaciones-noticias-chihuahua/) (01/07/2026, 22:45), [Quadratín Chihuahua](https://chihuahua.quadratin.com.mx/principal/colapsa-tormenta-la-ciudad-de-parral/) y [En Blanco y Negro](https://enblancoynegro.com.mx/2026/07/01/lluvia-sorprende-a-parral-vehiculos-varados-calles-inundadas-y-comercios-con-afectaciones/). El Tiempo enlaza [una nota con video](https://www.tiempo.com.mx/local/aguacero-parral-reportan-inundaciones-calles-arroyos-2026/) de calles con agua corriendo, citable para la escena 1.
+  - Horas del boletín (hora local, UTC−6): 15:37 un vehículo arrastrado en el Arroyo de las Quintas, con encharcamiento en locales cercanos (21:37Z); 16:27 un deslave en el Perimetral Norte, colonia Héroes de la Revolución (22:27Z); 17:00 una lámpara en riesgo de caer en la calle Segunda del Cerro (23:00Z). Además, dos viviendas atendidas en la calle Francisco Villa, sin hora. No hubo personas lesionadas ni atrapadas en el Arroyo de las Quintas. Son horas de incidentes, no el inicio ni el fin de la lluvia.
+  - Las pasadas que da la API coinciden con el catálogo real: 2026-06-29 12:24Z (T048) y 2026-07-08 01:44Z (T171), horas que dio Antena el 2026-11-12. Del primer incidente (07-01 21:37Z) a la pasada del 07-08 hay unas 148 h.
+- Lluvia: el boletín estatal da **22,8 mm acumulados en una hora**, sin decir la estación ni el método. Los "228 mm" eran esa cifra sin el punto decimal en la URL, así que se descartan. Los "cerca de 30 mm" son del presidente municipal, según [N+](https://www.nmas.com.mx/chihuahua/seguridad/accidentes/lluvias-dejan-cerca-de-30-autos-varados-en-parral-chihuahua-reportan-inundaciones/) (03/07/2026), y se refieren a "unas horas", no a una. La nota de N+ no dice la fecha de la lluvia: que hable de la tormenta del 1 de julio es una inferencia por su fecha de publicación. Si se cita una cifra, debe ser la del boletín con su fuente. No se encontró un dato de CONAGUA/SMN.
+- **Sin verificar:** cuánto tiempo estuvo el agua en la calle. Ninguna de las cinco fuentes lo dice. La demo usa `persistence_hours=24` (el valor por defecto) como supuesto declarado. Con 1, 2 o 24 h la API responde igual (2026-11-12, pila local, `data_kind: synthetic`): `not_observable`, causa `no_acquisition_during_event`, pasada anterior 2026-06-29 y siguiente 2026-07-08. El estado se mantiene hasta 144 h. Con 145 h o más pasa a `observable` con `cause: null` (probado con 145, 150, 168 y 192), aunque la siguiente pasada es del 07-08, a unas 148 h del primer incidente. Por eso la demo no depende de la duración, que no conocemos. Hay que avisar a Balanza: `observable` no es uno de los tres estados y el corte parece contar por fechas, no por horas.
+- No confundir con las notas de [El Diario de Chihuahua](https://www.eldiariodechihuahua.mx/estado/2026/jul/15/lluvias-desatan-multiples-emergencias-en-parral-818016.html) del 15 de julio, que tratan de otras lluvias en Parral.
 - Pruebas previstas: tormenta (no observable), campo durante el monzón (cambio con causa ambigua) y jales de La Prieta (estabilidad).
 
 ## Sin verificar
@@ -189,6 +212,10 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - `low_looks` baja del 15,2 % al 0,98 % en T048 y del 12,2 % al 1,00 % en T171.
   - El par T048 08-28→09-09 sigue alto después de corregir: o hay cambio local, o el desplazamiento no es uniforme en la escena. Sin verificar.
   - La fracción mínima para `change_probable` la decide Balanza (T-BAL-07) sobre estos valores corregidos.
+- 2026-11-12, **filtro multitemporal (T-ECO-08)**: Quegan y Yu (2001), ventana de 7 × 7, opcional con `processor run --multitemporal` y apagado por omisión, porque mezcla información entre fechas. Hace dos pasadas: la primera acumula la textura de la serie y la segunda filtra cada fecha al leerla, así que sigue habiendo como máximo dos escenas en memoria.
+  - Con las 10 fechas reales de T048: 345 s y 1913 MB de `ru_maxrss`. Está cerca del límite de 2 GB; sin filtro, el pico del contenedor fue de 1611 MB.
+  - Speckle: el ENL mediano en bloques de 15 × 15 (fecha 08-16) pasa de 2,14 a 3,39 en HH y de 2,15 a 3,64 en HV. Es una medida tosca, porque la textura real también cuenta como varianza.
+  - `change_probable` baja en todos los pares (por ejemplo, 06-17→06-29 de 3,50 a 1,85 % y la ventana completa de 11,03 a 6,97 %). Los pares con desplazamiento de toda la escena siguen altos (08-28→09-09 de 18,59 a 17,11 %): el filtro no resuelve T-ECO-07.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
