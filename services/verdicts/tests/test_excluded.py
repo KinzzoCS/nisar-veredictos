@@ -92,6 +92,30 @@ def test_excluded_pass_does_not_count_for_an_event(manifest_root):
     assert "el catálogo la excluye" in body["summary"]["missing"]
 
 
+def test_event_cites_excluded_pass_missing_from_the_manifest(manifest_root):
+    # Revisión de Antena (PR 40): el manifiesto real de Eco ya no trae el 08-13, pero el evento debe citarlo.
+    _as_real(manifest_root)
+    gap = _excluded("G20260705", date(2026, 7, 5))  # entre las pasadas del fixture (06-29 y 07-11), sin fecha propia
+    body = _client(manifest_root, gap).get("/aois/parral/events", params={"date": "2026-07-04", "persistence_hours": 48}).json()
+    assert body["state"] == "not_observable"
+    assert body["previous_pass"] == "2026-06-29" and body["next_pass"] == "2026-07-11"
+    assert [item["date"] for item in body["excluded_passes"]] == ["2026-07-05"]
+    assert "Además falta la pasada del 2026-07-05 de esta serie" in body["summary"]["missing"]
+
+
+def test_event_ignores_excluded_passes_outside_its_passes(manifest_root):
+    _as_real(manifest_root)
+    far = _excluded("G20260813", date(2026, 8, 13))
+    body = _client(manifest_root, far).get("/aois/parral/events", params={"date": "2026-07-04", "persistence_hours": 48}).json()
+    assert body["excluded_passes"] == [] and "excluye" not in body["summary"]["missing"]
+
+
+def test_catalog_times_with_z_parse_on_python_3_10():
+    from verdicts.catalog import utc_time
+
+    assert utc_time("2026-08-13T01:44:33Z").isoformat() == "2026-08-13T01:44:33+00:00"
+
+
 def test_http_timeline_parses_excluded_with_one_request():
     requests = []
     body = {

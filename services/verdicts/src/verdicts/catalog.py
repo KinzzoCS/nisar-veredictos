@@ -49,13 +49,18 @@ def granule_key(granule_id: str) -> str:
     return granule_id.removesuffix(".h5")
 
 
+def utc_time(value: str) -> dt.datetime:
+    """Lee una hora ISO 8601 de catalog. fromisoformat solo acepta la "Z" desde Python 3.11."""
+    return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
 def _parse(body: dict) -> tuple[dict[str, PassTime], list[ExcludedPass]]:
     result = {}
     for item in body["passes"]:
         published = item.get("published_at")
         result[granule_key(item["granule_id"])] = PassTime(
-            acquired_at=dt.datetime.fromisoformat(item["acquired_at"]),
-            published_at=dt.datetime.fromisoformat(published) if published else None,
+            acquired_at=utc_time(item["acquired_at"]),
+            published_at=utc_time(published) if published else None,
             latency_hours=item.get("latency_hours"),
         )
     # excluded[] llegó con T-ANT (PR 22); un catalog anterior no lo trae y cuenta como lista vacía.
@@ -155,7 +160,7 @@ def _parse_optical(body: dict) -> OpticalReference:
         acquisitions.append(
             OpticalAcquisition(
                 platform=item["platform"],
-                acquired_at=dt.datetime.fromisoformat(item["acquired_at"].replace("Z", "+00:00")),
+                acquired_at=utc_time(item["acquired_at"]),
                 covers_aoi=bool(item["covers_aoi"]),
                 max_cloud_cover=float(item["max_cloud_cover"]),
                 tiles=tiles,
@@ -261,7 +266,7 @@ def _parse_opera(body: dict) -> OperaReference:
         acquisitions.append(
             OperaAcquisition(
                 platform=item["platform"],
-                acquired_at=dt.datetime.fromisoformat(item["acquired_at"].replace("Z", "+00:00")),
+                acquired_at=utc_time(item["acquired_at"]),
                 covers_aoi=bool(item["covers_aoi"]),
                 tiles=tiles,
             )

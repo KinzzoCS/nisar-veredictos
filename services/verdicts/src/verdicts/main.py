@@ -366,8 +366,9 @@ class EventVerdict(BaseModel):
     )
     data_kind: Literal["real", "synthetic"]
     excluded_passes: list[ExcludedPassOut] = Field(
-        description="Pasadas de los manifiestos que catalog excluye y que por eso no cuentan para el evento. "
-        "Vacía con datos sintéticos o si catalog no respondió."
+        description="Pasadas de las series de la zona que catalog excluye, entre previous_pass y next_pass ambas "
+        "incluidas, estén o no en el manifiesto: no cuentan para el evento. Vacía con datos sintéticos o si catalog "
+        "no respondió."
     )
     summary: Summary
 
@@ -541,16 +542,9 @@ def _excluded_out(item: ExcludedPass) -> ExcludedPassOut:
     )
 
 
-def _with_skipped(
-    summary: dict, status: rules.EventStatus, skipped: list[ExcludedPass], lang: narrative.Lang
-) -> dict:
+def _with_skipped(summary: dict, between: list[ExcludedPass], lang: narrative.Lang) -> dict:
     """En eventos, cita las pasadas excluidas entre la anterior y la siguiente: explican por qué no cuentan."""
-    low, high = status.previous_pass or dt.date.min, status.next_pass or dt.date.max
-    notes = [
-        narrative.excluded_pass_text(item.date.isoformat(), item.reason, False, lang)
-        for item in skipped
-        if low <= item.date <= high
-    ]
+    notes = [narrative.excluded_pass_text(item.date.isoformat(), item.reason, False, lang) for item in between]
     if not notes:
         return summary
     return {**summary, "missing": " ".join([summary["missing"], *notes])}
@@ -933,19 +927,17 @@ def create_app(
         explicit = persistence_hours if "persistence_hours" in request.query_params else None
         assumed = rules.persistence(event_type, explicit)
         manifests = manifests_or_404(aoi)
-        passes, pass_times, skipped = [], {}, []
+        passes, pass_times, excluded = [], {}, {}
         for manifest in manifests:
             known = passes_for(manifest) or {}
             series_excluded = [item for item in excluded_for(manifest) if _same_series(item.series, manifest["series"])]
+            # Se citan aunque el manifiesto ya no traiga esa fecha (Eco aparta los gránulos defectuosos).
+            excluded.update({item.id: item for item in series_excluded})
             for item in manifest["dates"]:
                 day = dt.date.fromisoformat(item["date"])
                 # Una pasada que catalog declara inservible no cuenta como observación del evento. Se reconoce
                 # por gránulo o por fecha: una serie pasa como mucho una vez al día.
-                match = next(
-                    (ex for ex in series_excluded if ex.id == granule_key(item["granule"]) or ex.date == day), None
-                )
-                if match is not None:
-                    skipped.append(match)
+                if any(ex.id == granule_key(item["granule"]) or ex.date == day for ex in series_excluded):
                     continue
                 passes.append(day)
                 found = known.get(granule_key(item["granule"]))
@@ -954,6 +946,8 @@ def create_app(
         event_time = time.replace(tzinfo=None) if time else None
         status = rules.event_status(passes, date, assumed.hours, event_time, pass_times)
         synthetic = any(manifest["data_kind"] == "synthetic" for manifest in manifests)
+        low, high = status.previous_pass or dt.date.min, status.next_pass or dt.date.max
+        between = sorted((item for item in excluded.values() if low <= item.date <= high), key=lambda item: item.date)
         return EventVerdict(
             aoi=aoi,
             event_date=date,
@@ -975,9 +969,9 @@ def create_app(
             next_pass=status.next_pass,
             next_pass_acquired_at=status.next_pass_at,
             data_kind="synthetic" if synthetic else "real",
-            excluded_passes=[_excluded_out(item) for item in skipped],
+            excluded_passes=[_excluded_out(item) for item in between],
             summary=Summary(**_with_skipped(
-                narrative.event_summary(status, date.isoformat(), lang, synthetic, assumed), status, skipped, lang
+                narrative.event_summary(status, date.isoformat(), lang, synthetic, assumed), between, lang
             )),
         )
 
