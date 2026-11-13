@@ -2,8 +2,11 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
+import threading
 import datetime as dt
+from contextlib import asynccontextmanager
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable, Literal
@@ -810,6 +813,7 @@ def create_app(
     optical_source: OpticalSource | None = None,
     opera_source: OperaSource | None = None,
     water_contrast: water.WaterContrast | None = None,
+    warm_cache: bool | None = None,
 ) -> FastAPI:
     root = artifact_root or Path(os.environ.get("ARTIFACT_ROOT", "/data/artifacts"))
     store = Store(root)
@@ -822,7 +826,19 @@ def create_app(
     # Con EARTHDATA_TOKEN, verdicts lee B01_WTR de PO.DAAC y compara; sin él, lista y lo declara.
     contrast = water_contrast or water.contrast_from_env(root, os.environ.get)
     now = clock or (lambda: dt.datetime.now(dt.timezone.utc))
-    app = FastAPI(title="NISAR verdicts", version="0.1.0")
+    if warm_cache is None:
+        warm_cache = os.environ.get("VERDICTS_WARM_CACHE") == "1"
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        # Calienta en segundo plano el contraste con OPERA de las series reales: sin token o sin datos
+        # reales no hace nada. La API responde desde el primer momento; una consulta que llegue antes
+        # de que termine calcula lo que falte y se encuentra hecho lo que ya esté.
+        if warm_cache and contrast.fetcher is not None:
+            threading.Thread(target=warm_water, name="warm-water", daemon=True).start()
+        yield
+
+    app = FastAPI(title="NISAR verdicts", version="0.1.0", lifespan=lifespan)
 
     def passes_for(manifest: dict) -> dict[str, PassTime] | None:
         """Pasadas de catalog, o None si no hay catálogo o no respondió. Los sintéticos no se buscan."""
@@ -881,7 +897,7 @@ def create_app(
         En secuencia: rasterio en varios hilos mezcla sus avisos de GDAL; la caché evita repetir lecturas.
         """
         refs = opera_for(manifest["aoi"], days)
-        sides = {day: contrast.side(manifest, day, refs.get(day)) for day in sorted(days)}
+        sides = contrast.sides(manifest, {day: refs.get(day) for day in days})
         meta = next((ref for ref in refs.values() if ref is not None), None)
         return sides, meta
 
@@ -891,6 +907,16 @@ def create_app(
 
     def pair_days(pairs: list[dict]) -> set[dt.date]:
         return {dt.date.fromisoformat(pair[key]) for pair in pairs for key in ("from", "to")}
+
+    def warm_water() -> None:
+        for aoi in store.aois():
+            for manifest in store.manifests(aoi):
+                if manifest["data_kind"] != "real":
+                    continue
+                try:
+                    water_sides(manifest, pair_days(manifest["pairs"]))
+                except Exception:  # noqa: BLE001 - calentar nunca debe tumbar el servicio
+                    logging.getLogger(__name__).exception("No se pudo calentar el contraste de %s", aoi)
 
     def verdict_for(manifest: dict, pair: dict, lang: narrative.Lang) -> Verdict:
         days = pair_days([pair])
