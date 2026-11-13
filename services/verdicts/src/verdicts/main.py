@@ -174,6 +174,13 @@ class WaterTileOut(BaseModel):
     id: str = Field(description="Título del producto DSWx-S1 en CMR. Es el que cita el recibo.")
     tile: str = Field(description="Tesela MGRS.")
     browse_url: str | None = Field(description="Vista previa PNG pública de PO.DAAC, sin georreferencia. null si no hay.")
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR vía catalog. "
+        "Sirve para situar browse_url en el mapa. Si oeste > este, cruza el antimeridiano. null si catalog no la da.",
+    )
 
 
 class WaterReference(BaseModel):
@@ -495,7 +502,13 @@ def _water_side(side: water.Side) -> tuple[WaterSide, dict]:
             acquired_at=acq.acquired_at,
             days_from_radar=side.days_from_radar,
             covers_aoi=acq.covers_aoi,
-            tiles=[WaterTileOut(id=tile.id, tile=tile.tile, browse_url=tile.browse_url) for tile in acq.tiles],
+            tiles=[
+                WaterTileOut(
+                    id=tile.id, tile=tile.tile, browse_url=tile.browse_url,
+                    bbox=list(tile.bbox) if tile.bbox else None,
+                )
+                for tile in acq.tiles
+            ],
         )
         values.update(product_date=acq.acquired_at.date().isoformat(), days=side.days_from_radar)
     comparison, assessment, basis = None, None, None
