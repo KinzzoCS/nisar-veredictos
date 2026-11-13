@@ -228,7 +228,8 @@ class WaterSide(BaseModel):
         description="compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. "
         "no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a "
         "search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o "
-        "el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de "
+        "el radar. no_overlap: sin píxeles válidos en común, aunque reference.covers_aoi sea true (la caja de la "
+        "tesela no garantiza datos). partial_overlap: se comparó menos de "
         "min_compared_fraction de la zona; hay conteos pero no assessment."
     )
     radar_date: dt.date

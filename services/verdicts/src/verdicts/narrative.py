@@ -350,7 +350,8 @@ WATER_NOT_COMPARED = {
         "synthetic": "no se compara con datos de radar sintéticos",
         "no_credentials": "no se comparó porque el servicio no tiene acceso a sus archivos (requieren cuenta de Earthdata)",
         "read_failed": "no se pudo leer su capa de agua, así que no se compara",
-        "no_overlap": "no tiene píxeles válidos en común con el radar dentro de la zona",
+        "no_overlap": ("no tiene píxeles válidos en común con el radar dentro de la zona: que la caja de sus "
+                       "teselas cubra la zona no asegura que el producto tenga datos en ella"),
         "partial_overlap": ("solo se pudo comparar el {compared} de la zona, menos del {minimum} que hace falta para "
                             "hablar de acuerdo o desacuerdo, porque el producto no tiene datos en el resto"),
     },
@@ -358,7 +359,8 @@ WATER_NOT_COMPARED = {
         "synthetic": "it is not compared with synthetic radar data",
         "no_credentials": "it was not compared because the service has no access to its files (they need an Earthdata account)",
         "read_failed": "its water layer could not be read, so it is not compared",
-        "no_overlap": "it shares no valid pixels with the radar inside the area",
+        "no_overlap": ("it shares no valid pixels with the radar inside the area: its tiles' bounding box "
+                       "covering the area does not ensure the product has data there"),
         "partial_overlap": ("only {compared} of the area could be compared, less than the {minimum} needed to "
                             "speak of agreement or disagreement, because the product has no data in the rest"),
     },
