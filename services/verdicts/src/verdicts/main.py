@@ -12,7 +12,7 @@ from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from . import narrative, optical, rules, water
+from . import narrative, optical, quality, rules, water
 from .catalog import (
     CatalogUnavailable,
     HttpOpera,
@@ -76,6 +76,22 @@ class Freshness(BaseModel):
     after: PassFreshness
 
 
+class DateQuality(BaseModel):
+    date: dt.date
+    valid_fraction: float = Field(description="Fracción de píxeles válidos de la fecha, según Eco.")
+    median_hh_db: float | None
+    median_hv_db: float | None
+    deviation_hh_db: float | None = Field(description="Mediana de la fecha menos la mediana de las medianas de la serie.")
+    deviation_hv_db: float | None
+    flags: list[str] = Field(description="radiometric_outlier: la fecha se aparta de la serie más que el umbral de Eco. Aviso, no exclusión.")
+
+
+class PairQuality(BaseModel):
+    source: Literal["manifest_qa"] = Field("manifest_qa", description="Copiado de dates[].qa del manifiesto de Eco (T-ECO-03).")
+    before: DateQuality | None = Field(description="QA de from_date. null si el manifiesto no lo trae.")
+    after: DateQuality | None = Field(description="QA de to_date. null si el manifiesto no lo trae.")
+
+
 class Receipt(BaseModel):
     data_kind: Literal["real", "synthetic"]
     maturity: str
@@ -90,6 +106,7 @@ class Receipt(BaseModel):
     spans_data_gap: bool
     notices: list[str]
     freshness: Freshness
+    quality: PairQuality = Field(description="Control de calidad de Eco de las dos fechas (RF-BAL-09).")
 
 
 class OpticalTileOut(BaseModel):
@@ -242,6 +259,21 @@ class WaterEvidence(BaseModel):
     text: str = Field(description="Resumen en el idioma pedido: qué productos hay, si coinciden y sus límites.")
 
 
+class SceneShiftOut(BaseModel):
+    basis: Literal["qa_median_difference"] = Field(
+        "qa_median_difference", description="Mediana de to_date menos la de from_date, del QA de Eco."
+    )
+    hh_db: float | None
+    hv_db: float | None
+    same_direction: bool | None = Field(description="HH y HV se mueven en el mismo sentido. null si falta alguna o alguna no se movió.")
+    threshold_db: float = Field(description="Por encima de este valor absoluto, el veredicto avisa. Sin calibrar.")
+    exceeds_threshold: bool = Field(
+        description="Si es true, el porcentaje de cambio puede reflejar un cambio de nivel de toda la escena y no "
+        "un cambio local; summary.does_not_prove lo dice. No cambia el estado."
+    )
+    calibrated: bool = Field(False, description="Siempre false.")
+
+
 class Evidence(BaseModel):
     observed_fraction: float
     changed_fraction: float
@@ -252,6 +284,9 @@ class Evidence(BaseModel):
     pixel_counts: dict[str, int]
     signature_counts: dict[str, int]
     optical: OpticalEvidence
+    scene_shift: SceneShiftOut | None = Field(
+        description="Cambio de nivel de toda la escena entre las dos fechas. null si el manifiesto no trae QA."
+    )
     water: WaterEvidence = Field(
         description="Contraste del agua del radar con OPERA DSWx-S1 (RF-BAL-07). Un desacuerdo es un dato, no un fallo."
     )
@@ -490,6 +525,37 @@ def build_water(
     )
 
 
+def _date_quality(day: str, qa: dict | None) -> DateQuality | None:
+    return None if not qa else DateQuality(date=day, **qa)
+
+
+def with_quality(
+    summary: dict,
+    decision: rules.Decision,
+    before: tuple[str, dict | None],
+    after: tuple[str, dict | None],
+    shift: quality.SceneShift | None,
+    lang: narrative.Lang,
+) -> dict:
+    """Añade al resumen las fechas que marca el QA de Eco y el cambio de nivel de toda la escena.
+
+    Las fechas marcadas van en "missing" siempre; el desplazamiento, en "does_not_prove" cuando hay
+    algo que interpretar (no en not_observable).
+    """
+    notes = [
+        narrative.quality_flag_text(day, qa["deviation_hh_db"], qa["deviation_hv_db"], quality.SCENE_SHIFT_DB, lang)
+        for day, qa in (before, after)
+        if quality.flagged(qa)
+    ]
+    result = dict(summary)
+    if notes:
+        result["missing"] = " ".join([summary["missing"], *notes])
+    if shift is not None and shift.exceeds_threshold and decision.state != rules.NOT_OBSERVABLE:
+        text = narrative.scene_shift_text(shift.hh_db, shift.hv_db, shift.same_direction, lang)
+        result["does_not_prove"] = f"{summary['does_not_prove']} {text}"
+    return result
+
+
 def _layers(pair: dict) -> Layers:
     colormap = quote(json.dumps(STATE_COLORS, separators=(",", ":")), safe="")
     change = "rescale=-10,10&colormap_name=rdbu"
@@ -568,6 +634,9 @@ def build_verdict(
             lang,
         )
     decision = rules.decide(stats["counts"])
+    qa = quality.qa_by_date(manifest)
+    qa_before, qa_after = qa.get(pair["from"]), qa.get(pair["to"])
+    shift = quality.scene_shift(qa_before, qa_after)
     synthetic = manifest["data_kind"] == "synthetic"
     series = manifest["series"]
     hypotheses = []
@@ -585,18 +654,25 @@ def build_verdict(
         cause=decision.cause,
         cause_label=narrative.CAUSES[lang][decision.cause] if decision.cause else None,
         summary=Summary(
-            **narrative.pair_summary(
+            **with_quality(
+                narrative.pair_summary(
+                    decision,
+                    pair["from"],
+                    pair["to"],
+                    pair["spans_data_gap"],
+                    lang,
+                    synthetic,
+                    interval_days=interval_days,
+                    age_days=freshness.after.age_days,
+                    latency_hours=freshness.after.publication_latency_hours,
+                    latency_status=freshness.after.latency_status,
+                    kind=pair["kind"],
+                ),
                 decision,
-                pair["from"],
-                pair["to"],
-                pair["spans_data_gap"],
+                (pair["from"], qa_before),
+                (pair["to"], qa_after),
+                shift,
                 lang,
-                synthetic,
-                interval_days=interval_days,
-                age_days=freshness.after.age_days,
-                latency_hours=freshness.after.publication_latency_hours,
-                latency_status=freshness.after.latency_status,
-                kind=pair["kind"],
             )
         ),
         hypotheses=hypotheses,
@@ -610,6 +686,13 @@ def build_verdict(
             pixel_counts=stats["counts"],
             signature_counts=stats["signature_counts"],
             optical=optical_evidence,
+            scene_shift=None if shift is None else SceneShiftOut(
+                hh_db=shift.hh_db,
+                hv_db=shift.hv_db,
+                same_direction=shift.same_direction,
+                threshold_db=quality.SCENE_SHIFT_DB,
+                exceeds_threshold=shift.exceeds_threshold,
+            ),
             water=water_evidence,
         ),
         layers=_layers(pair),
@@ -627,6 +710,9 @@ def build_verdict(
             spans_data_gap=pair["spans_data_gap"],
             notices=manifest["notices"],
             freshness=freshness,
+            quality=PairQuality(
+                before=_date_quality(pair["from"], qa_before), after=_date_quality(pair["to"], qa_after)
+            ),
         ),
     )
 

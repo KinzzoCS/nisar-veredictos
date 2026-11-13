@@ -1,6 +1,84 @@
 {
   "components": {
     "schemas": {
+      "DateQuality": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "deviation_hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mediana de la fecha menos la mediana de las medianas de la serie.",
+            "title": "Deviation Hh Db"
+          },
+          "deviation_hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviation Hv Db"
+          },
+          "flags": {
+            "description": "radiometric_outlier: la fecha se aparta de la serie más que el umbral de Eco. Aviso, no exclusión.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "median_hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Hh Db"
+          },
+          "median_hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Hv Db"
+          },
+          "valid_fraction": {
+            "description": "Fracción de píxeles válidos de la fecha, según Eco.",
+            "title": "Valid Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "valid_fraction",
+          "median_hh_db",
+          "median_hv_db",
+          "deviation_hh_db",
+          "deviation_hv_db",
+          "flags"
+        ],
+        "title": "DateQuality",
+        "type": "object"
+      },
       "EventVerdict": {
         "properties": {
           "aoi": {
@@ -190,6 +268,17 @@
             "title": "Pixel Counts",
             "type": "object"
           },
+          "scene_shift": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SceneShiftOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cambio de nivel de toda la escena entre las dos fechas. null si el manifiesto no trae QA."
+          },
           "signature_counts": {
             "additionalProperties": {
               "type": "integer"
@@ -234,6 +323,7 @@
           "pixel_counts",
           "signature_counts",
           "optical",
+          "scene_shift",
           "water"
         ],
         "title": "Evidence",
@@ -536,6 +626,45 @@
           "tile_url"
         ],
         "title": "OpticalTileOut",
+        "type": "object"
+      },
+      "PairQuality": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "QA de to_date. null si el manifiesto no lo trae."
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "QA de from_date. null si el manifiesto no lo trae."
+          },
+          "source": {
+            "const": "manifest_qa",
+            "default": "manifest_qa",
+            "description": "Copiado de dates[].qa del manifiesto de Eco (T-ECO-03).",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "title": "PairQuality",
         "type": "object"
       },
       "PassFreshness": {
@@ -880,6 +1009,10 @@
             "title": "Polarization",
             "type": "string"
           },
+          "quality": {
+            "$ref": "#/components/schemas/PairQuality",
+            "description": "Control de calidad de Eco de las dos fechas (RF-BAL-09)."
+          },
           "series": {
             "title": "Series",
             "type": "string"
@@ -906,9 +1039,80 @@
           "granules",
           "spans_data_gap",
           "notices",
-          "freshness"
+          "freshness",
+          "quality"
         ],
         "title": "Receipt",
+        "type": "object"
+      },
+      "SceneShiftOut": {
+        "properties": {
+          "basis": {
+            "const": "qa_median_difference",
+            "default": "qa_median_difference",
+            "description": "Mediana de to_date menos la de from_date, del QA de Eco.",
+            "title": "Basis",
+            "type": "string"
+          },
+          "calibrated": {
+            "default": false,
+            "description": "Siempre false.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "exceeds_threshold": {
+            "description": "Si es true, el porcentaje de cambio puede reflejar un cambio de nivel de toda la escena y no un cambio local; summary.does_not_prove lo dice. No cambia el estado.",
+            "title": "Exceeds Threshold",
+            "type": "boolean"
+          },
+          "hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hh Db"
+          },
+          "hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hv Db"
+          },
+          "same_direction": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HH y HV se mueven en el mismo sentido. null si falta alguna o alguna no se movió.",
+            "title": "Same Direction"
+          },
+          "threshold_db": {
+            "description": "Por encima de este valor absoluto, el veredicto avisa. Sin calibrar.",
+            "title": "Threshold Db",
+            "type": "number"
+          }
+        },
+        "required": [
+          "hh_db",
+          "hv_db",
+          "same_direction",
+          "threshold_db",
+          "exceeds_threshold"
+        ],
+        "title": "SceneShiftOut",
         "type": "object"
       },
       "SeriesInfo": {

@@ -254,6 +254,15 @@ for verdict in d:
     assert optical['before']['status'] and optical['after']['status'] and optical['text'], verdict['id']
 "
 
+# T-BAL-07: QA de Eco en el recibo y desplazamiento de la escena (null si el manifiesto no trae qa).
+check "veredictos: calidad y desplazamiento" verdicts "
+for verdict in d:
+    assert verdict['receipt']['quality']['source'] == 'manifest_qa', verdict['id']
+    shift = verdict['evidence']['scene_shift']
+    if shift is not None:
+        assert shift['calibrated'] is False and shift['threshold_db'] > 0, verdict['id']
+"
+
 # T-BAL-08: contraste con OPERA DSWx-S1. Con radar sintético se lista el producto pero nunca se compara.
 check "veredictos: contraste de agua" verdicts "
 for verdict in d:
