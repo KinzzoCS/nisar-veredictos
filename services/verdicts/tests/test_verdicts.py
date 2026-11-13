@@ -598,7 +598,7 @@ def test_event_endpoint_declares_doubt_and_takes_time(client):
     body = client.get("/aois/parral/events", params={"date": "2026-07-01", "persistence_hours": 230}).json()  # pasada: 07-11
     assert body["state"] == "not_observable" and body["cause"] == "timing_uncertain"
     assert body["event_time"] is None and body["next_pass_acquired_at"] is None
-    assert "parámetro time" in body["summary"]["missing"]
+    assert "hora UTC de inicio" in body["summary"]["missing"]
     timed = client.get("/aois/parral/events", params={"date": "2026-07-01", "persistence_hours": 300, "time": "12:00"})
     assert timed.json()["event_time"] == "12:00:00" and timed.json()["state"] == "observable"
 
@@ -654,8 +654,23 @@ def test_explicit_hours_win_over_event_type_and_default_is_declared(client):
     assert both["assumption"]["text"].startswith("Assumption:")
     plain = client.get("/aois/parral/events", params={"date": "2026-07-01"}).json()
     assert plain["persistence_hours"] == 24 and plain["event_type"] is None
-    assert plain["assumption"]["source"] == "default" and "event_type" in plain["assumption"]["text"]
+    assert plain["assumption"]["source"] == "default" and "tipo de evento" in plain["assumption"]["text"]
 
 
 def test_unknown_event_type_is_rejected(client):
     assert client.get("/aois/parral/events", params={"date": "2026-07-01", "event_type": "tornado"}).status_code == 422
+
+
+# Los textos de /events los lee alguien sin conocer la API: no nombran parámetros.
+@pytest.mark.parametrize("lang", ["es", "en"])
+@pytest.mark.parametrize("params", [
+    {"date": "2026-07-01"},
+    {"date": "2026-07-01", "persistence_hours": 230},
+    {"date": "2026-07-01", "event_type": "wildfire"},
+    {"date": "2026-07-01", "persistence_hours": 300, "time": "12:00"},
+])
+def test_event_texts_do_not_name_api_parameters(client, params, lang):
+    body = client.get("/aois/parral/events", params={**params, "lang": lang}).json()
+    texts = [*body["summary"].values(), body["assumption"]["text"], body["cause_label"] or ""]
+    for jargon in ("event_type", "persistence_hours", "parámetro", "parameter", "time)"):
+        assert not any(jargon in text for text in texts if text), (jargon, texts)
