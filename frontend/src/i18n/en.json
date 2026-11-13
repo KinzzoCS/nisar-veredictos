@@ -32,7 +32,7 @@
     "storm": {
       "step": "The storm",
       "title": "1. The storm of 1 July 2026",
-      "text": "On 1 July 2026, a storm left water in the streets of Parral and swept a vehicle along the Arroyo de las Quintas. Chihuahua Civil Protection recorded 22.8 mm of rain in one hour. Did the satellite pass while it lasted?",
+      "text": "On 1 July 2026, a storm left water in the streets of Parral and swept a vehicle along the Arroyo de las Quintas. Chihuahua Civil Protection recorded 22.8 mm of rain in one hour. Did the satellite pass during the time we assume it lasted?",
       "source": "Source: bulletin of the State Civil Protection Coordination, Government of Chihuahua (1 July 2026)"
     },
     "monsoon": {
@@ -108,12 +108,13 @@
   },
   "event": {
     "heading": "Could the satellite see an event?",
-    "intro": "Tell us when something happened (a storm, a river flood, a wildfire) and we will tell you whether NISAR passed over the area while it lasted. It does not say whether anything changed.",
-    "date": "Event date",
+    "intro": "Tell us when something happened (a storm, a river flood, a wildfire) and we will tell you whether NISAR passed over the area during the time we assume it lasted. It does not say whether anything changed.",
+    "date": "Event date (UTC)",
+    "dateHelp": "From 18:00 in Parral, it is already the next day in UTC: a storm at 20:00 on 1 July in Parral is on 2 July in UTC.",
     "type": "Event type",
     "types": {
       "none": "Not specified",
-      "urban_storm": "Storm in the city",
+      "urban_storm": "Urban storm",
       "river_flood": "River flood",
       "wildfire": "Wildfire"
     },
@@ -124,7 +125,7 @@
     "loading": "Checking…",
     "error": "The check could not be done. Review the date and try again.",
     "state": {
-      "observable": "Observable: there was a pass while the event lasted",
+      "observable": "Observable: a pass fell within the event's assumed duration",
       "not_observable": "Not observable"
     },
     "cause": "Reason: {{cause}}",
@@ -133,7 +134,6 @@
     "previousPass": "Previous pass",
     "nextPass": "Next pass",
     "none": "none",
-    "assumption": "Assumed duration",
     "excluded": "Excluded passes"
   },
   "map": {

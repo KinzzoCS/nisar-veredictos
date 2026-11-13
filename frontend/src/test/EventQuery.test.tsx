@@ -30,7 +30,8 @@ function makeEvent(over: Partial<EventVerdict> = {}): EventVerdict {
     excluded_passes: [],
     summary: {
       detected: 'El evento del 2026-07-01 no es observable.',
-      does_not_prove: 'Esto no indica que el evento no ocurriera.',
+      // Como la API real (T-BAL-06): el supuesto de duración va dentro de does_not_prove.
+      does_not_prove: 'Esto no indica que el evento no ocurriera. Supuesto: el evento dura 24 h, valor por omisión sin calibrar; no se midió.',
       missing: 'Haría falta una fuente con mayor frecuencia o reportes locales.',
     },
     ...over,
@@ -58,17 +59,21 @@ test('consulta con Enter y muestra los tres textos, las pasadas y el supuesto', 
   const fetch = stub(() => json(makeEvent()))
   render(<EventQuery aoi="parral" lang="es" />)
 
-  await user.type(screen.getByLabelText('Fecha del evento'), '2026-07-01')
+  await user.type(screen.getByLabelText('Fecha del evento (UTC)'), '2026-07-01')
   await user.keyboard('{Enter}')
 
   const heading = await screen.findByRole('heading', { name: /No observable/ })
   expect(heading).toHaveFocus()
   expect(screen.getByText('Motivo: no hubo ninguna pasada mientras duraba el evento')).toBeInTheDocument()
-  for (const label of ['Qué encontramos', 'Qué no prueba', 'Qué falta', 'Pasada anterior', 'Pasada siguiente', 'Duración supuesta']) {
+  for (const label of ['Qué encontramos', 'Qué no prueba', 'Qué falta', 'Pasada anterior', 'Pasada siguiente']) {
     expect(screen.getByText(label)).toBeVisible()
   }
   expect(screen.getByText('2026-06-29')).toBeInTheDocument()
-  expect(screen.getByText(/dura 24 h/)).toBeInTheDocument()
+  // El supuesto llega dentro de «Qué no prueba» (T-BAL-06): se ve ahí y no se repite en una fila aparte.
+  expect(screen.getByText('Qué no prueba').nextElementSibling).toHaveTextContent('Supuesto: el evento dura 24 h')
+  expect(screen.getAllByText(/Supuesto: el evento dura 24 h/)).toHaveLength(1)
+  expect(screen.queryByText('Duración supuesta')).not.toBeInTheDocument()
+  expect(screen.getByLabelText('Fecha del evento (UTC)')).toHaveAccessibleDescription(/18:00 en Parral/)
 
   const url = new URL((fetch.mock.calls[0][0] as Request).url)
   expect(url.pathname).toMatch(/\/aois\/parral\/events$/)
@@ -90,6 +95,8 @@ test('el ejemplo pide la tormenta del 1 de julio con tipo y hora UTC', async () 
   expect(url.searchParams.get('event_type')).toBe('urban_storm')
   expect(url.searchParams.get('time')).toBe('21:37')
   expect(screen.getByLabelText('Tipo de evento')).toHaveValue('urban_storm')
+  // Mismo nombre que el supuesto de la API («tormenta urbana»).
+  expect(screen.getByLabelText('Tipo de evento')).toHaveDisplayValue('Tormenta urbana')
 })
 
 test('observable no afirma un cambio y remite al veredicto del par', async () => {
@@ -97,7 +104,7 @@ test('observable no afirma un cambio y remite al veredicto del par', async () =>
   stub(() => json(makeEvent({ state: 'observable', cause: null, cause_label: null, next_pass: null })))
   render(<EventQuery aoi="parral" lang="es" />)
   await user.click(screen.getByRole('button', { name: /Probar con la tormenta/ }))
-  expect(await screen.findByRole('heading', { name: /Observable: hubo una pasada/ })).toBeInTheDocument()
+  expect(await screen.findByRole('heading', { name: /Observable: hubo una pasada dentro de la duración supuesta/ })).toBeInTheDocument()
   expect(screen.getByText(/no dice que algo cambiara/)).toBeInTheDocument()
   expect(screen.queryByText(/^Motivo:/)).not.toBeInTheDocument()
   expect(screen.getByText('ninguna')).toBeInTheDocument()

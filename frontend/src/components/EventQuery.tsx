@@ -59,8 +59,6 @@ export function EventAnswer({
         <dd>{event.previous_pass ?? t('event.none')}</dd>
         <dt>{t('event.nextPass')}</dt>
         <dd>{event.next_pass ?? t('event.none')}</dd>
-        <dt>{t('event.assumption')}</dt>
-        <dd>{event.assumption.text}</dd>
         {event.excluded_passes.length > 0 && (
           <>
             <dt>{t('event.excluded')}</dt>
@@ -81,12 +79,12 @@ export function EventAnswer({
 }
 
 /**
- * Consulta de evento (RF-FAR-02): ¿pasó el satélite mientras duraba el evento?
+ * Consulta de evento (RF-FAR-02): ¿pasó el satélite dentro de la duración supuesta del evento?
  * Los textos llegan de la API; aquí solo hay rótulos.
  */
 export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
   const { t } = useTranslation()
-  const ids = { date: useId(), type: useId(), time: useId(), timeHelp: useId() }
+  const ids = { date: useId(), dateHelp: useId(), type: useId(), time: useId(), timeHelp: useId() }
   const [form, setForm] = useState<Query>({ date: '', eventType: '', time: '' })
   const [query, setQuery] = useState<Query>()
   const [result, setResult] = useState<Result>()
@@ -149,13 +147,19 @@ export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
 
       <form className="picker" onSubmit={onSubmit}>
         <label htmlFor={ids.date}>{t('event.date')}</label>
-        <input
-          id={ids.date}
-          type="date"
-          required
-          value={form.date}
-          onChange={(e) => setForm({ ...form, date: e.target.value })}
-        />
+        <div>
+          <input
+            id={ids.date}
+            type="date"
+            required
+            value={form.date}
+            aria-describedby={ids.dateHelp}
+            onChange={(e) => setForm({ ...form, date: e.target.value })}
+          />
+          <p id={ids.dateHelp} className="muted field-help">
+            {t('event.dateHelp')}
+          </p>
+        </div>
 
         <label htmlFor={ids.type}>{t('event.type')}</label>
         <select

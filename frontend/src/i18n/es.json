@@ -32,7 +32,7 @@
     "storm": {
       "step": "La tormenta",
       "title": "1. La tormenta del 1 de julio de 2026",
-      "text": "El 1 de julio de 2026, una tormenta dejó calles con agua en Parral y un vehículo arrastrado en el Arroyo de las Quintas. Protección Civil de Chihuahua registró 22,8 mm de lluvia en una hora. ¿Pasó el satélite mientras duraba?",
+      "text": "El 1 de julio de 2026, una tormenta dejó calles con agua en Parral y un vehículo arrastrado en el Arroyo de las Quintas. Protección Civil de Chihuahua registró 22,8 mm de lluvia en una hora. ¿Pasó el satélite durante el tiempo que suponemos que duró?",
       "source": "Fuente: boletín de la Coordinación Estatal de Protección Civil, Gobierno de Chihuahua (1 de julio de 2026)"
     },
     "monsoon": {
@@ -108,12 +108,13 @@
   },
   "event": {
     "heading": "¿Pudo el satélite ver un evento?",
-    "intro": "Indica cuándo pasó algo (una tormenta, una crecida, un incendio) y te decimos si NISAR pasó por la zona mientras duraba. No dice si algo cambió.",
-    "date": "Fecha del evento",
+    "intro": "Indica cuándo pasó algo (una tormenta, una crecida, un incendio) y te decimos si NISAR pasó por la zona durante el tiempo que suponemos que duró. No dice si algo cambió.",
+    "date": "Fecha del evento (UTC)",
+    "dateHelp": "A partir de las 18:00 en Parral, en UTC ya es el día siguiente: una tormenta a las 20:00 del 1 de julio en Parral es del 2 de julio en UTC.",
     "type": "Tipo de evento",
     "types": {
       "none": "Sin especificar",
-      "urban_storm": "Tormenta en la ciudad",
+      "urban_storm": "Tormenta urbana",
       "river_flood": "Crecida de río",
       "wildfire": "Incendio"
     },
@@ -124,7 +125,7 @@
     "loading": "Consultando…",
     "error": "No se pudo hacer la consulta. Revisa la fecha y vuelve a intentarlo.",
     "state": {
-      "observable": "Observable: hubo una pasada mientras duraba el evento",
+      "observable": "Observable: hubo una pasada dentro de la duración supuesta del evento",
       "not_observable": "No observable"
     },
     "cause": "Motivo: {{cause}}",
@@ -133,7 +134,6 @@
     "previousPass": "Pasada anterior",
     "nextPass": "Pasada siguiente",
     "none": "ninguna",
-    "assumption": "Duración supuesta",
     "excluded": "Pasadas excluidas"
   },
   "map": {
