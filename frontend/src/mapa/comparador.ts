@@ -15,19 +15,12 @@ import {
   type LadoOptico,
 } from "./optico";
 import { descargar, ErrorHttp } from "./protocolo";
+import { teselaVacia } from "./teselaVacia";
 import type { Idioma } from "./textos";
 import { TEXTOS } from "./textos";
 import type { Bbox } from "./tipos";
 
 const PROTOCOLO = "atlas-optico";
-
-let vacia: Promise<ArrayBuffer> | null = null;
-function teselaVacia(): Promise<ArrayBuffer> {
-  vacia ??= new OffscreenCanvas(1, 1)
-    .convertToBlob({ type: "image/png" })
-    .then((b) => b.arrayBuffer());
-  return vacia;
-}
 
 let registrado = false;
 
