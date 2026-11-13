@@ -52,6 +52,7 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 ## Resultados
 
 - RF-ECO-06 (2026-11-12): frente a Sentinel-2 en La Boquilla no hay un desplazamiento detectable mayor que un píxel (10 m). Método y cifras en `MEMORY.md`; se repite con `bench/georref.py`.
+- RF-ECO-07 (2026-11-12, acordado con Balanza): `low_looks` se decide con la suma de looks en la ventana de 5 × 5 (mínimo 50), no por píxel. El cambio de cada par se mide respecto al desplazamiento de toda la escena (mediana de la diferencia), que se resta antes del umbral y se publica en `stats.scene_shift_hh_db` y `scene_shift_hv_db`. El umbral de fracción del veredicto lo calibra Balanza (T-BAL-07).
 
 ## Preguntas abiertas
 
