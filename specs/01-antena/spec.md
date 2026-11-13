@@ -87,6 +87,7 @@ Se comprueban con dobles de CMR que reproducen los títulos reales de Parral (ve
 - [x] Una tesela con dos versiones de producción aparece una sola vez, con la producción más reciente. El caso real es T13RDL del 2026-06-22 a las 12:56 UTC.
 - [x] `covers_aoi` es `true` en Parral, y la respuesta declara `coverage_basis: "tile_bbox"`.
 - [x] Los enlaces a GeoTIFF están marcados como que requieren cuenta de Earthdata, y `browse_url` solo apunta al bucket público de PO.DAAC.
+- [x] Cada tesela trae su caja `bbox` en WGS84, `[oeste, sur, este, norte]`, o `null` si CMR no la publica. Para T13RDK es `[-106.0587906, 26.1714959, -104.9505393, 27.1667001]`.
 - [x] La respuesta cita el DOI `10.5067/OPDSWS1-L3V1` y el tamaño mínimo de masa de agua que el producto detecta.
 - [x] Si CMR falla, la ruta responde 502 y no devuelve una lista parcial.
 - [x] `catalog` no lee ni necesita el token de Earthdata para esta ruta.

@@ -12,13 +12,17 @@ from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from . import narrative, optical, rules
+from . import narrative, optical, quality, rules, water
 from .catalog import (
     CatalogUnavailable,
+    HttpOpera,
     HttpOptical,
     HttpTimeline,
+    OperaReference,
+    OperaSource,
     OpticalReference,
     OpticalSource,
+    ExcludedPass,
     PassTime,
     TimelineSource,
     granule_key,
@@ -73,6 +77,30 @@ class Freshness(BaseModel):
     after: PassFreshness
 
 
+class DateQuality(BaseModel):
+    date: dt.date
+    valid_fraction: float = Field(description="Fracción de píxeles válidos de la fecha, según Eco.")
+    median_hh_db: float | None
+    median_hv_db: float | None
+    deviation_hh_db: float | None = Field(description="Mediana de la fecha menos la mediana de las medianas de la serie.")
+    deviation_hv_db: float | None
+    flags: list[str] = Field(description="radiometric_outlier: la fecha se aparta de la serie más que el umbral de Eco. Aviso, no exclusión.")
+
+
+class PairQuality(BaseModel):
+    source: Literal["manifest_qa"] = Field("manifest_qa", description="Copiado de dates[].qa del manifiesto de Eco (T-ECO-03).")
+    before: DateQuality | None = Field(description="QA de from_date. null si el manifiesto no lo trae.")
+    after: DateQuality | None = Field(description="QA de to_date. null si el manifiesto no lo trae.")
+
+
+class ExcludedPassOut(BaseModel):
+    granule: str = Field(description="granule_id que catalog excluye.")
+    series: str
+    date: dt.date
+    reason: str = Field(description="Código del motivo según catalog; product_defect: fallo en el producto publicado.")
+    evidence: str = Field(description="Cómo lo comprobó Antena.")
+
+
 class Receipt(BaseModel):
     data_kind: Literal["real", "synthetic"]
     maturity: str
@@ -87,6 +115,11 @@ class Receipt(BaseModel):
     spans_data_gap: bool
     notices: list[str]
     freshness: Freshness
+    quality: PairQuality = Field(description="Control de calidad de Eco de las dos fechas (RF-BAL-09).")
+    excluded_passes: list[ExcludedPassOut] = Field(
+        description="Pasadas de esta serie que catalog excluye, entre from_date y to_date ambas incluidas. "
+        "Vacía con datos sintéticos o si catalog no respondió."
+    )
 
 
 class OpticalTileOut(BaseModel):
@@ -137,9 +170,148 @@ class OpticalEvidence(BaseModel):
     text: str = Field(description="Resumen en el idioma pedido de qué escenas hay y con cuántas nubes.")
 
 
+class WaterTileOut(BaseModel):
+    id: str = Field(description="Título del producto DSWx-S1 en CMR. Es el que cita el recibo.")
+    tile: str = Field(description="Tesela MGRS.")
+    browse_url: str | None = Field(description="Vista previa PNG pública de PO.DAAC, sin georreferencia. null si no hay.")
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR vía catalog. "
+        "Sirve para situar browse_url en el mapa. Si oeste > este, cruza el antimeridiano. null si catalog no la da.",
+    )
+
+
+class WaterReference(BaseModel):
+    platform: str
+    acquired_at: dt.datetime = Field(description="Hora UTC de la primera tesela de la pasada de Sentinel-1.")
+    days_from_radar: int = Field(description="Días respecto a radar_date; negativo si es anterior.")
+    covers_aoi: bool = Field(
+        description="Las cajas de sus teselas contienen la zona. No dice si hay datos válidos en toda ella."
+    )
+    tiles: list[WaterTileOut]
+
+
+class WaterComparison(BaseModel):
+    comparable_pixels: int = Field(description="Píxeles de la malla de DSWx-S1 con dato de radar y clase 0, 1 o 3 en B01_WTR.")
+    not_comparable_pixels: int = Field(
+        description="Píxeles de la zona sin dato en alguna fuente o enmascarados por DSWx-S1 (HAND, layover o sombra)."
+    )
+    compared_fraction: float = Field(
+        description="comparable_pixels entre todos los píxeles de la zona. Por debajo de min_compared_fraction "
+        "no hay assessment (status partial_overlap)."
+    )
+    both_water: int
+    radar_only_water: int
+    reference_only_water: int
+    both_not_water: int
+    agreement_fraction: float = Field(description="Fracción de los píxeles comparables en que las dos fuentes dicen lo mismo.")
+    water_iou: float | None = Field(
+        description="Píxeles con agua en las dos entre los píxeles con agua en alguna. null si ninguna ve agua."
+    )
+    radar_water_fraction: float
+    reference_water_fraction: float
+
+
+WaterStatus = Literal[
+    "compared", "synthetic", "no_credentials", "none_in_window", "catalog_unavailable", "read_failed", "no_overlap",
+    "partial_overlap",
+]
+
+
+class WaterSide(BaseModel):
+    status: WaterStatus = Field(
+        description="compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. "
+        "no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a "
+        "search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o "
+        "el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de "
+        "min_compared_fraction de la zona; hay conteos pero no assessment."
+    )
+    radar_date: dt.date
+    reference: WaterReference | None = Field(
+        description="Pasada DSWx-S1 elegida: la más cercana a radar_date, antes o después; primero las que cubren la zona."
+    )
+    assessment: Literal["agree", "disagree"] | None = Field(
+        description="Acuerdo o desacuerdo entre dos métodos sobre dónde hay agua. disagree no dice cuál acierta. "
+        "null si no se comparó."
+    )
+    assessment_basis: Literal["little_water", "water_overlap"] | None = Field(
+        description="little_water: ninguna fuente ve agua en min_water_fraction o más de los píxeles comparables, "
+        "y eso cuenta como acuerdo. water_overlap: se decide con water_iou frente a min_water_iou."
+    )
+    comparison: WaterComparison | None
+
+
+class RadarWaterRule(BaseModel):
+    hh_db_below: float = Field(description="Un píxel es agua para el radar si HH está por debajo de este valor y...")
+    hv_db_below: float = Field(description="...HV por debajo de este. Umbrales de T-ECO-06, sin calibrar.")
+    resampling: Literal["average"] = Field(
+        "average", description="El radar de 10 m se promedia en la malla de DSWx-S1 (30 m) antes de aplicar los umbrales."
+    )
+    calibrated: bool = Field(False, description="Siempre false.")
+
+
+class WaterEvidence(BaseModel):
+    data_kind: Literal["real"] = Field("real", description="Los productos DSWx-S1 son siempre datos reales.")
+    source: str | None = Field(description="Buscador usado por catalog. null si no respondió.")
+    collection: str | None
+    doi: str | None
+    attribution: str | None = Field(description="Texto de atribución que debe mostrarse junto al producto.")
+    product_spec_url: str | None
+    min_water_body_ha: float | None = Field(description="Superficie mínima de agua abierta que DSWx-S1 detecta.")
+    min_water_body_width_m: float | None = Field(description="Anchura mínima de agua abierta que DSWx-S1 detecta.")
+    search_days: int = Field(description="Días máximos entre el producto DSWx-S1 y su fecha de radar.")
+    reference_water_classes: list[int] = Field(
+        description="Clases de B01_WTR que cuentan como agua: 1 agua abierta y 3 vegetación inundada."
+    )
+    radar_rule: RadarWaterRule
+    min_water_fraction: float = Field(
+        description="Si ninguna fuente llega a esta fracción de agua, coinciden en que no hay agua apreciable. Sin calibrar."
+    )
+    min_water_iou: float = Field(description="water_iou mínimo para hablar de acuerdo. Sin calibrar.")
+    min_compared_fraction: float = Field(
+        description="Fracción mínima de la zona con dato en las dos fuentes para dar acuerdo o desacuerdo. "
+        "covers_aoi no basta: mira la caja de la tesela, no los píxeles válidos."
+    )
+    before: WaterSide = Field(description="Producto más cercano a from_date.")
+    after: WaterSide = Field(description="Producto más cercano a to_date.")
+    text: str = Field(description="Resumen en el idioma pedido: qué productos hay, si coinciden y sus límites.")
+
+
+class SceneShiftOut(BaseModel):
+    basis: Literal["pair_stats", "qa_median_difference"] = Field(
+        description="pair_stats: stats.scene_shift_* del par, que processor mide desde T-ECO-07 y ya restó del "
+        "cambio. qa_median_difference: mediana de to_date menos la de from_date, del QA de Eco, sin restar."
+    )
+    corrected: bool = Field(
+        description="true: el porcentaje de cambio ya descuenta este desplazamiento (basis pair_stats). "
+        "false: no lo descuenta y puede reflejarlo."
+    )
+    hh_db: float | None
+    hv_db: float | None
+    same_direction: bool | None = Field(description="HH y HV se mueven en el mismo sentido. null si falta alguna o alguna no se movió.")
+    threshold_db: float = Field(description="Por encima de este valor absoluto, el veredicto avisa. Sin calibrar.")
+    exceeds_threshold: bool = Field(
+        description="Si es true, summary.does_not_prove avisa del cambio de nivel de toda la escena: que ya se "
+        "descontó (corrected) o que el porcentaje puede reflejarlo. No cambia el estado."
+    )
+    calibrated: bool = Field(False, description="Siempre false.")
+
+
+class DecisionRule(BaseModel):
+    min_observed_fraction: float = Field(description="Por debajo de esta fracción observada, not_observable.")
+    min_changed_fraction: float = Field(
+        description="Desde esta fracción de lo observado con cambio, change_probable; por debajo, "
+        "no_detectable_change. Provisional (T-BAL-09)."
+    )
+    calibrated: bool = Field(False, description="Siempre false: valores iniciales, sin calibrar con verdad de campo.")
+
+
 class Evidence(BaseModel):
     observed_fraction: float
     changed_fraction: float
+    decision_rule: DecisionRule = Field(description="Umbrales con los que se decidió el estado de este veredicto.")
     threshold_hh_db: float | None
     threshold_hv_db: float | None
     mean_change_hh_db: float | None
@@ -147,6 +319,12 @@ class Evidence(BaseModel):
     pixel_counts: dict[str, int]
     signature_counts: dict[str, int]
     optical: OpticalEvidence
+    scene_shift: SceneShiftOut | None = Field(
+        description="Cambio de nivel de toda la escena entre las dos fechas. null si el manifiesto no trae QA."
+    )
+    water: WaterEvidence = Field(
+        description="Contraste del agua del radar con OPERA DSWx-S1 (RF-BAL-07). Un desacuerdo es un dato, no un fallo."
+    )
 
 
 class Layers(BaseModel):
@@ -219,6 +397,11 @@ class EventVerdict(BaseModel):
         "(datos sintéticos o catalog sin respuesta): entonces se considera todo su día."
     )
     data_kind: Literal["real", "synthetic"]
+    excluded_passes: list[ExcludedPassOut] = Field(
+        description="Pasadas de las series de la zona que catalog excluye, entre previous_pass y next_pass ambas "
+        "incluidas, estén o no en el manifiesto: no cuentan para el evento. Vacía con datos sintéticos o si catalog "
+        "no respondió."
+    )
     summary: Summary
 
 
@@ -310,6 +493,136 @@ def build_optical(
     )
 
 
+def _water_side(side: water.Side) -> tuple[WaterSide, dict]:
+    reference, values = None, {"status": side.status}
+    if side.acquisition is not None:
+        acq = side.acquisition
+        reference = WaterReference(
+            platform=acq.platform,
+            acquired_at=acq.acquired_at,
+            days_from_radar=side.days_from_radar,
+            covers_aoi=acq.covers_aoi,
+            tiles=[
+                WaterTileOut(
+                    id=tile.id, tile=tile.tile, browse_url=tile.browse_url,
+                    bbox=list(tile.bbox) if tile.bbox else None,
+                )
+                for tile in acq.tiles
+            ],
+        )
+        values.update(product_date=acq.acquired_at.date().isoformat(), days=side.days_from_radar)
+    comparison, assessment, basis = None, None, None
+    found = side.comparison
+    if found is not None:
+        comparison = WaterComparison(
+            comparable_pixels=found.comparable,
+            not_comparable_pixels=found.not_comparable,
+            compared_fraction=found.compared_fraction,
+            both_water=found.both_water,
+            radar_only_water=found.radar_only_water,
+            reference_only_water=found.reference_only_water,
+            both_not_water=found.both_not_water,
+            agreement_fraction=found.agreement_fraction,
+            water_iou=found.water_iou,
+            radar_water_fraction=found.radar_water_fraction,
+            reference_water_fraction=found.reference_water_fraction,
+        )
+        values.update(compared=found.compared_fraction, minimum=water.MIN_COMPARED_FRACTION)
+        if side.status == "compared":
+            assessment, basis = found.assessment, found.basis
+            values.update(
+                assessment=assessment, basis=basis, iou=found.water_iou,
+                radar=found.radar_water_fraction, reference=found.reference_water_fraction,
+            )
+    out = WaterSide(
+        status=side.status, radar_date=side.radar_date, reference=reference,
+        assessment=assessment, assessment_basis=basis, comparison=comparison,
+    )
+    return out, values
+
+
+def build_water(
+    before: water.Side, after: water.Side, meta: OperaReference | None, lang: narrative.Lang
+) -> WaterEvidence:
+    before_out, before_values = _water_side(before)
+    after_out, after_values = _water_side(after)
+    return WaterEvidence(
+        source=meta.source if meta else None,
+        collection=meta.collection if meta else None,
+        doi=meta.doi if meta else None,
+        attribution=meta.attribution if meta else None,
+        product_spec_url=meta.product_spec_url if meta else None,
+        min_water_body_ha=meta.min_water_body_ha if meta else None,
+        min_water_body_width_m=meta.min_water_body_width_m if meta else None,
+        search_days=water.SEARCH_DAYS,
+        reference_water_classes=list(water.WTR_WATER),
+        radar_rule=RadarWaterRule(hh_db_below=water.RADAR_WATER_HH_DB, hv_db_below=water.RADAR_WATER_HV_DB),
+        min_water_fraction=water.MIN_WATER_FRACTION,
+        min_water_iou=water.MIN_WATER_IOU,
+        min_compared_fraction=water.MIN_COMPARED_FRACTION,
+        before=before_out,
+        after=after_out,
+        text=narrative.water_text(
+            before_values, after_values, lang, search_days=water.SEARCH_DAYS,
+            min_water_body_ha=meta.min_water_body_ha if meta else None,
+            min_water_body_width_m=meta.min_water_body_width_m if meta else None,
+            hh_db=water.RADAR_WATER_HH_DB, hv_db=water.RADAR_WATER_HV_DB,
+        ),
+    )
+
+
+def _same_series(catalog_series: str, series: dict) -> bool:
+    """catalog nombra la serie con modo, polarización y CRID (T171D-F075-4005-DHDH-P05023); el manifiesto, sin ellos."""
+    full = f"{series['id']}-{series['mode']}-{series['polarization']}-{series['crid']}"
+    return catalog_series in (series["id"], full)
+
+
+def _excluded_out(item: ExcludedPass) -> ExcludedPassOut:
+    return ExcludedPassOut(
+        granule=item.id, series=item.series, date=item.date, reason=item.reason, evidence=item.evidence
+    )
+
+
+def _with_skipped(summary: dict, between: list[ExcludedPass], lang: narrative.Lang) -> dict:
+    """En eventos, cita las pasadas excluidas entre la anterior y la siguiente: explican por qué no cuentan."""
+    notes = [narrative.excluded_pass_text(item.date.isoformat(), item.reason, False, lang) for item in between]
+    if not notes:
+        return summary
+    return {**summary, "missing": " ".join([summary["missing"], *notes])}
+
+
+def _date_quality(day: str, qa: dict | None) -> DateQuality | None:
+    return None if not qa else DateQuality(date=day, **qa)
+
+
+def with_quality(
+    summary: dict,
+    decision: rules.Decision,
+    before: tuple[str, dict | None],
+    after: tuple[str, dict | None],
+    shift: quality.SceneShift | None,
+    lang: narrative.Lang,
+    excluded_notes: list[str] | None = None,
+) -> dict:
+    """Añade al resumen las fechas que marca el QA de Eco y el cambio de nivel de toda la escena.
+
+    Las fechas marcadas van en "missing" siempre; el desplazamiento, en "does_not_prove" cuando hay
+    algo que interpretar (no en not_observable).
+    """
+    notes = [
+        narrative.quality_flag_text(day, qa["deviation_hh_db"], qa["deviation_hv_db"], quality.SCENE_SHIFT_DB, lang)
+        for day, qa in (before, after)
+        if quality.flagged(qa)
+    ] + list(excluded_notes or [])
+    result = dict(summary)
+    if notes:
+        result["missing"] = " ".join([summary["missing"], *notes])
+    if shift is not None and shift.exceeds_threshold and decision.state != rules.NOT_OBSERVABLE:
+        text = narrative.scene_shift_text(shift.hh_db, shift.hv_db, shift.same_direction, lang, shift.corrected)
+        result["does_not_prove"] = f"{summary['does_not_prove']} {text}"
+    return result
+
+
 def _layers(pair: dict) -> Layers:
     colormap = quote(json.dumps(STATE_COLORS, separators=(",", ":")), safe="")
     change = "rescale=-10,10&colormap_name=rdbu"
@@ -367,8 +680,16 @@ def build_verdict(
     today: dt.date | None = None,
     passes: dict[str, PassTime] | None = None,
     optical_refs: dict[dt.date, OpticalReference | None] | None = None,
+    water_evidence: WaterEvidence | None = None,
+    excluded: list[ExcludedPass] | None = None,
 ) -> Verdict:
     stats = pair["stats"]
+    start, end = dt.date.fromisoformat(pair["from"]), dt.date.fromisoformat(pair["to"])
+    used = {granule_key(granule) for granule in pair["granules"]}
+    in_pair = [
+        item for item in (excluded or [])
+        if _same_series(item.series, manifest["series"]) and start <= item.date <= end
+    ]
     freshness = build_freshness(manifest, pair, today or dt.datetime.now(dt.timezone.utc).date(), passes)
     refs = optical_refs or {}
     optical_evidence = build_optical(
@@ -379,7 +700,17 @@ def build_verdict(
         refs.get(dt.date.fromisoformat(pair["to"])),
     )
     interval_days = (dt.date.fromisoformat(pair["to"]) - dt.date.fromisoformat(pair["from"])).days
+    if water_evidence is None:
+        water_evidence = build_water(
+            water.Side("catalog_unavailable", dt.date.fromisoformat(pair["from"])),
+            water.Side("catalog_unavailable", dt.date.fromisoformat(pair["to"])),
+            None,
+            lang,
+        )
     decision = rules.decide(stats["counts"])
+    qa = quality.qa_by_date(manifest)
+    qa_before, qa_after = qa.get(pair["from"]), qa.get(pair["to"])
+    shift = quality.scene_shift(qa_before, qa_after, stats)
     synthetic = manifest["data_kind"] == "synthetic"
     series = manifest["series"]
     hypotheses = []
@@ -397,23 +728,39 @@ def build_verdict(
         cause=decision.cause,
         cause_label=narrative.CAUSES[lang][decision.cause] if decision.cause else None,
         summary=Summary(
-            **narrative.pair_summary(
+            **with_quality(
+                narrative.pair_summary(
+                    decision,
+                    pair["from"],
+                    pair["to"],
+                    pair["spans_data_gap"],
+                    lang,
+                    synthetic,
+                    interval_days=interval_days,
+                    age_days=freshness.after.age_days,
+                    latency_hours=freshness.after.publication_latency_hours,
+                    latency_status=freshness.after.latency_status,
+                    kind=pair["kind"],
+                ),
                 decision,
-                pair["from"],
-                pair["to"],
-                pair["spans_data_gap"],
+                (pair["from"], qa_before),
+                (pair["to"], qa_after),
+                shift,
                 lang,
-                synthetic,
-                interval_days=interval_days,
-                age_days=freshness.after.age_days,
-                latency_hours=freshness.after.publication_latency_hours,
-                latency_status=freshness.after.latency_status,
-                kind=pair["kind"],
+                [
+                    narrative.excluded_pass_text(
+                        item.date.isoformat(), item.reason, item.id in used or item.date in (start, end), lang
+                    )
+                    for item in in_pair
+                ],
             )
         ),
         hypotheses=hypotheses,
         evidence=Evidence(
             observed_fraction=decision.observed_fraction,
+            decision_rule=DecisionRule(
+                min_observed_fraction=rules.MIN_OBSERVED_FRACTION, min_changed_fraction=rules.MIN_CHANGED_FRACTION
+            ),
             changed_fraction=decision.changed_fraction,
             threshold_hh_db=stats["threshold_hh_db"],
             threshold_hv_db=stats["threshold_hv_db"],
@@ -422,6 +769,16 @@ def build_verdict(
             pixel_counts=stats["counts"],
             signature_counts=stats["signature_counts"],
             optical=optical_evidence,
+            scene_shift=None if shift is None else SceneShiftOut(
+                hh_db=shift.hh_db,
+                hv_db=shift.hv_db,
+                same_direction=shift.same_direction,
+                threshold_db=quality.SCENE_SHIFT_DB,
+                exceeds_threshold=shift.exceeds_threshold,
+                basis=shift.basis,
+                corrected=shift.corrected,
+            ),
+            water=water_evidence,
         ),
         layers=_layers(pair),
         receipt=Receipt(
@@ -438,6 +795,10 @@ def build_verdict(
             spans_data_gap=pair["spans_data_gap"],
             notices=manifest["notices"],
             freshness=freshness,
+            quality=PairQuality(
+                before=_date_quality(pair["from"], qa_before), after=_date_quality(pair["to"], qa_after)
+            ),
+            excluded_passes=[_excluded_out(item) for item in in_pair],
         ),
     )
 
@@ -447,12 +808,19 @@ def create_app(
     timeline: TimelineSource | None = None,
     clock: Callable[[], dt.datetime] | None = None,
     optical_source: OpticalSource | None = None,
+    opera_source: OperaSource | None = None,
+    water_contrast: water.WaterContrast | None = None,
 ) -> FastAPI:
-    store = Store(artifact_root or Path(os.environ.get("ARTIFACT_ROOT", "/data/artifacts")))
+    root = artifact_root or Path(os.environ.get("ARTIFACT_ROOT", "/data/artifacts"))
+    store = Store(root)
     if timeline is None and os.environ.get("CATALOG_URL"):
         timeline = HttpTimeline(os.environ["CATALOG_URL"])
     if optical_source is None and os.environ.get("CATALOG_URL"):
         optical_source = HttpOptical(os.environ["CATALOG_URL"])
+    if opera_source is None and os.environ.get("CATALOG_URL"):
+        opera_source = HttpOpera(os.environ["CATALOG_URL"])
+    # Con EARTHDATA_TOKEN, verdicts lee B01_WTR de PO.DAAC y compara; sin él, lista y lo declara.
+    contrast = water_contrast or water.contrast_from_env(root, os.environ.get)
     now = clock or (lambda: dt.datetime.now(dt.timezone.utc))
     app = FastAPI(title="NISAR verdicts", version="0.1.0")
 
@@ -464,6 +832,15 @@ def create_app(
             return timeline.passes(manifest["aoi"])
         except CatalogUnavailable:
             return None
+
+    def excluded_for(manifest: dict) -> list[ExcludedPass]:
+        """Pasadas excluidas por catalog; vacía con sintéticos o sin catalog, igual que passes_for."""
+        if manifest["data_kind"] == "synthetic" or timeline is None:
+            return []
+        try:
+            return timeline.excluded(manifest["aoi"])
+        except CatalogUnavailable:
+            return []
 
     def optical_for(aoi: str, days: set[dt.date]) -> dict[dt.date, OpticalReference | None]:
         """Escenas por fecha de radar, en paralelo. Una fecha sin respuesta queda en None.
@@ -483,12 +860,46 @@ def create_app(
         with ThreadPoolExecutor(max_workers=min(8, len(ordered))) as pool:
             return dict(zip(ordered, pool.map(fetch, ordered)))
 
+    def opera_for(aoi: str, days: set[dt.date]) -> dict[dt.date, OperaReference | None]:
+        """Productos DSWx-S1 por fecha de radar, en paralelo. Se listan también con radar sintético."""
+        if opera_source is None or not days:
+            return {}
+
+        def fetch(day: dt.date) -> OperaReference | None:
+            try:
+                return opera_source.products(aoi, day, water.SEARCH_DAYS)
+            except CatalogUnavailable:
+                return None
+
+        ordered = sorted(days)
+        with ThreadPoolExecutor(max_workers=min(8, len(ordered))) as pool:
+            return dict(zip(ordered, pool.map(fetch, ordered)))
+
+    def water_sides(manifest: dict, days: set[dt.date]) -> tuple[dict[dt.date, water.Side], OperaReference | None]:
+        """Contraste por fecha de radar: cada fecha se compara una vez aunque esté en varios pares.
+
+        En secuencia: rasterio en varios hilos mezcla sus avisos de GDAL; la caché evita repetir lecturas.
+        """
+        refs = opera_for(manifest["aoi"], days)
+        sides = {day: contrast.side(manifest, day, refs.get(day)) for day in sorted(days)}
+        meta = next((ref for ref in refs.values() if ref is not None), None)
+        return sides, meta
+
+    def water_for(pair: dict, sides: dict[dt.date, water.Side], meta, lang: narrative.Lang) -> WaterEvidence:
+        start, end = dt.date.fromisoformat(pair["from"]), dt.date.fromisoformat(pair["to"])
+        return build_water(sides[start], sides[end], meta, lang)
+
     def pair_days(pairs: list[dict]) -> set[dt.date]:
         return {dt.date.fromisoformat(pair[key]) for pair in pairs for key in ("from", "to")}
 
     def verdict_for(manifest: dict, pair: dict, lang: narrative.Lang) -> Verdict:
-        refs = optical_for(manifest["aoi"], pair_days([pair]))
-        return build_verdict(manifest, pair, lang, now().date(), passes_for(manifest), refs)
+        days = pair_days([pair])
+        refs = optical_for(manifest["aoi"], days)
+        sides, meta = water_sides(manifest, days)
+        return build_verdict(
+            manifest, pair, lang, now().date(), passes_for(manifest), refs, water_for(pair, sides, meta, lang),
+            excluded_for(manifest),
+        )
 
     def manifests_or_404(aoi: str) -> list[dict]:
         manifests = store.manifests(aoi)
@@ -526,9 +937,14 @@ def create_app(
     @app.get("/aois/{aoi}/series/{series_id}/verdicts", response_model=list[Verdict])
     def verdicts(aoi: str, series_id: str, lang: narrative.Lang = "es") -> list[Verdict]:
         manifest = manifest_or_404(aoi, series_id)
-        today, passes = now().date(), passes_for(manifest)
-        refs = optical_for(manifest["aoi"], pair_days(manifest["pairs"]))
-        return [build_verdict(manifest, pair, lang, today, passes, refs) for pair in manifest["pairs"]]
+        today, passes, excluded = now().date(), passes_for(manifest), excluded_for(manifest)
+        days = pair_days(manifest["pairs"])
+        refs = optical_for(manifest["aoi"], days)
+        sides, meta = water_sides(manifest, days)
+        return [
+            build_verdict(manifest, pair, lang, today, passes, refs, water_for(pair, sides, meta, lang), excluded)
+            for pair in manifest["pairs"]
+        ]
 
     @app.get("/aois/{aoi}/series/{series_id}/verdicts/{pair_id}", response_model=Verdict)
     def verdict(aoi: str, series_id: str, pair_id: str, lang: narrative.Lang = "es") -> Verdict:
@@ -557,11 +973,18 @@ def create_app(
         explicit = persistence_hours if "persistence_hours" in request.query_params else None
         assumed = rules.persistence(event_type, explicit)
         manifests = manifests_or_404(aoi)
-        passes, pass_times = [], {}
+        passes, pass_times, excluded = [], {}, {}
         for manifest in manifests:
             known = passes_for(manifest) or {}
+            series_excluded = [item for item in excluded_for(manifest) if _same_series(item.series, manifest["series"])]
+            # Se citan aunque el manifiesto ya no traiga esa fecha (Eco aparta los gránulos defectuosos).
+            excluded.update({item.id: item for item in series_excluded})
             for item in manifest["dates"]:
                 day = dt.date.fromisoformat(item["date"])
+                # Una pasada que catalog declara inservible no cuenta como observación del evento. Se reconoce
+                # por gránulo o por fecha: una serie pasa como mucho una vez al día.
+                if any(ex.id == granule_key(item["granule"]) or ex.date == day for ex in series_excluded):
+                    continue
                 passes.append(day)
                 found = known.get(granule_key(item["granule"]))
                 if found is not None:
@@ -569,6 +992,8 @@ def create_app(
         event_time = time.replace(tzinfo=None) if time else None
         status = rules.event_status(passes, date, assumed.hours, event_time, pass_times)
         synthetic = any(manifest["data_kind"] == "synthetic" for manifest in manifests)
+        low, high = status.previous_pass or dt.date.min, status.next_pass or dt.date.max
+        between = sorted((item for item in excluded.values() if low <= item.date <= high), key=lambda item: item.date)
         return EventVerdict(
             aoi=aoi,
             event_date=date,
@@ -590,7 +1015,10 @@ def create_app(
             next_pass=status.next_pass,
             next_pass_acquired_at=status.next_pass_at,
             data_kind="synthetic" if synthetic else "real",
-            summary=Summary(**narrative.event_summary(status, date.isoformat(), lang, synthetic, assumed)),
+            excluded_passes=[_excluded_out(item) for item in between],
+            summary=Summary(**_with_skipped(
+                narrative.event_summary(status, date.isoformat(), lang, synthetic, assumed), between, lang
+            )),
         )
 
     @app.get("/aois/{aoi}/series/{series_id}/pixel", response_model=PixelSeries)

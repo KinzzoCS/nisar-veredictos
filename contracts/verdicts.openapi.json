@@ -1,6 +1,110 @@
 {
   "components": {
     "schemas": {
+      "DateQuality": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "deviation_hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Mediana de la fecha menos la mediana de las medianas de la serie.",
+            "title": "Deviation Hh Db"
+          },
+          "deviation_hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Deviation Hv Db"
+          },
+          "flags": {
+            "description": "radiometric_outlier: la fecha se aparta de la serie más que el umbral de Eco. Aviso, no exclusión.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Flags",
+            "type": "array"
+          },
+          "median_hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Hh Db"
+          },
+          "median_hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Median Hv Db"
+          },
+          "valid_fraction": {
+            "description": "Fracción de píxeles válidos de la fecha, según Eco.",
+            "title": "Valid Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "date",
+          "valid_fraction",
+          "median_hh_db",
+          "median_hv_db",
+          "deviation_hh_db",
+          "deviation_hv_db",
+          "flags"
+        ],
+        "title": "DateQuality",
+        "type": "object"
+      },
+      "DecisionRule": {
+        "properties": {
+          "calibrated": {
+            "default": false,
+            "description": "Siempre false: valores iniciales, sin calibrar con verdad de campo.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "min_changed_fraction": {
+            "description": "Desde esta fracción de lo observado con cambio, change_probable; por debajo, no_detectable_change. Provisional (T-BAL-09).",
+            "title": "Min Changed Fraction",
+            "type": "number"
+          },
+          "min_observed_fraction": {
+            "description": "Por debajo de esta fracción observada, not_observable.",
+            "title": "Min Observed Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min_observed_fraction",
+          "min_changed_fraction"
+        ],
+        "title": "DecisionRule",
+        "type": "object"
+      },
       "EventVerdict": {
         "properties": {
           "aoi": {
@@ -75,6 +179,14 @@
             "description": "Tipo de evento indicado en la consulta, si lo hay.",
             "title": "Event Type"
           },
+          "excluded_passes": {
+            "description": "Pasadas de las series de la zona que catalog excluye, entre previous_pass y next_pass ambas incluidas, estén o no en el manifiesto: no cuentan para el evento. Vacía con datos sintéticos o si catalog no respondió.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedPassOut"
+            },
+            "title": "Excluded Passes",
+            "type": "array"
+          },
           "next_pass": {
             "anyOf": [
               {
@@ -143,6 +255,7 @@
           "next_pass",
           "next_pass_acquired_at",
           "data_kind",
+          "excluded_passes",
           "summary"
         ],
         "title": "EventVerdict",
@@ -153,6 +266,10 @@
           "changed_fraction": {
             "title": "Changed Fraction",
             "type": "number"
+          },
+          "decision_rule": {
+            "$ref": "#/components/schemas/DecisionRule",
+            "description": "Umbrales con los que se decidió el estado de este veredicto."
           },
           "mean_change_hh_db": {
             "anyOf": [
@@ -190,6 +307,17 @@
             "title": "Pixel Counts",
             "type": "object"
           },
+          "scene_shift": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SceneShiftOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cambio de nivel de toda la escena entre las dos fechas. null si el manifiesto no trae QA."
+          },
           "signature_counts": {
             "additionalProperties": {
               "type": "integer"
@@ -218,20 +346,64 @@
               }
             ],
             "title": "Threshold Hv Db"
+          },
+          "water": {
+            "$ref": "#/components/schemas/WaterEvidence",
+            "description": "Contraste del agua del radar con OPERA DSWx-S1 (RF-BAL-07). Un desacuerdo es un dato, no un fallo."
           }
         },
         "required": [
           "observed_fraction",
           "changed_fraction",
+          "decision_rule",
           "threshold_hh_db",
           "threshold_hv_db",
           "mean_change_hh_db",
           "mean_change_hv_db",
           "pixel_counts",
           "signature_counts",
-          "optical"
+          "optical",
+          "scene_shift",
+          "water"
         ],
         "title": "Evidence",
+        "type": "object"
+      },
+      "ExcludedPassOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Cómo lo comprobó Antena.",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "granule": {
+            "description": "granule_id que catalog excluye.",
+            "title": "Granule",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Código del motivo según catalog; product_defect: fallo en el producto publicado.",
+            "title": "Reason",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "granule",
+          "series",
+          "date",
+          "reason",
+          "evidence"
+        ],
+        "title": "ExcludedPassOut",
         "type": "object"
       },
       "Freshness": {
@@ -533,6 +705,45 @@
         "title": "OpticalTileOut",
         "type": "object"
       },
+      "PairQuality": {
+        "properties": {
+          "after": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "QA de to_date. null si el manifiesto no lo trae."
+          },
+          "before": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DateQuality"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "QA de from_date. null si el manifiesto no lo trae."
+          },
+          "source": {
+            "const": "manifest_qa",
+            "default": "manifest_qa",
+            "description": "Copiado de dates[].qa del manifiesto de Eco (T-ECO-03).",
+            "title": "Source",
+            "type": "string"
+          }
+        },
+        "required": [
+          "before",
+          "after"
+        ],
+        "title": "PairQuality",
+        "type": "object"
+      },
       "PassFreshness": {
         "properties": {
           "acquired_at": {
@@ -791,6 +1002,39 @@
         "title": "PixelSeries",
         "type": "object"
       },
+      "RadarWaterRule": {
+        "properties": {
+          "calibrated": {
+            "default": false,
+            "description": "Siempre false.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "hh_db_below": {
+            "description": "Un píxel es agua para el radar si HH está por debajo de este valor y...",
+            "title": "Hh Db Below",
+            "type": "number"
+          },
+          "hv_db_below": {
+            "description": "...HV por debajo de este. Umbrales de T-ECO-06, sin calibrar.",
+            "title": "Hv Db Below",
+            "type": "number"
+          },
+          "resampling": {
+            "const": "average",
+            "default": "average",
+            "description": "El radar de 10 m se promedia en la malla de DSWx-S1 (30 m) antes de aplicar los umbrales.",
+            "title": "Resampling",
+            "type": "string"
+          }
+        },
+        "required": [
+          "hh_db_below",
+          "hv_db_below"
+        ],
+        "title": "RadarWaterRule",
+        "type": "object"
+      },
       "Receipt": {
         "properties": {
           "crid": {
@@ -808,6 +1052,14 @@
           "direction": {
             "title": "Direction",
             "type": "string"
+          },
+          "excluded_passes": {
+            "description": "Pasadas de esta serie que catalog excluye, entre from_date y to_date ambas incluidas. Vacía con datos sintéticos o si catalog no respondió.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedPassOut"
+            },
+            "title": "Excluded Passes",
+            "type": "array"
           },
           "frame": {
             "title": "Frame",
@@ -842,6 +1094,10 @@
             "title": "Polarization",
             "type": "string"
           },
+          "quality": {
+            "$ref": "#/components/schemas/PairQuality",
+            "description": "Control de calidad de Eco de las dos fechas (RF-BAL-09)."
+          },
           "series": {
             "title": "Series",
             "type": "string"
@@ -868,9 +1124,90 @@
           "granules",
           "spans_data_gap",
           "notices",
-          "freshness"
+          "freshness",
+          "quality",
+          "excluded_passes"
         ],
         "title": "Receipt",
+        "type": "object"
+      },
+      "SceneShiftOut": {
+        "properties": {
+          "basis": {
+            "description": "pair_stats: stats.scene_shift_* del par, que processor mide desde T-ECO-07 y ya restó del cambio. qa_median_difference: mediana de to_date menos la de from_date, del QA de Eco, sin restar.",
+            "enum": [
+              "pair_stats",
+              "qa_median_difference"
+            ],
+            "title": "Basis",
+            "type": "string"
+          },
+          "calibrated": {
+            "default": false,
+            "description": "Siempre false.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "corrected": {
+            "description": "true: el porcentaje de cambio ya descuenta este desplazamiento (basis pair_stats). false: no lo descuenta y puede reflejarlo.",
+            "title": "Corrected",
+            "type": "boolean"
+          },
+          "exceeds_threshold": {
+            "description": "Si es true, summary.does_not_prove avisa del cambio de nivel de toda la escena: que ya se descontó (corrected) o que el porcentaje puede reflejarlo. No cambia el estado.",
+            "title": "Exceeds Threshold",
+            "type": "boolean"
+          },
+          "hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hh Db"
+          },
+          "hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hv Db"
+          },
+          "same_direction": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "HH y HV se mueven en el mismo sentido. null si falta alguna o alguna no se movió.",
+            "title": "Same Direction"
+          },
+          "threshold_db": {
+            "description": "Por encima de este valor absoluto, el veredicto avisa. Sin calibrar.",
+            "title": "Threshold Db",
+            "type": "number"
+          }
+        },
+        "required": [
+          "basis",
+          "corrected",
+          "hh_db",
+          "hv_db",
+          "same_direction",
+          "threshold_db",
+          "exceeds_threshold"
+        ],
+        "title": "SceneShiftOut",
         "type": "object"
       },
       "SeriesInfo": {
@@ -1086,6 +1423,414 @@
           "receipt"
         ],
         "title": "Verdict",
+        "type": "object"
+      },
+      "WaterComparison": {
+        "properties": {
+          "agreement_fraction": {
+            "description": "Fracción de los píxeles comparables en que las dos fuentes dicen lo mismo.",
+            "title": "Agreement Fraction",
+            "type": "number"
+          },
+          "both_not_water": {
+            "title": "Both Not Water",
+            "type": "integer"
+          },
+          "both_water": {
+            "title": "Both Water",
+            "type": "integer"
+          },
+          "comparable_pixels": {
+            "description": "Píxeles de la malla de DSWx-S1 con dato de radar y clase 0, 1 o 3 en B01_WTR.",
+            "title": "Comparable Pixels",
+            "type": "integer"
+          },
+          "compared_fraction": {
+            "description": "comparable_pixels entre todos los píxeles de la zona. Por debajo de min_compared_fraction no hay assessment (status partial_overlap).",
+            "title": "Compared Fraction",
+            "type": "number"
+          },
+          "not_comparable_pixels": {
+            "description": "Píxeles de la zona sin dato en alguna fuente o enmascarados por DSWx-S1 (HAND, layover o sombra).",
+            "title": "Not Comparable Pixels",
+            "type": "integer"
+          },
+          "radar_only_water": {
+            "title": "Radar Only Water",
+            "type": "integer"
+          },
+          "radar_water_fraction": {
+            "title": "Radar Water Fraction",
+            "type": "number"
+          },
+          "reference_only_water": {
+            "title": "Reference Only Water",
+            "type": "integer"
+          },
+          "reference_water_fraction": {
+            "title": "Reference Water Fraction",
+            "type": "number"
+          },
+          "water_iou": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Píxeles con agua en las dos entre los píxeles con agua en alguna. null si ninguna ve agua.",
+            "title": "Water Iou"
+          }
+        },
+        "required": [
+          "comparable_pixels",
+          "not_comparable_pixels",
+          "compared_fraction",
+          "both_water",
+          "radar_only_water",
+          "reference_only_water",
+          "both_not_water",
+          "agreement_fraction",
+          "water_iou",
+          "radar_water_fraction",
+          "reference_water_fraction"
+        ],
+        "title": "WaterComparison",
+        "type": "object"
+      },
+      "WaterEvidence": {
+        "properties": {
+          "after": {
+            "$ref": "#/components/schemas/WaterSide",
+            "description": "Producto más cercano a to_date."
+          },
+          "attribution": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Texto de atribución que debe mostrarse junto al producto.",
+            "title": "Attribution"
+          },
+          "before": {
+            "$ref": "#/components/schemas/WaterSide",
+            "description": "Producto más cercano a from_date."
+          },
+          "collection": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Collection"
+          },
+          "data_kind": {
+            "const": "real",
+            "default": "real",
+            "description": "Los productos DSWx-S1 son siempre datos reales.",
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "doi": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Doi"
+          },
+          "min_compared_fraction": {
+            "description": "Fracción mínima de la zona con dato en las dos fuentes para dar acuerdo o desacuerdo. covers_aoi no basta: mira la caja de la tesela, no los píxeles válidos.",
+            "title": "Min Compared Fraction",
+            "type": "number"
+          },
+          "min_water_body_ha": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Superficie mínima de agua abierta que DSWx-S1 detecta.",
+            "title": "Min Water Body Ha"
+          },
+          "min_water_body_width_m": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Anchura mínima de agua abierta que DSWx-S1 detecta.",
+            "title": "Min Water Body Width M"
+          },
+          "min_water_fraction": {
+            "description": "Si ninguna fuente llega a esta fracción de agua, coinciden en que no hay agua apreciable. Sin calibrar.",
+            "title": "Min Water Fraction",
+            "type": "number"
+          },
+          "min_water_iou": {
+            "description": "water_iou mínimo para hablar de acuerdo. Sin calibrar.",
+            "title": "Min Water Iou",
+            "type": "number"
+          },
+          "product_spec_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Product Spec Url"
+          },
+          "radar_rule": {
+            "$ref": "#/components/schemas/RadarWaterRule"
+          },
+          "reference_water_classes": {
+            "description": "Clases de B01_WTR que cuentan como agua: 1 agua abierta y 3 vegetación inundada.",
+            "items": {
+              "type": "integer"
+            },
+            "title": "Reference Water Classes",
+            "type": "array"
+          },
+          "search_days": {
+            "description": "Días máximos entre el producto DSWx-S1 y su fecha de radar.",
+            "title": "Search Days",
+            "type": "integer"
+          },
+          "source": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Buscador usado por catalog. null si no respondió.",
+            "title": "Source"
+          },
+          "text": {
+            "description": "Resumen en el idioma pedido: qué productos hay, si coinciden y sus límites.",
+            "title": "Text",
+            "type": "string"
+          }
+        },
+        "required": [
+          "source",
+          "collection",
+          "doi",
+          "attribution",
+          "product_spec_url",
+          "min_water_body_ha",
+          "min_water_body_width_m",
+          "search_days",
+          "reference_water_classes",
+          "radar_rule",
+          "min_water_fraction",
+          "min_water_iou",
+          "min_compared_fraction",
+          "before",
+          "after",
+          "text"
+        ],
+        "title": "WaterEvidence",
+        "type": "object"
+      },
+      "WaterReference": {
+        "properties": {
+          "acquired_at": {
+            "description": "Hora UTC de la primera tesela de la pasada de Sentinel-1.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "covers_aoi": {
+            "description": "Las cajas de sus teselas contienen la zona. No dice si hay datos válidos en toda ella.",
+            "title": "Covers Aoi",
+            "type": "boolean"
+          },
+          "days_from_radar": {
+            "description": "Días respecto a radar_date; negativo si es anterior.",
+            "title": "Days From Radar",
+            "type": "integer"
+          },
+          "platform": {
+            "title": "Platform",
+            "type": "string"
+          },
+          "tiles": {
+            "items": {
+              "$ref": "#/components/schemas/WaterTileOut"
+            },
+            "title": "Tiles",
+            "type": "array"
+          }
+        },
+        "required": [
+          "platform",
+          "acquired_at",
+          "days_from_radar",
+          "covers_aoi",
+          "tiles"
+        ],
+        "title": "WaterReference",
+        "type": "object"
+      },
+      "WaterSide": {
+        "properties": {
+          "assessment": {
+            "anyOf": [
+              {
+                "enum": [
+                  "agree",
+                  "disagree"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Acuerdo o desacuerdo entre dos métodos sobre dónde hay agua. disagree no dice cuál acierta. null si no se comparó.",
+            "title": "Assessment"
+          },
+          "assessment_basis": {
+            "anyOf": [
+              {
+                "enum": [
+                  "little_water",
+                  "water_overlap"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "little_water: ninguna fuente ve agua en min_water_fraction o más de los píxeles comparables, y eso cuenta como acuerdo. water_overlap: se decide con water_iou frente a min_water_iou.",
+            "title": "Assessment Basis"
+          },
+          "comparison": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WaterComparison"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "radar_date": {
+            "format": "date",
+            "title": "Radar Date",
+            "type": "string"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/WaterReference"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Pasada DSWx-S1 elegida: la más cercana a radar_date, antes o después; primero las que cubren la zona."
+          },
+          "status": {
+            "description": "compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de min_compared_fraction de la zona; hay conteos pero no assessment.",
+            "enum": [
+              "compared",
+              "synthetic",
+              "no_credentials",
+              "none_in_window",
+              "catalog_unavailable",
+              "read_failed",
+              "no_overlap",
+              "partial_overlap"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "radar_date",
+          "reference",
+          "assessment",
+          "assessment_basis",
+          "comparison"
+        ],
+        "title": "WaterSide",
+        "type": "object"
+      },
+      "WaterTileOut": {
+        "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR vía catalog. Sirve para situar browse_url en el mapa. Si oeste > este, cruza el antimeridiano. null si catalog no la da.",
+            "title": "Bbox"
+          },
+          "browse_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Vista previa PNG pública de PO.DAAC, sin georreferencia. null si no hay.",
+            "title": "Browse Url"
+          },
+          "id": {
+            "description": "Título del producto DSWx-S1 en CMR. Es el que cita el recibo.",
+            "title": "Id",
+            "type": "string"
+          },
+          "tile": {
+            "description": "Tesela MGRS.",
+            "title": "Tile",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "tile",
+          "browse_url"
+        ],
+        "title": "WaterTileOut",
         "type": "object"
       }
     }

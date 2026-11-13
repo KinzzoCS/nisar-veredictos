@@ -77,6 +77,7 @@ Cada elemento de `tiles[]`:
 | `wtr_url` | GeoTIFF `B01_WTR`, clasificación de agua. Pide cuenta |
 | `conf_url` | GeoTIFF `B03_CONF`, confianza. Pide cuenta |
 | `browse_url` | PNG `_BROWSE.png` del bucket público, o `null` si CMR no lo publica |
+| `bbox` | Caja de la tesela en WGS84, `[oeste, sur, este, norte]`, tomada de `boxes` de CMR (que la da como "sur oeste norte este"). Es lo que permite situar `browse_url`, que no trae georreferencia. `null` si CMR no publica la caja (T-ANT-13) |
 
 ### Reglas
 
