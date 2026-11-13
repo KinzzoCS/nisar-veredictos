@@ -12,7 +12,7 @@ OBSERVABLE = "observable"
 MIN_OBSERVED_FRACTION = 0.5
 # Provisional y sin calibrar (T-ECO-07 y T-BAL-09, 2026-11-12). Con el cambio ya corregido por el desplazamiento
 # de la escena, los 16 pares consecutivos reales quedan entre 0,58 % y 9,6 %, y el ruido solo ya supera el umbral
-# de 3 dB en un 2,2 % de los píxeles en HH (MEMORY.md). Con el 5 %, 2 de 16 pares quedan como change_probable.
+# de 3 dB en un 1,97 % de los píxeles en HH (MEMORY.md). Con el 5 %, 2 de 16 pares quedan como change_probable.
 MIN_CHANGED_FRACTION = 0.05
 MIN_SIGNATURE_SHARE = 0.2
 
