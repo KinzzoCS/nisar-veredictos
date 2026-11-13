@@ -138,7 +138,7 @@ def rendered_texts() -> list[tuple[str, dict]]:
 
 # T-BAL-08: cada estado del contraste con DSWx-S1, con producto antes, el mismo día y después.
 WATER_SIDES = [{"status": "catalog_unavailable"}, {"status": "none_in_window"}] + [
-    {"status": status, "product_date": "2026-06-27", "days": days}
+    {"status": status, "product_date": "2026-06-27", "days": days, "compared": 0.211, "minimum": 0.5}
     for status in narrative.WATER_NOT_COMPARED["es"]
     for days in (-2, 0, 3)
 ] + [

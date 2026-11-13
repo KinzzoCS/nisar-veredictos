@@ -161,6 +161,10 @@ class WaterComparison(BaseModel):
     not_comparable_pixels: int = Field(
         description="Píxeles de la zona sin dato en alguna fuente o enmascarados por DSWx-S1 (HAND, layover o sombra)."
     )
+    compared_fraction: float = Field(
+        description="comparable_pixels entre todos los píxeles de la zona. Por debajo de min_compared_fraction "
+        "no hay assessment (status partial_overlap)."
+    )
     both_water: int
     radar_only_water: int
     reference_only_water: int
@@ -174,7 +178,8 @@ class WaterComparison(BaseModel):
 
 
 WaterStatus = Literal[
-    "compared", "synthetic", "no_credentials", "none_in_window", "catalog_unavailable", "read_failed", "no_overlap"
+    "compared", "synthetic", "no_credentials", "none_in_window", "catalog_unavailable", "read_failed", "no_overlap",
+    "partial_overlap",
 ]
 
 
@@ -183,7 +188,8 @@ class WaterSide(BaseModel):
         description="compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. "
         "no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a "
         "search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o "
-        "el radar. no_overlap: sin píxeles válidos en común."
+        "el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de "
+        "min_compared_fraction de la zona; hay conteos pero no assessment."
     )
     radar_date: dt.date
     reference: WaterReference | None = Field(
@@ -227,6 +233,10 @@ class WaterEvidence(BaseModel):
         description="Si ninguna fuente llega a esta fracción de agua, coinciden en que no hay agua apreciable. Sin calibrar."
     )
     min_water_iou: float = Field(description="water_iou mínimo para hablar de acuerdo. Sin calibrar.")
+    min_compared_fraction: float = Field(
+        description="Fracción mínima de la zona con dato en las dos fuentes para dar acuerdo o desacuerdo. "
+        "covers_aoi no basta: mira la caja de la tesela, no los píxeles válidos."
+    )
     before: WaterSide = Field(description="Producto más cercano a from_date.")
     after: WaterSide = Field(description="Producto más cercano a to_date.")
     text: str = Field(description="Resumen en el idioma pedido: qué productos hay, si coinciden y sus límites.")
@@ -426,6 +436,7 @@ def _water_side(side: water.Side) -> tuple[WaterSide, dict]:
         comparison = WaterComparison(
             comparable_pixels=found.comparable,
             not_comparable_pixels=found.not_comparable,
+            compared_fraction=found.compared_fraction,
             both_water=found.both_water,
             radar_only_water=found.radar_only_water,
             reference_only_water=found.reference_only_water,
@@ -435,6 +446,7 @@ def _water_side(side: water.Side) -> tuple[WaterSide, dict]:
             radar_water_fraction=found.radar_water_fraction,
             reference_water_fraction=found.reference_water_fraction,
         )
+        values.update(compared=found.compared_fraction, minimum=water.MIN_COMPARED_FRACTION)
         if side.status == "compared":
             assessment, basis = found.assessment, found.basis
             values.update(
@@ -466,6 +478,7 @@ def build_water(
         radar_rule=RadarWaterRule(hh_db_below=water.RADAR_WATER_HH_DB, hv_db_below=water.RADAR_WATER_HV_DB),
         min_water_fraction=water.MIN_WATER_FRACTION,
         min_water_iou=water.MIN_WATER_IOU,
+        min_compared_fraction=water.MIN_COMPARED_FRACTION,
         before=before_out,
         after=after_out,
         text=narrative.water_text(
