@@ -12,11 +12,14 @@ from urllib.parse import quote
 from fastapi import FastAPI, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from . import narrative, optical, rules
+from . import narrative, optical, rules, water
 from .catalog import (
     CatalogUnavailable,
+    HttpOpera,
     HttpOptical,
     HttpTimeline,
+    OperaReference,
+    OperaSource,
     OpticalReference,
     OpticalSource,
     PassTime,
@@ -137,6 +140,108 @@ class OpticalEvidence(BaseModel):
     text: str = Field(description="Resumen en el idioma pedido de qué escenas hay y con cuántas nubes.")
 
 
+class WaterTileOut(BaseModel):
+    id: str = Field(description="Título del producto DSWx-S1 en CMR. Es el que cita el recibo.")
+    tile: str = Field(description="Tesela MGRS.")
+    browse_url: str | None = Field(description="Vista previa PNG pública de PO.DAAC, sin georreferencia. null si no hay.")
+
+
+class WaterReference(BaseModel):
+    platform: str
+    acquired_at: dt.datetime = Field(description="Hora UTC de la primera tesela de la pasada de Sentinel-1.")
+    days_from_radar: int = Field(description="Días respecto a radar_date; negativo si es anterior.")
+    covers_aoi: bool = Field(
+        description="Las cajas de sus teselas contienen la zona. No dice si hay datos válidos en toda ella."
+    )
+    tiles: list[WaterTileOut]
+
+
+class WaterComparison(BaseModel):
+    comparable_pixels: int = Field(description="Píxeles de la malla de DSWx-S1 con dato de radar y clase 0, 1 o 3 en B01_WTR.")
+    not_comparable_pixels: int = Field(
+        description="Píxeles de la zona sin dato en alguna fuente o enmascarados por DSWx-S1 (HAND, layover o sombra)."
+    )
+    compared_fraction: float = Field(
+        description="comparable_pixels entre todos los píxeles de la zona. Por debajo de min_compared_fraction "
+        "no hay assessment (status partial_overlap)."
+    )
+    both_water: int
+    radar_only_water: int
+    reference_only_water: int
+    both_not_water: int
+    agreement_fraction: float = Field(description="Fracción de los píxeles comparables en que las dos fuentes dicen lo mismo.")
+    water_iou: float | None = Field(
+        description="Píxeles con agua en las dos entre los píxeles con agua en alguna. null si ninguna ve agua."
+    )
+    radar_water_fraction: float
+    reference_water_fraction: float
+
+
+WaterStatus = Literal[
+    "compared", "synthetic", "no_credentials", "none_in_window", "catalog_unavailable", "read_failed", "no_overlap",
+    "partial_overlap",
+]
+
+
+class WaterSide(BaseModel):
+    status: WaterStatus = Field(
+        description="compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. "
+        "no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a "
+        "search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o "
+        "el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de "
+        "min_compared_fraction de la zona; hay conteos pero no assessment."
+    )
+    radar_date: dt.date
+    reference: WaterReference | None = Field(
+        description="Pasada DSWx-S1 elegida: la más cercana a radar_date, antes o después; primero las que cubren la zona."
+    )
+    assessment: Literal["agree", "disagree"] | None = Field(
+        description="Acuerdo o desacuerdo entre dos métodos sobre dónde hay agua. disagree no dice cuál acierta. "
+        "null si no se comparó."
+    )
+    assessment_basis: Literal["little_water", "water_overlap"] | None = Field(
+        description="little_water: ninguna fuente ve agua en min_water_fraction o más de los píxeles comparables, "
+        "y eso cuenta como acuerdo. water_overlap: se decide con water_iou frente a min_water_iou."
+    )
+    comparison: WaterComparison | None
+
+
+class RadarWaterRule(BaseModel):
+    hh_db_below: float = Field(description="Un píxel es agua para el radar si HH está por debajo de este valor y...")
+    hv_db_below: float = Field(description="...HV por debajo de este. Umbrales de T-ECO-06, sin calibrar.")
+    resampling: Literal["average"] = Field(
+        "average", description="El radar de 10 m se promedia en la malla de DSWx-S1 (30 m) antes de aplicar los umbrales."
+    )
+    calibrated: bool = Field(False, description="Siempre false.")
+
+
+class WaterEvidence(BaseModel):
+    data_kind: Literal["real"] = Field("real", description="Los productos DSWx-S1 son siempre datos reales.")
+    source: str | None = Field(description="Buscador usado por catalog. null si no respondió.")
+    collection: str | None
+    doi: str | None
+    attribution: str | None = Field(description="Texto de atribución que debe mostrarse junto al producto.")
+    product_spec_url: str | None
+    min_water_body_ha: float | None = Field(description="Superficie mínima de agua abierta que DSWx-S1 detecta.")
+    min_water_body_width_m: float | None = Field(description="Anchura mínima de agua abierta que DSWx-S1 detecta.")
+    search_days: int = Field(description="Días máximos entre el producto DSWx-S1 y su fecha de radar.")
+    reference_water_classes: list[int] = Field(
+        description="Clases de B01_WTR que cuentan como agua: 1 agua abierta y 3 vegetación inundada."
+    )
+    radar_rule: RadarWaterRule
+    min_water_fraction: float = Field(
+        description="Si ninguna fuente llega a esta fracción de agua, coinciden en que no hay agua apreciable. Sin calibrar."
+    )
+    min_water_iou: float = Field(description="water_iou mínimo para hablar de acuerdo. Sin calibrar.")
+    min_compared_fraction: float = Field(
+        description="Fracción mínima de la zona con dato en las dos fuentes para dar acuerdo o desacuerdo. "
+        "covers_aoi no basta: mira la caja de la tesela, no los píxeles válidos."
+    )
+    before: WaterSide = Field(description="Producto más cercano a from_date.")
+    after: WaterSide = Field(description="Producto más cercano a to_date.")
+    text: str = Field(description="Resumen en el idioma pedido: qué productos hay, si coinciden y sus límites.")
+
+
 class Evidence(BaseModel):
     observed_fraction: float
     changed_fraction: float
@@ -147,6 +252,9 @@ class Evidence(BaseModel):
     pixel_counts: dict[str, int]
     signature_counts: dict[str, int]
     optical: OpticalEvidence
+    water: WaterEvidence = Field(
+        description="Contraste del agua del radar con OPERA DSWx-S1 (RF-BAL-07). Un desacuerdo es un dato, no un fallo."
+    )
 
 
 class Layers(BaseModel):
@@ -310,6 +418,78 @@ def build_optical(
     )
 
 
+def _water_side(side: water.Side) -> tuple[WaterSide, dict]:
+    reference, values = None, {"status": side.status}
+    if side.acquisition is not None:
+        acq = side.acquisition
+        reference = WaterReference(
+            platform=acq.platform,
+            acquired_at=acq.acquired_at,
+            days_from_radar=side.days_from_radar,
+            covers_aoi=acq.covers_aoi,
+            tiles=[WaterTileOut(id=tile.id, tile=tile.tile, browse_url=tile.browse_url) for tile in acq.tiles],
+        )
+        values.update(product_date=acq.acquired_at.date().isoformat(), days=side.days_from_radar)
+    comparison, assessment, basis = None, None, None
+    found = side.comparison
+    if found is not None:
+        comparison = WaterComparison(
+            comparable_pixels=found.comparable,
+            not_comparable_pixels=found.not_comparable,
+            compared_fraction=found.compared_fraction,
+            both_water=found.both_water,
+            radar_only_water=found.radar_only_water,
+            reference_only_water=found.reference_only_water,
+            both_not_water=found.both_not_water,
+            agreement_fraction=found.agreement_fraction,
+            water_iou=found.water_iou,
+            radar_water_fraction=found.radar_water_fraction,
+            reference_water_fraction=found.reference_water_fraction,
+        )
+        values.update(compared=found.compared_fraction, minimum=water.MIN_COMPARED_FRACTION)
+        if side.status == "compared":
+            assessment, basis = found.assessment, found.basis
+            values.update(
+                assessment=assessment, basis=basis, iou=found.water_iou,
+                radar=found.radar_water_fraction, reference=found.reference_water_fraction,
+            )
+    out = WaterSide(
+        status=side.status, radar_date=side.radar_date, reference=reference,
+        assessment=assessment, assessment_basis=basis, comparison=comparison,
+    )
+    return out, values
+
+
+def build_water(
+    before: water.Side, after: water.Side, meta: OperaReference | None, lang: narrative.Lang
+) -> WaterEvidence:
+    before_out, before_values = _water_side(before)
+    after_out, after_values = _water_side(after)
+    return WaterEvidence(
+        source=meta.source if meta else None,
+        collection=meta.collection if meta else None,
+        doi=meta.doi if meta else None,
+        attribution=meta.attribution if meta else None,
+        product_spec_url=meta.product_spec_url if meta else None,
+        min_water_body_ha=meta.min_water_body_ha if meta else None,
+        min_water_body_width_m=meta.min_water_body_width_m if meta else None,
+        search_days=water.SEARCH_DAYS,
+        reference_water_classes=list(water.WTR_WATER),
+        radar_rule=RadarWaterRule(hh_db_below=water.RADAR_WATER_HH_DB, hv_db_below=water.RADAR_WATER_HV_DB),
+        min_water_fraction=water.MIN_WATER_FRACTION,
+        min_water_iou=water.MIN_WATER_IOU,
+        min_compared_fraction=water.MIN_COMPARED_FRACTION,
+        before=before_out,
+        after=after_out,
+        text=narrative.water_text(
+            before_values, after_values, lang, search_days=water.SEARCH_DAYS,
+            min_water_body_ha=meta.min_water_body_ha if meta else None,
+            min_water_body_width_m=meta.min_water_body_width_m if meta else None,
+            hh_db=water.RADAR_WATER_HH_DB, hv_db=water.RADAR_WATER_HV_DB,
+        ),
+    )
+
+
 def _layers(pair: dict) -> Layers:
     colormap = quote(json.dumps(STATE_COLORS, separators=(",", ":")), safe="")
     change = "rescale=-10,10&colormap_name=rdbu"
@@ -367,6 +547,7 @@ def build_verdict(
     today: dt.date | None = None,
     passes: dict[str, PassTime] | None = None,
     optical_refs: dict[dt.date, OpticalReference | None] | None = None,
+    water_evidence: WaterEvidence | None = None,
 ) -> Verdict:
     stats = pair["stats"]
     freshness = build_freshness(manifest, pair, today or dt.datetime.now(dt.timezone.utc).date(), passes)
@@ -379,6 +560,13 @@ def build_verdict(
         refs.get(dt.date.fromisoformat(pair["to"])),
     )
     interval_days = (dt.date.fromisoformat(pair["to"]) - dt.date.fromisoformat(pair["from"])).days
+    if water_evidence is None:
+        water_evidence = build_water(
+            water.Side("catalog_unavailable", dt.date.fromisoformat(pair["from"])),
+            water.Side("catalog_unavailable", dt.date.fromisoformat(pair["to"])),
+            None,
+            lang,
+        )
     decision = rules.decide(stats["counts"])
     synthetic = manifest["data_kind"] == "synthetic"
     series = manifest["series"]
@@ -422,6 +610,7 @@ def build_verdict(
             pixel_counts=stats["counts"],
             signature_counts=stats["signature_counts"],
             optical=optical_evidence,
+            water=water_evidence,
         ),
         layers=_layers(pair),
         receipt=Receipt(
@@ -447,12 +636,19 @@ def create_app(
     timeline: TimelineSource | None = None,
     clock: Callable[[], dt.datetime] | None = None,
     optical_source: OpticalSource | None = None,
+    opera_source: OperaSource | None = None,
+    water_contrast: water.WaterContrast | None = None,
 ) -> FastAPI:
-    store = Store(artifact_root or Path(os.environ.get("ARTIFACT_ROOT", "/data/artifacts")))
+    root = artifact_root or Path(os.environ.get("ARTIFACT_ROOT", "/data/artifacts"))
+    store = Store(root)
     if timeline is None and os.environ.get("CATALOG_URL"):
         timeline = HttpTimeline(os.environ["CATALOG_URL"])
     if optical_source is None and os.environ.get("CATALOG_URL"):
         optical_source = HttpOptical(os.environ["CATALOG_URL"])
+    if opera_source is None and os.environ.get("CATALOG_URL"):
+        opera_source = HttpOpera(os.environ["CATALOG_URL"])
+    # Con EARTHDATA_TOKEN, verdicts lee B01_WTR de PO.DAAC y compara; sin él, lista y lo declara.
+    contrast = water_contrast or water.contrast_from_env(root, os.environ.get)
     now = clock or (lambda: dt.datetime.now(dt.timezone.utc))
     app = FastAPI(title="NISAR verdicts", version="0.1.0")
 
@@ -483,12 +679,45 @@ def create_app(
         with ThreadPoolExecutor(max_workers=min(8, len(ordered))) as pool:
             return dict(zip(ordered, pool.map(fetch, ordered)))
 
+    def opera_for(aoi: str, days: set[dt.date]) -> dict[dt.date, OperaReference | None]:
+        """Productos DSWx-S1 por fecha de radar, en paralelo. Se listan también con radar sintético."""
+        if opera_source is None or not days:
+            return {}
+
+        def fetch(day: dt.date) -> OperaReference | None:
+            try:
+                return opera_source.products(aoi, day, water.SEARCH_DAYS)
+            except CatalogUnavailable:
+                return None
+
+        ordered = sorted(days)
+        with ThreadPoolExecutor(max_workers=min(8, len(ordered))) as pool:
+            return dict(zip(ordered, pool.map(fetch, ordered)))
+
+    def water_sides(manifest: dict, days: set[dt.date]) -> tuple[dict[dt.date, water.Side], OperaReference | None]:
+        """Contraste por fecha de radar: cada fecha se compara una vez aunque esté en varios pares.
+
+        En secuencia: rasterio en varios hilos mezcla sus avisos de GDAL; la caché evita repetir lecturas.
+        """
+        refs = opera_for(manifest["aoi"], days)
+        sides = {day: contrast.side(manifest, day, refs.get(day)) for day in sorted(days)}
+        meta = next((ref for ref in refs.values() if ref is not None), None)
+        return sides, meta
+
+    def water_for(pair: dict, sides: dict[dt.date, water.Side], meta, lang: narrative.Lang) -> WaterEvidence:
+        start, end = dt.date.fromisoformat(pair["from"]), dt.date.fromisoformat(pair["to"])
+        return build_water(sides[start], sides[end], meta, lang)
+
     def pair_days(pairs: list[dict]) -> set[dt.date]:
         return {dt.date.fromisoformat(pair[key]) for pair in pairs for key in ("from", "to")}
 
     def verdict_for(manifest: dict, pair: dict, lang: narrative.Lang) -> Verdict:
-        refs = optical_for(manifest["aoi"], pair_days([pair]))
-        return build_verdict(manifest, pair, lang, now().date(), passes_for(manifest), refs)
+        days = pair_days([pair])
+        refs = optical_for(manifest["aoi"], days)
+        sides, meta = water_sides(manifest, days)
+        return build_verdict(
+            manifest, pair, lang, now().date(), passes_for(manifest), refs, water_for(pair, sides, meta, lang)
+        )
 
     def manifests_or_404(aoi: str) -> list[dict]:
         manifests = store.manifests(aoi)
@@ -527,8 +756,13 @@ def create_app(
     def verdicts(aoi: str, series_id: str, lang: narrative.Lang = "es") -> list[Verdict]:
         manifest = manifest_or_404(aoi, series_id)
         today, passes = now().date(), passes_for(manifest)
-        refs = optical_for(manifest["aoi"], pair_days(manifest["pairs"]))
-        return [build_verdict(manifest, pair, lang, today, passes, refs) for pair in manifest["pairs"]]
+        days = pair_days(manifest["pairs"])
+        refs = optical_for(manifest["aoi"], days)
+        sides, meta = water_sides(manifest, days)
+        return [
+            build_verdict(manifest, pair, lang, today, passes, refs, water_for(pair, sides, meta, lang))
+            for pair in manifest["pairs"]
+        ]
 
     @app.get("/aois/{aoi}/series/{series_id}/verdicts/{pair_id}", response_model=Verdict)
     def verdict(aoi: str, series_id: str, pair_id: str, lang: narrative.Lang = "es") -> Verdict:

@@ -45,6 +45,9 @@ services:
       ARTIFACT_ROOT: /data/artifacts
       # Línea de tiempo de Antena: hora UTC de adquisición y latencia de publicación (T-BAL-02).
       CATALOG_URL: http://catalog:8000
+      # Opcional, del .env local: con él, verdicts lee la capa de agua de OPERA DSWx-S1 y la compara con el
+      # radar real (T-BAL-08); sin él, lista el producto y dice que no se comparó. Solo esta variable, no todo el .env.
+      EARTHDATA_TOKEN: ${EARTHDATA_TOKEN:-}
     volumes:
       - ./data:/data:ro
     depends_on:

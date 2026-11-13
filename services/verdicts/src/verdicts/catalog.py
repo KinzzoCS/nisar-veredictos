@@ -171,3 +171,109 @@ class HttpOptical:
             raise CatalogUnavailable(aoi) from exc
         self._cache[key] = (now + CACHE_SECONDS, result)
         return result
+
+
+# --- T-BAL-08: productos OPERA DSWx-S1 de catalog -----------------------------------------
+
+# CMR puede tardar en la primera consulta; catalog la guarda una hora.
+OPERA_TIMEOUT_SECONDS = 15.0
+
+
+@dataclass(frozen=True)
+class OperaTile:
+    id: str
+    tile: str
+    wtr_url: str
+    browse_url: str | None
+
+
+@dataclass(frozen=True)
+class OperaAcquisition:
+    platform: str
+    acquired_at: dt.datetime
+    covers_aoi: bool
+    tiles: tuple[OperaTile, ...]
+
+
+@dataclass(frozen=True)
+class OperaReference:
+    source: str
+    collection: str
+    doi: str
+    attribution: str
+    product_spec_url: str
+    min_water_body_ha: float
+    min_water_body_width_m: float
+    acquisitions: tuple[OperaAcquisition, ...]
+
+
+class OperaSource(Protocol):
+    def products(self, aoi: str, day: dt.date, days: int) -> OperaReference:
+        """Pasadas DSWx-S1 a ±days de day. Lanza CatalogUnavailable si no hay respuesta."""
+
+
+def _parse_opera(body: dict) -> OperaReference:
+    acquisitions = []
+    for item in body["acquisitions"]:
+        tiles = tuple(
+            OperaTile(
+                id=str(tile["id"]),
+                tile=str(tile["tile"]),
+                wtr_url=tile["wtr_url"],
+                browse_url=tile.get("browse_url") if str(tile.get("browse_url") or "").startswith("https://") else None,
+            )
+            for tile in item["tiles"]
+            if str(tile["wtr_url"]).startswith("https://")
+        )
+        if not tiles:
+            continue
+        acquisitions.append(
+            OperaAcquisition(
+                platform=item["platform"],
+                acquired_at=dt.datetime.fromisoformat(item["acquired_at"].replace("Z", "+00:00")),
+                covers_aoi=bool(item["covers_aoi"]),
+                tiles=tiles,
+            )
+        )
+    return OperaReference(
+        source=body["source"],
+        collection=body["collection"],
+        doi=body["doi"],
+        attribution=body["attribution"],
+        product_spec_url=body["product_spec_url"],
+        min_water_body_ha=float(body["min_water_body_ha"]),
+        min_water_body_width_m=float(body["min_water_body_width_m"]),
+        acquisitions=tuple(acquisitions),
+    )
+
+
+class HttpOpera:
+    """Lee GET {base}/aois/{aoi}/references/opera; la elección del producto la hace verdicts."""
+
+    def __init__(
+        self, base_url: str, client: httpx.Client | None = None, monotonic: Callable[[], float] = time.monotonic
+    ):
+        self.base_url = base_url.rstrip("/")
+        self.client = client or httpx.Client(timeout=OPERA_TIMEOUT_SECONDS)
+        self.monotonic = monotonic
+        self._cache: dict[tuple[str, dt.date, int], tuple[float, OperaReference | None]] = {}
+
+    def products(self, aoi: str, day: dt.date, days: int) -> OperaReference:
+        key = (aoi, day, days)
+        now = self.monotonic()
+        cached = self._cache.get(key)
+        if cached and cached[0] > now:
+            if cached[1] is None:
+                raise CatalogUnavailable(aoi)
+            return cached[1]
+        try:
+            response = self.client.get(
+                f"{self.base_url}/aois/{aoi}/references/opera", params={"date": day.isoformat(), "days": days}
+            )
+            response.raise_for_status()
+            result = _parse_opera(response.json())
+        except (httpx.HTTPError, ValueError, KeyError, TypeError) as exc:
+            self._cache[key] = (now + FAILURE_CACHE_SECONDS, None)
+            raise CatalogUnavailable(aoi) from exc
+        self._cache[key] = (now + CACHE_SECONDS, result)
+        return result
