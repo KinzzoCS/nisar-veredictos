@@ -22,6 +22,11 @@ BASE_NOTICES = [
     "Hueco permanente de adquisición del 2026-07-27 al 2026-08-10.",
     "Umbrales estimados sobre la propia escena: indicador del modelo, no error calibrado.",
 ]
+SHIFT_NOTICE = (
+    "El cambio de cada par se mide respecto al desplazamiento de toda la escena: se resta la mediana de la "
+    "diferencia (scene_shift_hh_db y scene_shift_hv_db en stats) antes de aplicar el umbral. Un cambio que "
+    "afecta a casi toda la zona, como una lluvia general, queda en ese desplazamiento y no como cambio local."
+)
 QA_NOTICE = (
     "El control de calidad marca una fecha si su mediana se aparta más de {:g} dB de la serie. "
     "Ese umbral no está calibrado y la marca es una advertencia, no una exclusión."
@@ -68,7 +73,7 @@ def _check_comparable(reference: GranuleMeta, other: GranuleMeta) -> None:
 
 
 def _db(scene: Scene, name: str, params: Params) -> np.ndarray:
-    return to_db(smooth(getattr(scene, name), observable(scene, params.min_looks), params.window))
+    return to_db(smooth(getattr(scene, name), observable(scene, params), params.window))
 
 
 def _crosses_gap(first: str, second: str) -> bool:
@@ -119,14 +124,14 @@ def _multitemporal(ordered, bbox: list[float], params: Params) -> MultitemporalF
     for _, path in ordered:
         scene = read_scene(path, bbox)
         speckle = speckle or MultitemporalFilter(scene.hh.shape, params.multitemporal_window)
-        speckle.add(scene, observable(scene, params.min_looks))
+        speckle.add(scene, observable(scene, params))
         del scene
     return speckle
 
 
 def _read(path: Path, bbox: list[float], params: Params, speckle: MultitemporalFilter | None) -> Scene:
     scene = read_scene(path, bbox)
-    return speckle.apply(scene, observable(scene, params.min_looks)) if speckle else scene
+    return speckle.apply(scene, observable(scene, params)) if speckle else scene
 
 
 def process_series(
@@ -181,6 +186,7 @@ def process_series(
     notices = (
         ([SYNTHETIC_NOTICE] if reference.data_kind == "synthetic" else [])
         + BASE_NOTICES
+        + ([SHIFT_NOTICE] if params.correct_scene_shift else [])
         + [
             TERRAIN_NOTICE.format(detail=terrain_detail)
             if terrain is not None

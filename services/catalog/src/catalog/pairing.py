@@ -104,6 +104,10 @@ def crosses_gap(first: date, second: date) -> bool:
     return first < DATA_GAP[1] and second > DATA_GAP[0]
 
 
+def series_id(track: int, direction: str, frame: int, mode: str, polarization: str, crid: str) -> str:
+    return f"T{track:03d}{direction}-F{frame:03d}-{mode}-{polarization}-{crid}"
+
+
 def build_series(granules: list[Granule], bbox: list[float], min_dates: int = 2) -> list[Series]:
     groups: dict[tuple, dict[date, Granule]] = defaultdict(dict)
     for granule in granules:
@@ -117,7 +121,7 @@ def build_series(granules: list[Granule], bbox: list[float], min_dates: int = 2)
         pairs = list(zip(ordered, ordered[1:]))
         result.append(
             Series(
-                id=f"T{track:03d}{direction}-F{frame:03d}-{mode}-{polarization}-{crid}",
+                id=series_id(track, direction, frame, mode, polarization, crid),
                 track=track,
                 direction=direction,
                 frame=frame,

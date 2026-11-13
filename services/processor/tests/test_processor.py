@@ -214,7 +214,7 @@ def test_unobservable_pixels_keep_their_cause_in_the_written_state(series):
     for pair in manifest["pairs"]:
         a = read_scene(by_date[pair["from"].replace("-", "")], BBOX)
         b = read_scene(by_date[pair["to"].replace("-", "")], BBOX)
-        hidden = ~(observable(a, params.min_looks) & observable(b, params.min_looks))
+        hidden = ~(observable(a, params) & observable(b, params))
         expected = _state_for_unobservable(a, b, params)
         expected[hidden & (expected == NO_CHANGE)] = NO_DATA
         with rasterio.open(root / "artifacts" / pair["layers"]["state"]) as dataset:
@@ -511,6 +511,43 @@ def test_terrain_is_skipped_when_radar_grid_uses_another_projection(tmp_path):
     manifest = process_series(paths, AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])
     assert any("radarGrid está en EPSG:32614 y la malla en EPSG:32613" in notice for notice in manifest["notices"])
     assert all(pair["stats"]["counts"]["terrain"] == 0 for pair in manifest["pairs"])
+
+
+SHIFT_2_DB = 10 ** (2 / 10)
+
+
+def test_a_scene_wide_shift_is_not_local_change_and_is_published():
+    before = scene(rng=np.random.default_rng(1))
+    after = scene(hh=np.full(SHAPE, 0.05 * SHIFT_2_DB, np.float32), hv=np.full(SHAPE, 0.01 * SHIFT_2_DB, np.float32),
+                  rng=np.random.default_rng(2))
+    corrected = compare(before, after)
+    assert corrected.stats["scene_shift_hh_db"] == pytest.approx(2, abs=0.3)
+    assert corrected.stats["scene_shift_hv_db"] == pytest.approx(2, abs=0.3)
+    assert corrected.stats["counts"]["change_probable"] == 0
+    raw = compare(before, after, Params(correct_scene_shift=False))
+    # Sin corrección no se publica: la presencia de scene_shift_* en el manifiesto significa "ya restado".
+    assert "scene_shift_hh_db" not in raw.stats and "scene_shift_hv_db" not in raw.stats
+    assert np.nanmedian(raw.change_hh) == pytest.approx(2, abs=0.3)
+    assert abs(np.nanmedian(corrected.change_hh)) < 0.3
+
+
+def test_local_change_on_top_of_a_scene_shift_is_still_found_with_its_size():
+    before = scene(rng=np.random.default_rng(1))
+    hh = np.full(SHAPE, 0.05 * SHIFT_2_DB, np.float32)
+    hh[20:40, 20:40] *= 10 ** (6 / 10)  # +6 dB locales sobre +2 dB de toda la escena
+    result = compare(before, scene(hh=hh, rng=np.random.default_rng(2)))
+    assert result.state[30, 30] == CHANGE_PROBABLE and result.state[60, 60] == NO_CHANGE
+    assert result.stats["mean_change_hh_db"] == pytest.approx(6, abs=1.0)
+
+
+def test_low_looks_is_judged_on_the_window_not_on_single_pixels():
+    looks = np.full(SHAPE, 4.0, np.float32)
+    looks[10, 10] = 1.0  # un píxel suelto con pocos looks: la ventana suma de sobra
+    looks[50:70, 50:70] = 1.0  # una zona entera con pocos looks: la ventana suma 25
+    state = compare(scene(looks=looks, rng=np.random.default_rng(1)), scene(looks=looks, rng=np.random.default_rng(2))).state
+    assert state[10, 10] != LOW_LOOKS
+    assert state[60, 60] == LOW_LOOKS
+    assert (state == LOW_LOOKS).sum() < 20 * 20 + 1
 
 
 def _stack(n, changed=None):
