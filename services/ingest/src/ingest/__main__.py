@@ -62,8 +62,13 @@ def fetch(args: argparse.Namespace) -> int:
     megabytes = sum(item.stat().st_size for item in result.target.glob("*.h5")) / 1024**2
     print(
         f"{args.series}: {len(result.written)} recortes nuevos, {len(result.skipped)} ya existían, "
-        f"{megabytes:.0f} MB en disco, {time.monotonic() - started:.0f} s"
+        f"{megabytes:.0f} MB en disco, {result.bytes_requested / 1024**2:.0f} MB pedidos a NASA, "
+        f"{time.monotonic() - started:.0f} s"
     )
+    for warning in result.warnings:
+        print(f"Aviso: {warning}", file=sys.stderr)
+    if result.log:
+        print(f"Registro de ingesta: {result.log}")
     if result.excluded:
         print(f"Excluidos en config/aois/{args.aoi}.yaml, no se traen: {', '.join(result.excluded)}")
     for name in result.stale:

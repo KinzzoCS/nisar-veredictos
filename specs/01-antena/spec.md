@@ -29,7 +29,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 | RF-ANT-04 | Estimar la siguiente pasada con el ciclo de 12 días, marcarla como estimación y decir si el plan de observación de NISAR (`NISAR_COP`) la incluye, como plan y nunca como adquisición segura. Si no se sabe, lo dice | Hecho (T-ANT-04, T-ANT-09) |
 | RF-ANT-05 | Listar escenas Sentinel-2 L2A por fecha, dentro de ±N días y con nubosidad máxima configurable | Hecho (T-ANT-05) |
 | RF-ANT-06 | Listar productos OPERA DSWx-S1 a ±N días de una fecha (7 por defecto), agrupados por pasada de Sentinel-1, sin versiones reprocesadas repetidas, con su cobertura de la zona y enlaces que dicen si requieren cuenta. Si no hay ninguno, lo dice | Hecho (T-ANT-06) |
-| RF-ANT-07 | Dejar un registro de ingesta por serie: gránulo, bytes, segundos y fecha de publicación | P1 |
+| RF-ANT-07 | Dejar junto a los recortes de cada serie un registro de ingesta (`ingest.json`) con, por gránulo, los bytes pedidos a NASA y los escritos en disco, los segundos de lectura, la hora UTC de la lectura y la fecha de publicación según `catalog`. Lo que no se midió queda en `null`, nunca estimado | Hecho (T-ANT-07) |
 | RF-ANT-08 | Excluir los gránulos defectuosos declarados en `config/aois`, con motivo, evidencia y fecha de comprobación. `catalog` los quita de las series y de la línea de tiempo y los lista aparte en `excluded`; `ingest` no los trae | Hecho (T-ANT-10) |
 | RF-ANT-09 | Copiar al recorte `metadata/radarGrid`, si el gránulo lo trae, recortado a los nodos que cubren la ventana más 2 por lado, con todas las alturas y sin cambiar valores (`contracts/gcov-subset.md`) | Hecho (T-ANT-11) |
 
@@ -55,6 +55,19 @@ Se comprueban con dobles de CMR y de los XML de `NISAR_COP` que reproducen los p
 - [x] El token solo lo usa `ingest`. No aparece en el archivo ni en los errores, y `catalog` no lo lee.
 - [x] `contracts/catalog.openapi.json` se regenera, el cambio es aditivo y su prueba de contrato pasa.
 
+### Registro de ingesta (RF-ANT-07)
+
+Se comprueban con el servidor HTTP local que ya imita a NASA en las pruebas de `ingest`:
+
+- [x] Tras `ingest fetch`, `data/raw/real/<zona>/<serie>/ingest.json` tiene una entrada por cada recorte `.h5` de la carpeta, y ninguna más.
+- [x] Cada entrada leída en esa ejecución tiene `bytes_requested` igual a los bytes que pidió `fsspec` al servidor, `subset_bytes` igual al tamaño del archivo y `seconds` mayor que cero.
+- [x] `published_at` y `acquired_at` coinciden con los de la pasada en `GET /aois/{id}/timeline`. Si `catalog` no la tiene o no responde, quedan en `null` y la ingesta sigue.
+- [x] Una segunda ejecución que salta un recorte conserva su entrada sin cambios.
+- [x] Un recorte que ya estaba en disco sin entrada se registra con `origin: "found_on_disk"`, su tamaño, y `null` en `bytes_requested`, `seconds` y `fetched_at`.
+- [x] Los gránulos excluidos aparecen en `excluded` y no en `granules`. Si su archivo sigue en disco, también en `stale`.
+- [x] Si la ingesta falla a mitad, el registro conserva los recortes que sí se escribieron y nunca queda a medio escribir.
+- [x] El registro no contiene el token, y declara `data_kind: "real"` y `published_at_basis: "cmr_updated"`.
+
 ### OPERA DSWx-S1 (RF-ANT-06)
 
 Se comprueban con dobles de CMR que reproducen los títulos reales de Parral (ver `MEMORY.md`):
@@ -72,7 +85,7 @@ Se comprueban con dobles de CMR que reproducen los títulos reales de Parral (ve
 ## Interfaces
 
 - **Consume:** NASA CMR (público, también para OPERA DSWx-S1 de PO.DAAC), NASA Earthdata (token, para los recortes y el plan diario `NISAR_COP`), Earth Search STAC para Sentinel-2 (público).
-- **Produce:** API de catálogo, recortes GCOV en `data/raw/real/` y el resumen del plan de observación en `data/plan/<zona>.json`, que solo lee `catalog`.
+- **Produce:** API de catálogo, recortes GCOV en `data/raw/real/`, un registro `ingest.json` por serie junto a ellos y el resumen del plan de observación en `data/plan/<zona>.json`. El registro es interno de Antena: no es un contrato, y ningún servicio lo lee todavía. El resumen del plan solo lo lee `catalog`.
 
 ## Fuera de alcance
 
