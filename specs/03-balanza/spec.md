@@ -45,6 +45,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 - [x] Si toda la escena cambia de nivel más de 1,5 dB entre las dos fechas, `summary.does_not_prove` avisa de que el porcentaje puede reflejar ese desplazamiento y no un cambio local, sin cambiar el estado.
 - [x] Una pasada que catalog excluye (`excluded[]`) aparece en `receipt.excluded_passes` y en `summary.missing` del par que la abarca, y no cuenta como pasada para un evento.
 - [x] Un desacuerdo con DSWx-S1 se redacta como desacuerdo entre dos métodos; la prueba de lenguaje falla si un texto de agua habla de error o fallo.
+- [x] Los textos de `/events` (`summary`, `cause_label` y `assumption.text`) no nombran parámetros de la API: dicen qué dato hay que indicar, no cómo se llama en la consulta.
 
 ## Interfaces
 

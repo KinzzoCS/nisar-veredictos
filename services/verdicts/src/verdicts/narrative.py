@@ -203,14 +203,14 @@ def persistence_text(persistence: rules.Persistence, lang: Lang) -> str:
         if persistence.source == "user":
             return f"Supuesto: el evento dura {hours} h, según la consulta; no se midió."
         return (f"Supuesto: el evento dura {hours} h, valor por omisión sin calibrar; no se midió. "
-                "Los parámetros event_type o persistence_hours lo cambian.")
+                "Indicar el tipo de evento cambia la duración supuesta.")
     if persistence.source == "event_type":
         return (f"Assumption: the event lasts {hours} h, an initial uncalibrated value for "
                 f"{EVENT_TYPES[lang][persistence.event_type]}; it was not measured.")
     if persistence.source == "user":
         return f"Assumption: the event lasts {hours} h, as given in the query; it was not measured."
     return (f"Assumption: the event lasts {hours} h, an uncalibrated default; it was not measured. "
-            "The event_type or persistence_hours parameters change it.")
+            "Giving the event type changes the assumed duration.")
 
 
 def event_summary(
@@ -233,7 +233,7 @@ def event_summary(
             detected = f"El evento del {event} no es observable: {CAUSES[lang][status.cause]}. Pasada anterior: {previous}; siguiente: {following}."
             if uncertain:
                 limits = "La pasada pudo caer dentro del evento o fuera; con estos datos no se puede afirmar ninguna de las dos."
-                missing = "Indicar la hora UTC de inicio del evento (parámetro time) permite decidirlo."
+                missing = "Indicar la hora UTC de inicio del evento permite decidirlo."
             else:
                 limits = "Esto no indica que el evento no ocurriera; indica que el radar no pudo registrarlo."
                 missing = "Haría falta una fuente con mayor frecuencia o reportes locales."
@@ -246,7 +246,7 @@ def event_summary(
             detected = f"The {event} event is not observable: {CAUSES[lang][status.cause]}. Previous pass: {previous}; next: {following}."
             if uncertain:
                 limits = "The pass may have fallen inside or outside the event; these data cannot tell which."
-                missing = "Giving the event's UTC start time (time parameter) makes it decidable."
+                missing = "Giving the event's UTC start time makes it decidable."
             else:
                 limits = "This does not mean the event did not happen; the radar could not record it."
                 missing = "It would need a more frequent source or local reports."
