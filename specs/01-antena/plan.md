@@ -133,6 +133,159 @@ Cada serie de `config/aois/<zona>.yaml` admite `exclude`, una lista con:
 
 `ingest fetch` salta los gránulos de `exclude` aunque `catalog` aún los liste, y los informa aparte. Si el archivo ya está en disco, lo avisa y no lo borra, porque `processor` lee toda la carpeta y debe apartarse a mano.
 
+## Plan de observación (T-ANT-09)
+
+### Para qué sirve
+
+`next_pass_estimates` solo suma ciclos de 12 días a la última pasada. No sabe si NISAR va a encender el radar sobre la zona. El plan diario de NISAR lo dice. Así Balanza y Faro pueden distinguir "la siguiente pasada está planificada" de "es solo una cuenta".
+
+### Fuente
+
+- Colección `NISAR_COP` en CMR (`C2727904608-ASF`, "NISAR Coordinated Observation Plan"), un gránulo por día desde el 2025-08-21. El título es `dcop_<AAAADDD>_c<ciclo>_d<día>_..._v<versión>`. CMR lo encuentra sin cuenta, pero el XML (unos 1,3 MB) está en `nisar.asf.earthdatacloud.nasa.gov/NISAR/DCOP/` y pide token. Por eso lo baja `ingest`.
+- El XML (`FORMAT_VERSION` 2.4) lista `OBS` con `TYPE` (`lsar`, `ssar` o `joint`), `REF_START_DATETIME` y `REF_END_DATETIME` en `AAAA-DDDTHH:MM:SS.ffffff` UTC, y `LSAR_CONFIG_ID`. **No trae pista, marco ni geometría.**
+- Se publica con unos 10 días de adelanto: el 2026-11-12 ya estaba el del 2026-11-22. Algunos días tienen versiones posteriores (`v02`).
+
+### Método
+
+Como la órbita repite cada 12 días casi al segundo, la hora de la pasada sobre la zona se predice con el ciclo, y el plan dice si a esa hora hay una observación L-SAR.
+
+1. **Series.** Para cada serie de la zona, `ingest` pide a `catalog` `/series`, con la serie elegida como en `fetch`, y `/timeline`, para la última pasada adquirida y su `acquired_at`.
+2. **Pasadas previstas.** `acquired_at + 12·n` días, desde `n = 1` hasta pasar el horizonte (`--days`, 30 por defecto, contados desde ahora).
+3. **Ventana.** De 10 s antes a 40 s después de la hora prevista. Cada pasada sobre el marco dura unos 35 s, y la hora de inicio varió menos de 3 s entre el 2026-06-17 y el 2026-10-15.
+4. **Planes.** Se buscan en CMR los gránulos `NISAR_COP` cuyo intervalo toca la ventana. Si un día tiene varias versiones, se usa la de versión mayor.
+5. **Estado.** Se consideran solo las `OBS` de tipo `lsar` o `joint`:
+
+| Estado | Regla |
+|---|---|
+| `planned` | Una observación cubre toda la ventana |
+| `partial` | Alguna observación toca la ventana, pero ninguna la cubre entera |
+| `not_planned` | Hay plan para esa hora y ninguna observación toca la ventana |
+| `no_plan` | CMR no tiene plan para esa hora: más allá del horizonte publicado, o un día sin plan |
+
+6. **Configuración de referencia.** Se lee también el plan de la última pasada adquirida y se guarda su `config_id`. Cada pasada prevista dice si su `config_id` coincide. Si no coincide, el modo podría cambiar y la fecha podría no ser comparable. Sin la tabla de modos no se afirma más.
+
+### Comprobación con datos reales (2026-11-12)
+
+Con este método, sobre las 27 fechas del ciclo de T048 y T171 en Parral entre el 2026-06-17 y el 2026-11-20:
+
+- Las 19 pasadas con GCOV publicado estaban `planned`, todas con `LSAR_CONFIG_ID` 156.
+- T171 del 2026-08-01 estaba `planned` y no hay dato: cae en el hueco de adquisición de ASF. Hay planes del 07-27 al 08-02 aunque no se adquirió nada. **Un plan no garantiza la adquisición.**
+- T048 del 2026-08-04 queda `no_plan`. CMR no tiene planes del 08-03 al 08-09.
+- Las seis pasadas siguientes a la última publicada (T048 10-27, 11-08 y 11-20; T171 10-24, 11-05 y 11-17) están `planned` con 156.
+- Ningún dato publicado cayó en una pasada sin plan.
+
+### Archivo
+
+`data/plan/<zona>.json`, en UTF-8, escrito en un `.part` que se renombra. No se versiona.
+
+| Campo | Contenido |
+|---|---|
+| `schema` | `"observation-plan/1"` |
+| `aoi` | Zona |
+| `source`, `collection` | `"NASA CMR (ASF)"` y `"NISAR_COP"` |
+| `checked_at` | Hora UTC de la consulta |
+| `window_seconds` | `[-10, 40]` |
+| `series[]` | Una por serie configurada |
+
+Cada elemento de `series[]`: `series` (la configurada), `catalog_series`, `last_acquired_at`, `reference_plan`, `reference_config_id` (`null` si no hubo plan) y `passes[]`. Cada pasada tiene `expected_at`, `status`, `plan` (título del gránulo de `NISAR_COP` o `null`), `config_id`, `same_config` (`true`, `false` o `null`) y `observation` (`start` y `end` de la `OBS` usada, o `null`).
+
+### API
+
+`GET /aois/{id}/timeline`: cada elemento de `next_pass_estimates` añade `observation_plan`, siempre presente:
+
+| Campo | Contenido |
+|---|---|
+| `status` | `planned`, `partial`, `not_planned`, `no_plan` o `unknown` |
+| `plan` | Título del plan de `NISAR_COP`, o `null` |
+| `config_id`, `same_config` | Como en el archivo, o `null` |
+| `checked_at` | Cuándo consultó `ingest` el plan, o `null` |
+
+- `catalog` lee `PLAN_DIR` (por defecto `/data/plan`). Busca la serie por `catalog_series` y la pasada cuyo `expected_at` dista menos de 60 s de la suya. Si no hay archivo o no hay coincidencia, `unknown`. Pasa, por ejemplo, si `catalog` ya conoce una pasada más nueva que la del archivo.
+- `expected_at` y `basis` no cambian: la hora sigue saliendo del ciclo.
+- Es un cambio aditivo de `contracts/catalog.openapi.json`. Lo revisan Balanza y Atlas.
+- Para que la pila de Docker lo lea hay que montar `./data:/data:ro` en `catalog` (`docker-compose.yml`, de Balanza). Sin eso, el estado es `unknown`.
+
+### Código
+
+- `services/ingest/src/ingest/plan.py`: `parse_plan`, `classify`, `predicted_passes` y `build_plan`. Las fuentes (CMR y el XML) se inyectan para las pruebas. El XML se lee con el mismo `Authorization: Bearer` que los recortes, y solo de `*.earthdatacloud.nasa.gov`.
+- Subcomando `ingest plan --aoi <zona> [--days 30]`.
+- `services/catalog/src/catalog/plan.py`: lee el archivo y une por serie y hora. Modelo `ObservationPlan` en `main.py`.
+
+### Pruebas
+
+- XML mínimo con la estructura real: `planned` con la `OBS` de 01:39:20 a 01:46:00 frente a la pasada de T171 de las 01:44:32. `partial` si la `OBS` termina a las 01:44:50. `not_planned` si solo hay `ssar`. `no_plan` sin gránulo en CMR.
+- De `v01` y `v02` del mismo día se usa `v02`.
+- `same_config` es `false` si la configuración cambia.
+- El archivo y los errores no contienen el token, y no se manda a un host fuera de la lista.
+- `catalog`: sin archivo, `unknown`; con archivo y pasada coincidente, el estado del archivo; con pasada a más de 60 s, `unknown`. `expected_at` y `basis` no cambian.
+- La prueba de contrato cubre el campo nuevo.
+
+## Registro de ingesta (T-ANT-07)
+
+### Para qué sirve
+
+Hoy las medidas de `MEMORY.md` (MB, segundos y red) salen a mano y con el contador de red de todo el equipo. El registro las deja medidas por gránulo y junto a los recortes, para repetir la ingesta y para que el jurado vea qué se leyó, cuándo y cuánto tardó. También deja la fecha de publicación de cada gránulo, que da su edad y su latencia sin volver a consultar CMR.
+
+### Archivo
+
+`data/raw/real/<zona>/<serie>/ingest.json`, en UTF-8. `processor` lee solo `*.h5` de esa carpeta, así que no le afecta. No se versiona, como todo `data/`. No es un contrato: si otro servicio llega a necesitarlo, se mueve a `contracts/` con el proceso de la constitución.
+
+| Campo | Contenido |
+|---|---|
+| `schema` | `"ingest-log/1"` |
+| `data_kind` | `"real"` |
+| `aoi`, `series` | Zona y serie configuradas, por ejemplo `parral` y `T048A-F015` |
+| `catalog_series` | `id` de la serie en `catalog`, con modo, polarización y CRID |
+| `bbox` | La de la zona, oeste, sur, este, norte |
+| `read` | `cache_type` y `block_size_bytes` con los que se leyó |
+| `published_at_basis` | `"cmr_updated"`, igual que en la línea de tiempo |
+| `updated_at` | Última escritura del registro, en UTC |
+| `granules[]` | Una entrada por recorte `.h5` presente en la carpeta, ordenadas por `id` |
+| `excluded[]` | `id` y `reason` de los gránulos de `exclude` en esta serie |
+| `stale[]` | `id` de los excluidos que siguen en disco |
+
+Cada elemento de `granules[]`:
+
+| Campo | Contenido |
+|---|---|
+| `id` | `granule_id`, igual que el nombre del archivo sin `.h5` |
+| `date` | Fecha de la pasada según `catalog`, o `null` |
+| `acquired_at`, `published_at` | Los de la pasada en `GET /aois/{id}/timeline`, en UTC, o `null` |
+| `source_size_mb` | `size_mb` del gránulo completo según `catalog`, o `null` |
+| `subset_bytes` | Tamaño del recorte en disco |
+| `bytes_requested` | Bytes que `fsspec` pidió al servidor (`cache.total_requested_bytes`), incluidos los bloques que leyó por adelantado. `null` si no se midió |
+| `seconds` | Segundos de pared desde abrir el gránulo remoto hasta renombrar el recorte. `null` si no se midió |
+| `fetched_at` | Hora UTC en que terminó la lectura. `null` si no se midió |
+| `origin` | `"fetched"` si lo escribió `ingest` con registro; `"found_on_disk"` si ya estaba y no tenía entrada |
+
+### Reglas
+
+1. **Fusión.** Se lee el registro anterior si existe. Las entradas de recortes que se saltan se conservan tal cual. Las de archivos que ya no están en la carpeta se quitan. Un `.h5` sin entrada se añade como `found_on_disk`, con solo su tamaño.
+2. **Escritura.** Tras cada recorte nuevo y al final, en un `.part` que se renombra. Si la ingesta falla a mitad, el registro tiene lo que sí se escribió y nunca queda a medio escribir.
+3. **Publicación.** Una sola llamada a `GET /aois/{id}/timeline` por ejecución, unida por `granule_id`. Si falla, `acquired_at` y `published_at` quedan en `null`, se avisa por la salida de error y la ingesta sigue. Se evita así un cambio de `contracts/catalog.openapi.json`.
+4. **Registro ilegible.** Si `ingest.json` existe pero no se puede leer, se renombra a `ingest.json.bad` y se empieza uno nuevo, con aviso. No se borra.
+5. **Sin secretos.** No se guardan el token ni cabeceras. `download_url` tampoco: ya está en `catalog`.
+
+### Código
+
+- Módulo nuevo `services/ingest/src/ingest/log.py` con `GranuleRecord`, `load`, `merge` y `write`.
+- `open_remote` no cambia. `_subset_one` devuelve los bytes pedidos y los segundos, que lee de `remote.cache.total_requested_bytes`.
+- `fetch_series` pide la línea de tiempo, escribe el registro y devuelve su ruta en `FetchResult.log`.
+- La CLI imprime la ruta del registro y, con él, los MB pedidos a NASA en esa ejecución.
+
+### Pruebas
+
+Con el servidor HTTP local que ya imita a NASA:
+
+- Una ingesta deja una entrada por recorte, con `bytes_requested` igual a lo que pidió `fsspec` y mayor o igual que lo que sirvió el servidor, `subset_bytes` igual al archivo y `seconds > 0`.
+- `published_at` y `acquired_at` salen de la línea de tiempo; si `catalog` falla en esa ruta, quedan en `null` y hay recortes.
+- La segunda ejecución salta el recorte y conserva su entrada sin cambios.
+- Un `.h5` copiado a mano entra como `found_on_disk` con `null` en lo no medido.
+- Un excluido va a `excluded`, y a `stale` si su archivo sigue en disco.
+- Un fallo en el segundo gránulo deja el registro con el primero.
+- Un registro corrupto se aparta a `ingest.json.bad`.
+- El texto del registro no contiene el token.
+
 ## Datos
 
 - Sentinel-2 L2A desde Earth Search (`https://earth-search.aws.element84.com/v1`), colección `sentinel-2-l2a`, sin cuenta. Licencia: datos Copernicus, de acceso libre y con atribución.
@@ -154,3 +307,5 @@ Cada serie de `config/aois/<zona>.yaml` admite `exclude`, una lista con:
 - DSWx-S1 solo detecta masas de agua abiertas de más de 3 ha y 200 m de ancho. No ver agua en DSWx-S1 no prueba que una calle no se inundara. Balanza debe redactarlo así.
 - OPERA reprocesa productos y cambia su hora de producción. El `id` del recibo puede quedar obsoleto; por eso se devuelve siempre la versión más reciente.
 - `browse_url` redirige a una URL firmada de CloudFront. Si el gateway la sirve, debe seguir redirecciones.
+- El plan de observación cambia. Un `planned` puede no adquirirse, como en el hueco de julio y agosto, y una versión nueva puede quitar la observación. `checked_at` dice de cuándo es la consulta, y hay que repetir `ingest plan` antes de la demo.
+- La relación entre `LSAR_CONFIG_ID` y el modo no está documentada en lo que hemos leído. Solo se compara la configuración con la de la última pasada.

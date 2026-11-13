@@ -21,9 +21,23 @@ Contrato interno del frontend, independiente del framework:
 | `aoi` | `[oeste, sur, este, norte]` | Encuadre inicial y contorno |
 | `layers` | `{ state, change_hh, change_hv }` | Plantillas de tesela tal como vienen de la API, con el host del gateway delante |
 | `activeLayer` | `"state" \| "change_hh" \| "change_hv"` | Capa visible |
-| `optical` | `{ before?, after? }` | Plantillas Sentinel-2 del veredicto |
+| `optical` | `{ before?: VistaOptica, after?: VistaOptica }` | Escenas Sentinel-2 de antes y después del veredicto (`verdict.evidence.optical`). Ver la tabla de abajo |
 | `compare` | `"off" \| "swipe"` | Modo de comparación |
 | `dataKind` | `"real" \| "synthetic"` | El mapa muestra un distintivo si es sintético |
+
+`VistaOptica` sale de `evidence.optical.before` o `.after` de la API de veredictos (PR 19):
+
+| Campo | Tipo | Desde la API | Descripción |
+|---|---|---|---|
+| `status` | `"clear" \| "cloudy" \| "partial_coverage" \| "none_in_window" \| "catalog_unavailable"` | `status` | Siempre presente. Con `none_in_window` o `catalog_unavailable` no hay escena y el mapa lo dice en lugar de dejar el lado vacío. Con `cloudy` o `partial_coverage` avisa junto a la imagen |
+| `tiles` | `string[]` | `scene.tiles[].tile_url` | Una plantilla XYZ por tesela MGRS (4 en Parral), con el host del gateway delante. Se pinta una capa por tesela. Fuera de la huella de su tesela, TiTiler responde 404: el mapa lo trata como tesela vacía, no como error. Vacío si no hay escena |
+| `attribution` | `string?` | `scene.attribution` | Se muestra junto a la imagen (licencia Copernicus) |
+| `cloudCover` | `number?` | `scene.max_cloud_cover` | Nubosidad en %, de la tesela MGRS completa y no de la zona; el texto lo dice así |
+| `acquiredAt` | `string?` | `scene.acquired_at` | Hora UTC de la escena |
+| `daysFromRadar` | `number?` | `scene.days_from_radar` | Días respecto a la pasada de radar; negativo si es anterior |
+| `coversAoi` | `boolean?` | `scene.covers_aoi` | Si las teselas juntas cubren toda la zona |
+
+Los campos con `?` faltan cuando `scene` es `null`. Faro hace la conversión desde la respuesta de la API; el mapa no llama a la API óptica.
 
 | Evento | Carga | Cuándo |
 |---|---|---|

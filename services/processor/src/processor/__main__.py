@@ -9,6 +9,7 @@ from pathlib import Path
 
 import yaml
 
+from .change import Params
 from .gcov import GranuleError
 from .pipeline import process_series
 from .synthetic import PARRAL_SERIES, generate_series
@@ -66,7 +67,13 @@ def run(args: argparse.Namespace) -> int:
     dem = sorted(dem_dir.glob("*.tif")) if dem_dir.is_dir() else []
     try:
         manifest = process_series(
-            paths, aoi, args.series, args.data_dir / "artifacts", aoi["maturity"], dem_sources=dem
+            paths,
+            aoi,
+            args.series,
+            args.data_dir / "artifacts",
+            aoi["maturity"],
+            Params(multitemporal=args.multitemporal),
+            dem_sources=dem,
         )
     except GranuleError as exc:
         print(f"Error: {exc}", file=sys.stderr)
@@ -90,6 +97,9 @@ def main() -> int:
     process.add_argument("--series", required=True)
     process.add_argument("--input", type=Path, required=True)
     process.add_argument("--dem-dir", type=Path, help="Teselas GLO-30; por omisión <data-dir>/dem/<zona>")
+    process.add_argument(
+        "--multitemporal", action="store_true", help="Aplica el filtro multitemporal de speckle (T-ECO-08)"
+    )
     process.set_defaults(handler=run)
 
     dem = commands.add_parser("fetch-dem", help="Baja el DEM Copernicus GLO-30 de una zona")

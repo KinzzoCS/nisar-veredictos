@@ -21,7 +21,7 @@ from rasterio.enums import Resampling
 from rasterio.warp import transform_bounds
 from rasterio.windows import from_bounds
 
-from processor.change import observable
+from processor.change import Params, observable
 from processor.gcov import read_scene
 from processor.georef import agreement, best_shift, large_components, shared_components, water_from_ndwi, water_from_sar
 
@@ -57,7 +57,7 @@ def main() -> None:
     nir = _read_optical(assets["nir"]["href"], scene, shape)
     scl = _read_optical(assets["scl"]["href"], scene, shape)
 
-    radar_valid = observable(scene, args.min_looks)
+    radar_valid = observable(scene, Params(min_window_looks=args.min_looks * 25))
     optical_valid = (green > 0) & (nir > 0) & ~np.isin(scl, SCL_EXCLUDED)
     valid = radar_valid & optical_valid
 
