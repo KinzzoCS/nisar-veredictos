@@ -62,14 +62,6 @@ button[aria-pressed='true'] {
   gap: 0.5rem;
 }
 
-.map-slot {
-  margin-top: 1.5rem;
-  padding: 2rem;
-  border: 2px dashed #8c959f;
-  border-radius: 0.5rem;
-  text-align: center;
-}
-
 footer {
   margin-top: 2rem;
   font-size: 0.875rem;
@@ -232,4 +224,36 @@ select {
   .receipt dl {
     grid-template-columns: 1fr;
   }
+}
+
+/* Mapa de Atlas (T-FAR-05). */
+.atlas-map {
+  margin-top: 1.5rem;
+}
+
+.atlas-map > button {
+  margin-bottom: 0.5rem;
+}
+
+/* La altura va en el marco: Atlas da al contenedor height: 100% (src/mapa/mapa.css). */
+.atlas-map-frame {
+  position: relative;
+  height: 60vh;
+  min-height: 320px;
+}
+
+.atlas-map-canvas {
+  height: 100%;
+}
+
+/* Mientras llega otro veredicto, las capas anteriores no se leen como actuales. */
+.atlas-map-busy {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  margin: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(255, 255, 255, 0.85);
+  font-weight: 600;
 }

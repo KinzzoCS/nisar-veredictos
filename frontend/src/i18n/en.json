@@ -67,8 +67,7 @@
   },
   "map": {
     "label": "Map",
-    "pending": "Atlas's map will go here.",
-    "bbox": "Extent (west, south, east, north)"
+    "compare": "Compare with the optical image (Sentinel-2)"
   },
   "footer": {
     "attribution": "NISAR data: NASA and ISRO. Each external source is credited where it is shown.",

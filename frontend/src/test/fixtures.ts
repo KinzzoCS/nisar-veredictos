@@ -33,6 +33,8 @@ export function makeVerdict(over: Overrides = {}): Verdict {
       signature_counts: {},
       optical: {
         text: 'Escena Sentinel-2 del 2026-06-18 con 3 % de nubes por tesela.',
+        before: { status: 'none_in_window', radar_date: '2026-06-17', radar_acquired_at: null, scene: null },
+        after: { status: 'none_in_window', radar_date: '2026-06-29', radar_acquired_at: null, scene: null },
       } as Verdict['evidence']['optical'],
       decision_rule: { min_observed_fraction: 0.5, min_changed_fraction: 0.05, calibrated: false },
       scene_shift: null,

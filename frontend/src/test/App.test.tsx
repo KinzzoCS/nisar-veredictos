@@ -5,6 +5,12 @@ import App from '../App'
 import i18n from '../i18n'
 import { makeVerdict } from './fixtures'
 
+// MapLibre necesita WebGL, que jsdom no tiene: el ciclo de vida del mapa se prueba en AtlasMap.test.
+const crearMapa = vi.hoisted(() =>
+  vi.fn(() => ({ actualizar: vi.fn(), destruir: vi.fn(), fijarOpacidad: vi.fn(), encuadrar: vi.fn() })),
+)
+vi.mock('../mapa/mapa', () => ({ crearMapa }))
+
 type Kind = 'real' | 'synthetic'
 
 function seriesList(kind: Kind) {
@@ -96,6 +102,10 @@ test('abre con el primer par consecutivo de la primera serie', async () => {
   expect(screen.getByLabelText('Serie')).toHaveValue('T048A-F015')
   expect(screen.getByLabelText('Par de fechas')).toHaveValue('20260617_20260629')
   expect(screen.getByRole('region', { name: 'Mapa' })).toBeInTheDocument()
+  expect(crearMapa).toHaveBeenLastCalledWith(
+    expect.any(HTMLElement),
+    expect.objectContaining({ dataKind: 'real', idioma: 'es', compare: 'off' }),
+  )
 })
 
 test('cambia de par y de serie solo con el teclado', async () => {

@@ -6,7 +6,7 @@
 | T-FAR-02 | [P] Tarjeta de veredicto con los tres textos, hipótesis y recibo | P0 | T-FAR-01 | en revisión |
 | T-FAR-03 | [P] Consulta de evento | P0 | T-FAR-01 | pendiente |
 | T-FAR-04 | [P] Distintivo de datos sintéticos | P0 | T-FAR-01 | en revisión |
-| T-FAR-05 | Integrar el mapa de Atlas | P0 | T-ATL-05 | pendiente |
+| T-FAR-05 | Integrar el mapa de Atlas | P0 | T-ATL-05 | en revisión |
 | T-FAR-06 | Modo historia de Parral en tres escenas | P1 | T-FAR-02, T-FAR-03, T-FAR-05 | pendiente |
 | T-FAR-07 | Español e inglés, y WCAG 2.1 AA | P1 | T-FAR-02 | pendiente |
 | T-FAR-08 | Glosario y explicación del radar | P1 | — | hecha |

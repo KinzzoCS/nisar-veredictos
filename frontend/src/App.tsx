@@ -1,8 +1,9 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { verdictsApi, type Lang, type SeriesInfo, type Verdict } from './api/client'
+import { hasOpticalScene, mapOptionsFor } from './api/mapOptions'
 import { LanguageSwitch } from './components/LanguageSwitch'
-import { MapSlot } from './components/MapSlot'
+import { AtlasMap } from './components/AtlasMap'
 import { SyntheticBanner } from './components/SyntheticBadge'
 import { VerdictCard } from './components/VerdictCard'
 
@@ -17,7 +18,7 @@ type Verdicts =
   | { status: 'ready'; items: Verdict[] }
 
 /** Respuesta guardada con la petición (serie e idioma) a la que corresponde. */
-type Loaded = Exclude<Verdicts, { status: 'loading' }> & { key: string }
+type Loaded = Exclude<Verdicts, { status: 'loading' }> & { key: string; seriesId: string }
 
 async function loadSeries(): Promise<Load> {
   const aois = await verdictsApi.GET('/aois')
@@ -25,10 +26,6 @@ async function loadSeries(): Promise<Load> {
   if (!aoi) return { status: 'error' }
   const series = await verdictsApi.GET('/aois/{aoi}/series', { params: { path: { aoi } } })
   return series.data ? { status: 'ready', aoi, series: series.data } : { status: 'error' }
-}
-
-function asBbox(bbox: number[]): [number, number, number, number] | null {
-  return bbox.length === 4 ? [bbox[0], bbox[1], bbox[2], bbox[3]] : null
 }
 
 /** Primer par consecutivo; si no hay, el primero que llegue. */
@@ -72,21 +69,29 @@ export default function App() {
       })
       .then(({ data }) => {
         if (!current) return
-        if (!data) return setLoaded({ key, status: 'error' })
-        setLoaded({ key, status: 'ready', items: data })
+        if (!data) return setLoaded({ key, seriesId, status: 'error' })
+        setLoaded({ key, seriesId, status: 'ready', items: data })
         setPairId((prev) => (prev && data.some((v) => v.id === prev) ? prev : defaultPair(data)))
       })
-      .catch(() => current && setLoaded({ key, status: 'error' }))
+      .catch(() => current && setLoaded({ key, seriesId, status: 'error' }))
     return () => {
       current = false
     }
   }, [aoi, seriesId, lang])
 
   const series = state.status === 'ready' ? state.series.find((s) => s.id === seriesId) : undefined
-  const bbox = series ? asBbox(series.bbox) : null
   const items = verdicts.status === 'ready' ? verdicts.items : []
   const verdict = items.find((v) => v.id === pairId)
   const synthetic = series?.data_kind === 'synthetic' || verdict?.receipt.data_kind === 'synthetic'
+
+  // El mapa sigue con la última respuesta mientras llega la nueva (tapado), para no recrearlo.
+  const shown = loaded?.status === 'ready' ? loaded : undefined
+  const mapSeries = state.status === 'ready' ? state.series.find((s) => s.id === shown?.seriesId) : undefined
+  const mapVerdict = shown && (shown.items.find((v) => v.id === pairId) ?? shown.items.find((v) => v.id === defaultPair(shown.items)))
+  const mapOptions = useMemo(
+    () => (aoi && mapSeries && mapVerdict ? mapOptionsFor(aoi, mapSeries, mapVerdict, lang) : null),
+    [aoi, mapSeries, mapVerdict, lang],
+  )
 
   return (
     <>
@@ -146,13 +151,11 @@ export default function App() {
           </section>
         )}
 
-        {series && bbox && (
-          <MapSlot
-            aoi={bbox}
-            layers={{ state: '', change_hh: '', change_hv: '' }}
-            activeLayer="state"
-            compare="off"
-            dataKind={series.data_kind}
+        {mapOptions && mapVerdict && (
+          <AtlasMap
+            options={mapOptions}
+            canCompare={hasOpticalScene(mapVerdict)}
+            busy={verdicts.status === 'loading' || mapVerdict !== verdict}
           />
         )}
       </main>
