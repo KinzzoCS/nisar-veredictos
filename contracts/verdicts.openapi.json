@@ -180,7 +180,7 @@
             "title": "Event Type"
           },
           "excluded_passes": {
-            "description": "Pasadas de los manifiestos que catalog excluye y que por eso no cuentan para el evento. Vacía con datos sintéticos o si catalog no respondió.",
+            "description": "Pasadas de las series de la zona que catalog excluye, entre previous_pass y next_pass ambas incluidas, estén o no en el manifiesto: no cuentan para el evento. Vacía con datos sintéticos o si catalog no respondió.",
             "items": {
               "$ref": "#/components/schemas/ExcludedPassOut"
             },
