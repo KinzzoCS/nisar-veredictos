@@ -26,6 +26,7 @@ def _tile(name, day, hour=0, minute=58):
     return OperaTile(
         id=product, tile=name, wtr_url=f"{ARCHIVE}/{product}/{product}_B01_WTR.tif",
         browse_url=f"{PUBLIC}/{product}/{product}_BROWSE.png",
+        bbox=(-106.0, 26.0, -105.0, 27.0),
     )
 
 
@@ -167,6 +168,7 @@ def test_synthetic_radar_lists_the_product_but_never_compares(manifest_root):
     assert before["status"] == "synthetic" and before["assessment"] is None and before["comparison"] is None
     assert before["reference"]["days_from_radar"] == -2 and before["reference"]["tiles"][0]["tile"] == "13RDK"
     assert "podaac-ops-cumulus-public" in before["reference"]["tiles"][0]["browse_url"]
+    assert before["reference"]["tiles"][0]["bbox"] == [-106.0, 26.0, -105.0, 27.0]
     assert "no se compara con datos de radar sintéticos" in evidence["text"]
     assert "3 ha y 200 m" in evidence["text"]
     assert evidence["after"]["status"] == "none_in_window"
@@ -347,3 +349,30 @@ def test_http_opera_failure_is_cached_briefly():
         with pytest.raises(CatalogUnavailable):
             source.products("parral", JUNE_29, 7)
     assert len(calls) == 1
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        ([-106.1, 26.9, -105.0, 27.9], (-106.1, 26.9, -105.0, 27.9)),
+        ([179.5, -17.0, -179.5, -16.0], (179.5, -17.0, -179.5, -16.0)),  # cruza el antimeridiano: no se reordena
+        (None, None),  # catalog todavía sin el campo
+        ([1, 2, 3], None),
+        (["a", 0, 1, 2], None),
+        ([0, 10, 1, 5], None),  # sur > norte
+        ([0, 0, 200, 1], None),
+    ],
+)
+def test_http_opera_passes_tile_bbox_through_or_drops_it(value, expected):
+    body = _opera_body()
+    tile = body["acquisitions"][0]["tiles"][0]
+    if value is None:
+        tile.pop("bbox", None)
+    else:
+        tile["bbox"] = value
+    source = HttpOpera(
+        "http://catalog:8000/",
+        httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body))),
+        lambda: 0.0,
+    )
+    assert source.products("parral", JUNE_29, 7).acquisitions[0].tiles[0].bbox == expected

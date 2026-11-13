@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import math
 import time
 from dataclasses import dataclass
 from typing import Callable, Protocol
@@ -221,6 +222,25 @@ class OperaTile:
     tile: str
     wtr_url: str
     browse_url: str | None
+    bbox: tuple[float, float, float, float] | None = None
+
+
+def _tile_bbox(value) -> tuple[float, float, float, float] | None:
+    """[oeste, sur, este, norte] en WGS84, tal como llega de catalog, o None si falta o no es válida.
+
+    No se reordena: si oeste > este, la tesela cruza el antimeridiano y quien dibuja debe partirla.
+    """
+    if not isinstance(value, (list, tuple)) or len(value) != 4:
+        return None
+    try:
+        west, south, east, north = (float(item) for item in value)
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(item) for item in (west, south, east, north)):
+        return None
+    if not (-180 <= west <= 180 and -180 <= east <= 180 and -90 <= south < north <= 90):
+        return None
+    return (west, south, east, north)
 
 
 @dataclass(frozen=True)
@@ -257,6 +277,7 @@ def _parse_opera(body: dict) -> OperaReference:
                 tile=str(tile["tile"]),
                 wtr_url=tile["wtr_url"],
                 browse_url=tile.get("browse_url") if str(tile.get("browse_url") or "").startswith("https://") else None,
+                bbox=_tile_bbox(tile.get("bbox")),
             )
             for tile in item["tiles"]
             if str(tile["wtr_url"]).startswith("https://")
