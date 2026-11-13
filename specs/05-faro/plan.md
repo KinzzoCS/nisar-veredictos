@@ -18,7 +18,7 @@
 | Escena | Llamada | Mensaje |
 |---|---|---|
 | 1. La tormenta | `GET /aois/parral/events?date=2026-07-01` | El satélite pasó el 29 de junio y el 8 de julio: no pudo verla |
-| 2. El monzón | Veredicto del par con más cambio | Algo cambió y estas son las hipótesis |
+| 2. Agosto | Veredicto de un par sin desplazamiento de toda la escena (T048, 08-16 → 08-28) | Qué dice el veredicto y qué no prueba, sin sugerir la lluvia como causa |
 | 3. Los jales | Serie por píxel sobre La Prieta | Sin cambio detectable también es información |
 
 Mientras los datos sean sintéticos, cada escena lo dice. La noticia de la tormenta debe abrirse y citarse antes de usarla.
