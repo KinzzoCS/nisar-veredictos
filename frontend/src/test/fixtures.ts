@@ -34,6 +34,9 @@ export function makeVerdict(over: Overrides = {}): Verdict {
       optical: {
         text: 'Escena Sentinel-2 del 2026-06-18 con 3 % de nubes por tesela.',
       } as Verdict['evidence']['optical'],
+      decision_rule: { min_observed_fraction: 0.5, min_changed_fraction: 0.05, calibrated: false },
+      scene_shift: null,
+      water: { text: 'Sin referencia OPERA DSWx-S1 a ±7 días.' } as Verdict['evidence']['water'],
     },
     layers: { state: '/tiles/state', change_hh: '/tiles/hh', change_hv: '/tiles/hv' },
     receipt: {
@@ -49,6 +52,8 @@ export function makeVerdict(over: Overrides = {}): Verdict {
       granules: ['NISAR_L2_PR_GCOV_023_048_A_015', 'NISAR_L2_PR_GCOV_024_048_A_015'],
       spans_data_gap: false,
       notices: ['Datos PROVISIONAL: se reprocesarán a VALIDATED en 2027.'],
+      excluded_passes: [],
+      quality: {} as Verdict['receipt']['quality'],
       freshness: {
         reference_date: '2026-11-12',
         published_at_basis: 'cmr_updated',
