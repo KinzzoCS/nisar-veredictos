@@ -37,10 +37,20 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 
 - [x] `ingest fetch --limit 2` con un token real deja dos recortes que `processor run` procesa sin errores.
 - [x] La línea de tiempo de Parral muestra el hueco del 27 de julio al 10 de agosto y un intervalo de 24 días a su través.
-- [ ] Todas las horas de la API están en UTC con formato ISO 8601.
-- [ ] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
+- [x] Todas las horas de la API están en UTC con formato ISO 8601.
+- [x] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
 - [x] Las fuentes ópticas no requieren cuenta y su licencia queda citada.
 - [x] Un gránulo excluido no aparece en `granules` ni en `passes`, sí en `excluded` con su motivo, y `ingest` no lo descarga.
+
+### Horas UTC y fallos externos (T-ANT-12)
+
+Detalle de los dos primeros criterios sin marcar hasta el 2026-11-12:
+
+- [x] Cada hora de la API sale como `AAAA-MM-DDTHH:MM:SS[.ffffff]Z`. Lo comprueba una prueba que recorre todas las rutas GET con datos en todas sus listas; si se añade una ruta sin incluirla, falla.
+- [x] Una hora con otra zona horaria, de CMR o de Earth Search, sale convertida a UTC. Una hora sin zona que llegue de fuera se toma como UTC, que es la referencia de CMR y de STAC.
+- [x] Una hora sin zona creada por el propio `catalog` es un fallo del código: el modelo de respuesta la rechaza, nunca adivina la zona.
+- [x] CMR, Earth Search u OPERA caídos, con error HTTP, con una respuesta que no es JSON o sin los campos esperados devuelven 502 con el servicio en `detail`. Nunca un 500 ni una lista vacía.
+- [x] Si falla una página posterior a la primera, la respuesta es 502 y no la lista de las páginas ya leídas.
 
 ### Registro de ingesta (RF-ANT-07)
 
