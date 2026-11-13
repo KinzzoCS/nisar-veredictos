@@ -30,7 +30,8 @@ function makeEvent(over: Partial<EventVerdict> = {}): EventVerdict {
     excluded_passes: [],
     summary: {
       detected: 'El evento del 2026-07-01 no es observable.',
-      does_not_prove: 'Esto no indica que el evento no ocurriera.',
+      // Como la API real (T-BAL-06): el supuesto de duración va dentro de does_not_prove.
+      does_not_prove: 'Esto no indica que el evento no ocurriera. Supuesto: el evento dura 24 h, valor por omisión sin calibrar; no se midió.',
       missing: 'Haría falta una fuente con mayor frecuencia o reportes locales.',
     },
     ...over,
@@ -68,7 +69,9 @@ test('consulta con Enter y muestra los tres textos, las pasadas y el supuesto', 
     expect(screen.getByText(label)).toBeVisible()
   }
   expect(screen.getByText('2026-06-29')).toBeInTheDocument()
-  // El supuesto llega dentro de «Qué no prueba» (T-BAL-06): no se repite en una fila aparte.
+  // El supuesto llega dentro de «Qué no prueba» (T-BAL-06): se ve ahí y no se repite en una fila aparte.
+  expect(screen.getByText('Qué no prueba').nextElementSibling).toHaveTextContent('Supuesto: el evento dura 24 h')
+  expect(screen.getAllByText(/Supuesto: el evento dura 24 h/)).toHaveLength(1)
   expect(screen.queryByText('Duración supuesta')).not.toBeInTheDocument()
   expect(screen.getByLabelText('Fecha del evento (UTC)')).toHaveAccessibleDescription(/18:00 en Parral/)
 
