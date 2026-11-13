@@ -674,3 +674,21 @@ def test_event_texts_do_not_name_api_parameters(client, params, lang):
     texts = [*body["summary"].values(), body["assumption"]["text"], body["cause_label"] or ""]
     for jargon in ("event_type", "persistence_hours", "parámetro", "parameter", "time)"):
         assert not any(jargon in text for text in texts if text), (jargon, texts)
+
+
+# La duración del evento es un supuesto: los textos no la dan por hecha ("mientras duraba").
+@pytest.mark.parametrize("lang, assumed, as_fact", [
+    ("es", "duración supuesta", ("mientras duraba", "duración indicada")),
+    ("en", "assumed duration", ("while the event lasted", "while it lasted", "stated duration")),
+])
+@pytest.mark.parametrize("params", [
+    {"date": "2026-07-01"},                                              # no_acquisition_during_event
+    {"date": "2026-07-01", "persistence_hours": 230},                    # timing_uncertain
+    {"date": "2026-07-01", "persistence_hours": 300, "time": "12:00"},   # observable
+])
+def test_event_texts_call_the_duration_an_assumption(client, params, lang, assumed, as_fact):
+    body = client.get("/aois/parral/events", params={**params, "lang": lang}).json()
+    texts = [body["summary"]["detected"], body["summary"]["does_not_prove"], body["cause_label"] or ""]
+    assert any(assumed in text for text in texts), texts
+    for phrase in as_fact:
+        assert not any(phrase in text for text in texts), (phrase, texts)

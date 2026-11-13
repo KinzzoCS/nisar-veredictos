@@ -15,9 +15,9 @@ CAUSES = {
         "low_looks": "muy pocas muestras de radar por píxel",
         "no_data": "píxeles sin dato utilizable",
         "terrain": "relieve que oculta o distorsiona la señal",
-        "no_acquisition_during_event": "no hubo ninguna pasada mientras duraba el evento",
+        "no_acquisition_during_event": "no hubo ninguna pasada dentro de la duración supuesta del evento",
         "outside_series_window": "el evento queda fuera del periodo con datos",
-        "timing_uncertain": "sin la hora UTC del evento o de la pasada no se sabe si la pasada cayó mientras duraba",
+        "timing_uncertain": "sin la hora UTC del evento o de la pasada no se sabe si la pasada cayó dentro de la duración supuesta",
     },
     "en": {
         "outside_scene": "the area falls outside the pass",
@@ -26,9 +26,9 @@ CAUSES = {
         "low_looks": "too few radar samples per pixel",
         "no_data": "pixels without usable data",
         "terrain": "terrain hides or distorts the signal",
-        "no_acquisition_during_event": "no pass occurred while the event lasted",
+        "no_acquisition_during_event": "no pass fell within the event's assumed duration",
         "outside_series_window": "the event falls outside the period with data",
-        "timing_uncertain": "without the UTC time of the event or the pass, it is unknown whether the pass fell while it lasted",
+        "timing_uncertain": "without the UTC time of the event or the pass, it is unknown whether the pass fell within the assumed duration",
     },
 }
 
@@ -226,26 +226,26 @@ def event_summary(
     uncertain = status.cause == "timing_uncertain"
     if lang == "es":
         if status.state == rules.OBSERVABLE:
-            detected = f"Hubo una pasada el {seen}, dentro de la duración indicada del evento del {event}."
+            detected = f"Hubo una pasada el {seen}, dentro de la duración supuesta del evento del {event}."
             limits = "Que haya pasada no garantiza que el evento se vea; hay que consultar el veredicto de ese par."
             missing = "Revisar el par que incluye esa fecha."
         else:
             detected = f"El evento del {event} no es observable: {CAUSES[lang][status.cause]}. Pasada anterior: {previous}; siguiente: {following}."
             if uncertain:
-                limits = "La pasada pudo caer dentro del evento o fuera; con estos datos no se puede afirmar ninguna de las dos."
+                limits = "La pasada pudo caer dentro de la duración supuesta del evento o fuera; con estos datos no se puede afirmar ninguna de las dos."
                 missing = "Indicar la hora UTC de inicio del evento permite decidirlo."
             else:
                 limits = "Esto no indica que el evento no ocurriera; indica que el radar no pudo registrarlo."
                 missing = "Haría falta una fuente con mayor frecuencia o reportes locales."
     else:
         if status.state == rules.OBSERVABLE:
-            detected = f"A pass occurred on {seen}, within the stated duration of the {event} event."
+            detected = f"A pass occurred on {seen}, within the assumed duration of the {event} event."
             limits = "A pass does not guarantee the event is visible; check that pair's verdict."
             missing = "Review the pair that includes that date."
         else:
             detected = f"The {event} event is not observable: {CAUSES[lang][status.cause]}. Previous pass: {previous}; next: {following}."
             if uncertain:
-                limits = "The pass may have fallen inside or outside the event; these data cannot tell which."
+                limits = "The pass may have fallen inside or outside the event's assumed duration; these data cannot tell which."
                 missing = "Giving the event's UTC start time makes it decidable."
             else:
                 limits = "This does not mean the event did not happen; the radar could not record it."
