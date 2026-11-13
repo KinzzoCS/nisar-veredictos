@@ -20,8 +20,10 @@ interface Textos {
   bajo: string;
   subio: string;
   escalaDb: string;
-  /** Con scene_shift.exceeds_threshold (PR 37). */
+  /** Con scene_shift.exceeds_threshold y sin corrected (PR 37). */
   avisoEscena: string;
+  /** Con scene_shift.exceeds_threshold y corrected (PR 42). */
+  notaEscenaCorregida: string;
   // Selección de punto (T-ATL-04)
   puntoSeleccionado: string;
   lon: string;
@@ -100,6 +102,8 @@ export const TEXTOS: Record<Idioma, Textos> = {
       "Cuánto cambió el brillo del radar, en decibelios (dB). Cerca de 0 dB, casi no cambió.",
     avisoEscena:
       "Aviso: entre estas dos fechas cambió el nivel de toda la escena. Parte de lo marcado puede no ser un cambio local.",
+    notaEscenaCorregida:
+      "Nota: entre estas dos fechas cambió el nivel de toda la escena; ese cambio ya se descontó antes de medir lo marcado.",
     puntoSeleccionado: "Punto seleccionado",
     lon: "Lon",
     lat: "Lat",
@@ -159,6 +163,8 @@ export const TEXTOS: Record<Idioma, Textos> = {
     escalaDb: "How much the radar brightness changed, in decibels (dB). Near 0 dB, it barely changed.",
     avisoEscena:
       "Warning: the level of the whole scene changed between these two dates. Some of what is marked may not be a local change.",
+    notaEscenaCorregida:
+      "Note: the level of the whole scene changed between these two dates; that change was subtracted before measuring what is marked.",
     puntoSeleccionado: "Selected point",
     lon: "Lon",
     lat: "Lat",

@@ -1,5 +1,6 @@
 // Interfaz del mapa para Faro. Fuente: specs/04-atlas/plan.md y src/types/map.ts.
 import type { MapLayerName, MapProps } from "../types/map";
+import type { AvisoEscena } from "./escena";
 import type { Idioma } from "./textos";
 
 /** Extensión en WGS84 (EPSG:4326): [oeste, sur, este, norte]. */
@@ -24,10 +25,12 @@ export interface OpcionesMapa
   /** `verdict.cause_label`, si el veredicto es no observable. Se muestra en la leyenda. */
   causaNoObservable?: string;
   /**
-   * `verdict.evidence.scene_shift?.exceeds_threshold` (PR 37). Si es true, la leyenda avisa
-   * de que el cambio puede ser de nivel de toda la escena y no local. No cambia los colores.
+   * Cambio de nivel de toda la escena: pasar `avisoEscena(verdict.evidence.scene_shift)`
+   * de `escena.ts`. Con `sin_corregir`, la leyenda avisa de que el cambio puede no ser local;
+   * con `corregido`, anota que ese desplazamiento ya se descontó. No cambia los colores.
+   * `true` equivale a `sin_corregir` (compatibilidad con el PR 32).
    */
-  desplazamientoEscena?: boolean;
+  desplazamientoEscena?: boolean | AvisoEscena;
   /** Idioma de los textos del mapa. Por defecto, "es". */
   idioma?: Idioma;
   /**

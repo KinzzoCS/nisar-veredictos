@@ -1,6 +1,7 @@
 // Banco de pruebas de Atlas. No es la app: Faro monta el mapa en la suya.
 import * as maplibregl from "maplibre-gl";
 import { RDBU } from "./leyenda";
+import { avisoEscena, type DesplazamientoEscenaApi } from "./escena";
 import { crearMapa } from "./mapa";
 import { ErrorHttp, registrarCargador } from "./protocolo";
 import type { Bbox, CapaRadar } from "./tipos";
@@ -24,8 +25,8 @@ interface VeredictoApi {
   /** Llega con el PR 19 de Balanza; antes no existe. */
   evidence?: {
     optical?: { before: LadoOpticoApi; after: LadoOpticoApi };
-    /** Llega con el PR 37 de Balanza. */
-    scene_shift?: { exceeds_threshold: boolean } | null;
+    /** Llega con el PR 37 de Balanza; `corrected`, con el PR 42. */
+    scene_shift?: DesplazamientoEscenaApi | null;
   };
 }
 interface LadoOpticoApi {
@@ -80,7 +81,7 @@ async function main() {
       dataKind: v.receipt.data_kind,
       layers,
       causaNoObservable: v.cause_label ?? undefined,
-      desplazamientoEscena: v.evidence?.scene_shift?.exceeds_threshold ?? false,
+      desplazamientoEscena: avisoEscena(v.evidence?.scene_shift),
       pixelUrl: `${GATEWAY}/api/verdicts/aois/parral/series/${serie.id}/pixel`,
       optical: optica && { before: vistaDesdeApi(optica.before), after: vistaDesdeApi(optica.after) },
       compare: "swipe",
@@ -103,8 +104,8 @@ async function main() {
         change_hv: "atlas-prueba-cambio://{z}/{x}/{y}?rescale=-10,10",
       },
       causaNoObservable: "muy pocas muestras de radar por píxel (texto de prueba)",
-      // De prueba: enseña el aviso de desplazamiento de toda la escena en la leyenda.
-      desplazamientoEscena: true,
+      // De prueba: enseña la nota de desplazamiento ya descontado. "sin_corregir" enseña el aviso.
+      desplazamientoEscena: "corregido",
       pixelUrl: RUTA_PIXEL_PRUEBA,
       // Óptico de PRUEBA: dibujos generados en el navegador, no una escena Sentinel-2.
       optical: {

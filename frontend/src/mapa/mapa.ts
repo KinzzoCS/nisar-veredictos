@@ -2,6 +2,7 @@ import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 import "./mapa.css";
 import { crearComparador, type Comparador } from "./comparador";
+import { normalizarAvisoEscena } from "./escena";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { ladoDisponible } from "./optico";
 import { contornoZona, estiloMapaBase, textoExtension, validarBbox } from "./mapaBase";
@@ -38,7 +39,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     layers: opciones.layers,
     capa: opciones.activeLayer ?? ("state" as CapaRadar),
     causa: opciones.causaNoObservable,
-    avisoEscena: opciones.desplazamientoEscena ?? false,
+    avisoEscena: normalizarAvisoEscena(opciones.desplazamientoEscena),
     dataKind: opciones.dataKind,
     idioma: opciones.idioma ?? "es",
     opacidad: 0.85,
@@ -302,7 +303,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       }
       if ("nombreZona" in c) estado.zona = c.nombreZona;
       if ("causaNoObservable" in c) estado.causa = c.causaNoObservable;
-      if ("desplazamientoEscena" in c) estado.avisoEscena = c.desplazamientoEscena ?? false;
+      if ("desplazamientoEscena" in c) estado.avisoEscena = normalizarAvisoEscena(c.desplazamientoEscena);
       if (c.idioma) estado.idioma = c.idioma;
       if (c.activeLayer) estado.capa = c.activeLayer;
       const recargar = "layers" in c || (c.dataKind && c.dataKind !== estado.dataKind);
