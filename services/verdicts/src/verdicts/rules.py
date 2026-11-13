@@ -1,4 +1,4 @@
-"""Reglas de decisión. Los umbrales son iniciales y deben calibrarse con datos reales."""
+"""Reglas de decisión. MIN_CHANGED_FRACTION se fijó con el ruido de pares reales; los demás umbrales son supuestos sin calibrar."""
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -10,9 +10,12 @@ NOT_OBSERVABLE = "not_observable"
 OBSERVABLE = "observable"
 
 MIN_OBSERVED_FRACTION = 0.5
-# Provisional y sin calibrar (T-ECO-07 y T-BAL-09, 2026-11-12). Con el cambio ya corregido por el desplazamiento
-# de la escena, los 16 pares consecutivos reales quedan entre 0,58 % y 9,6 %, y el ruido solo ya supera el umbral
-# de 3 dB en un 1,97 % de los píxeles en HH (MEMORY.md). Con el 5 %, 2 de 16 pares quedan como change_probable.
+# Fijado sobre el ruido de 16 pares consecutivos reales de Parral (T-BAL-09, 2026-11-13), sin verdad de campo.
+# Con el cambio ya corregido por el desplazamiento de la escena (T-ECO-07), 14 de los 16 quedan entre 0,58 % y
+# 4,64 %, siguiendo a la dispersión de cada par (1,4826 · MAD de HH entre 0,76 y 1,32 dB): ese es el suelo de
+# ruido medido, que no se puede separar del cambio difuso (humedad, vegetación). El 5 % queda por encima de
+# todos ellos; los otros dos son T048 08-16→08-28 (5,18 %, HH 1,27 dB) y 08-28→09-09 (9,56 %, HH 1,59 dB).
+# Tabla por par en el PR 39 de Eco y en MEMORY.md.
 MIN_CHANGED_FRACTION = 0.05
 MIN_SIGNATURE_SHARE = 0.2
 

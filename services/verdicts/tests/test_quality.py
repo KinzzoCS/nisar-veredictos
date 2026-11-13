@@ -155,7 +155,7 @@ def test_qa_shift_is_declared_uncorrected(manifest_root):
     assert shift["basis"] == "qa_median_difference" and shift["corrected"] is False
 
 
-# --- MIN_CHANGED_FRACTION provisional del 5 % (T-BAL-09) -------------------------------------
+# --- MIN_CHANGED_FRACTION del 5 %, fijado con el ruido de pares reales (T-BAL-09) -------------------------------------
 
 def test_below_five_percent_is_no_detectable_change_and_says_why(manifest_root):
     _with_qa(manifest_root, None, None, stats=CORRECTED_STATS)
@@ -166,9 +166,11 @@ def test_below_five_percent_is_no_detectable_change_and_says_why(manifest_root):
     }
     detected = body["summary"]["detected"]
     assert "superó el umbral en el 2.3% de la superficie observada, por debajo del 5 % que exige el veredicto" in detected
-    assert "el ruido del radar puede dar cifras de ese orden" in detected
+    assert "Ese mínimo se fijó con 16 pares reales de Parral" in detected
+    assert "sin calibrar" not in detected
     english = _get(manifest_root, "en")["summary"]["detected"]
     assert "below the 5 % the verdict requires" in english
+    assert "set with 16 real pairs from Parral" in english and "uncalibrated" not in english
 
 
 def test_t048_pair_at_9_6_percent_stays_change_probable(manifest_root):
