@@ -58,6 +58,22 @@ Consume `GET /aois/{aoi}/series` y `GET /aois/{aoi}/series/{series_id}/verdicts?
 
 Fuera de esta entrega: el mapa (T-FAR-05), la consulta de evento (T-FAR-03), la serie por píxel, el comparador óptico (Atlas) y la auditoría WCAG completa (T-FAR-07). Se cuidan desde ya el teclado, el foco visible y los estados no solo por color.
 
+### Integrar el mapa de Atlas (T-FAR-05)
+
+Consume `crearMapa` de `frontend/src/mapa/` (interfaz en `specs/04-atlas/plan.md` y `src/mapa/tipos.ts`). Faro no toca esa carpeta.
+
+- [x] El mapa va junto a la tarjeta del veredicto elegido, en un contenedor con altura explícita (60vh, mínimo 320 px) y un rótulo accesible.
+- [x] Muestra las capas del veredicto (`verdict.layers` con el origen del gateway delante), y `dataKind` sale de `verdict.receipt.data_kind`.
+- [x] Si el veredicto es `not_observable`, la leyenda recibe `cause_label`.
+- [x] Si el veredicto trae `scene_shift`, solo se avisa de un cambio posiblemente no local cuando `exceeds_threshold` es verdadero y `corrected` no lo es. Si Eco ya descontó el desplazamiento, no se muestra ese aviso. Cuando entre el PR 49 se pasará `avisoEscena(scene_shift)`, que además añade la nota de "corregido".
+- [x] Al seleccionar un punto, el mapa enseña su serie por píxel (`pixelUrl` de la serie activa).
+- [x] Un botón con `aria-pressed` activa o quita el comparador radar/óptico. Solo aparece si `evidence.optical` trae escena en algún lado.
+- [x] El mapa se crea una sola vez y se destruye al desmontar (`crearMapa` y `destruir` en el mismo efecto, para que StrictMode no deje dos mapas). Al cambiar de par, de serie o de idioma se usa `actualizar()`, sin recrearlo.
+- [x] El idioma del mapa sigue al de la interfaz.
+- [x] Mientras carga un veredicto nuevo, el mapa sigue montado, pero queda tapado con "Cargando…" y `aria-busy`, para que no se lean las capas anteriores como si fueran del par nuevo.
+
+Fuera de esta entrega: un selector de capa propio de Faro (se usa el del mapa) y la escena de la historia (T-FAR-06).
+
 ## Interfaces
 
 - **Consume:** API de veredictos y la interfaz del mapa de Atlas.

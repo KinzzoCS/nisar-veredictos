@@ -66,8 +66,7 @@
   },
   "map": {
     "label": "Mapa",
-    "pending": "Aquí irá el mapa de Atlas.",
-    "bbox": "Encuadre (oeste, sur, este, norte)"
+    "compare": "Comparar con la imagen óptica (Sentinel-2)"
   },
   "footer": {
     "attribution": "Datos NISAR: NASA e ISRO. Cada fuente externa se atribuye donde se muestra.",
