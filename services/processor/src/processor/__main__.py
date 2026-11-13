@@ -11,7 +11,7 @@ import yaml
 
 from .change import Params
 from .gcov import GranuleError
-from .pipeline import process_series
+from .pipeline import excluded_granules, process_series
 from .synthetic import PARRAL_SERIES, generate_series
 from .terrain import glo30_tiles
 
@@ -65,6 +65,7 @@ def run(args: argparse.Namespace) -> int:
     paths = sorted(args.input.glob("*.h5"))
     dem_dir = args.dem_dir or args.data_dir / "dem" / aoi["id"]
     dem = sorted(dem_dir.glob("*.tif")) if dem_dir.is_dir() else []
+    exclude = excluded_granules(aoi)
     try:
         manifest = process_series(
             paths,
@@ -74,11 +75,15 @@ def run(args: argparse.Namespace) -> int:
             aoi["maturity"],
             Params(multitemporal=args.multitemporal),
             dem_sources=dem,
+            exclude=exclude,
         )
     except GranuleError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
+    skipped = [notice for notice in manifest["notices"] if notice.startswith("Fechas excluidas")]
     print(f"{args.series}: {len(manifest['pairs'])} pares ({manifest['data_kind']})")
+    for notice in skipped:
+        print(notice)
     return 0
 
 
