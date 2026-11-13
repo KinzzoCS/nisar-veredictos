@@ -460,6 +460,23 @@ def test_opera_api_lists_passes_and_declares_limits():
     assert source.calls == [(datetime(2026, 6, 22, tzinfo=timezone.utc), datetime(2026, 7, 6, 23, 59, 59, tzinfo=timezone.utc))]
 
 
+def test_opera_api_gives_each_tile_its_box_west_south_east_north():
+    body = opera_client(OperaList(JUNE)).get("/aois/parral/references/opera?date=2026-06-29").json()
+    boxes = {tile["tile"]: tile["bbox"] for tile in body["acquisitions"][0]["tiles"]}
+    assert boxes == {
+        "13RDK": [-106.0587906, 26.1714959, -104.9505393, 27.1667001],
+        "13RDL": [-106.0675069, 27.0742501, -104.950132, 28.0694794],
+    }
+
+
+def test_opera_api_tile_without_cmr_box_has_null_bbox():
+    entry = cmr_entry("13RDK", "20260627T130504", "20260829T195832")
+    del entry["boxes"]
+    body = opera_client(OperaList([parse_entry(entry)])).get("/aois/parral/references/opera?date=2026-06-29").json()
+    tile = body["acquisitions"][0]["tiles"][0]
+    assert tile["bbox"] is None and not body["acquisitions"][0]["covers_aoi"]
+
+
 def test_opera_api_without_products_says_so():
     response = opera_client(OperaList([])).get("/aois/parral/references/opera?date=2026-07-08")
     assert response.status_code == 200 and response.json()["acquisitions"] == []
