@@ -14,6 +14,7 @@ from typing import Protocol
 import httpx
 
 from .optical import COVERAGE_GRID
+from .pairing import parse_utc
 
 BASE_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
 COLLECTION = "OPERA_L3_DSWX-S1_V1"
@@ -107,7 +108,7 @@ def parse_entry(entry: dict) -> OperaTile | None:
         tile=match["tile"],
         platform=f"sentinel-{match['sensor'][1:].lower()}",
         title_acquired_at=title_acquired,
-        acquired_at=datetime.fromisoformat(raw_start.replace("Z", "+00:00")) if raw_start else title_acquired,
+        acquired_at=parse_utc(raw_start) if raw_start else title_acquired,
         produced_at=_stamp(match["prod"]),
         wtr_url=wtr,
         conf_url=_link(entry, "_B03_CONF.tif", rel="/data#") or "",
