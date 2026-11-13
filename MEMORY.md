@@ -189,6 +189,10 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - `low_looks` baja del 15,2 % al 0,98 % en T048 y del 12,2 % al 1,00 % en T171.
   - El par T048 08-28→09-09 sigue alto después de corregir: o hay cambio local, o el desplazamiento no es uniforme en la escena. Sin verificar.
   - La fracción mínima para `change_probable` la decide Balanza (T-BAL-07) sobre estos valores corregidos.
+- 2026-11-12, **filtro multitemporal (T-ECO-08)**: Quegan y Yu (2001), ventana de 7 × 7, opcional con `processor run --multitemporal` y apagado por omisión, porque mezcla información entre fechas. Hace dos pasadas: la primera acumula la textura de la serie y la segunda filtra cada fecha al leerla, así que sigue habiendo como máximo dos escenas en memoria.
+  - Con las 10 fechas reales de T048: 345 s y 1913 MB de `ru_maxrss`. Está cerca del límite de 2 GB; sin filtro, el pico del contenedor fue de 1611 MB.
+  - Speckle: el ENL mediano en bloques de 15 × 15 (fecha 08-16) pasa de 2,14 a 3,39 en HH y de 2,15 a 3,64 en HV. Es una medida tosca, porque la textura real también cuenta como varianza.
+  - `change_probable` baja en todos los pares (por ejemplo, 06-17→06-29 de 3,50 a 1,85 % y la ventana completa de 11,03 a 6,97 %). Los pares con desplazamiento de toda la escena siguen altos (08-28→09-09 de 18,59 a 17,11 %): el filtro no resuelve T-ECO-07.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
