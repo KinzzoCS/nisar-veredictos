@@ -127,10 +127,59 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** DateQuality */
+        DateQuality: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Deviation Hh Db
+             * @description Mediana de la fecha menos la mediana de las medianas de la serie.
+             */
+            deviation_hh_db: number | null;
+            /** Deviation Hv Db */
+            deviation_hv_db: number | null;
+            /**
+             * Flags
+             * @description radiometric_outlier: la fecha se aparta de la serie más que el umbral de Eco. Aviso, no exclusión.
+             */
+            flags: string[];
+            /** Median Hh Db */
+            median_hh_db: number | null;
+            /** Median Hv Db */
+            median_hv_db: number | null;
+            /**
+             * Valid Fraction
+             * @description Fracción de píxeles válidos de la fecha, según Eco.
+             */
+            valid_fraction: number;
+        };
+        /** DecisionRule */
+        DecisionRule: {
+            /**
+             * Calibrated
+             * @description Siempre false: valores iniciales, sin calibrar con verdad de campo.
+             * @default false
+             */
+            calibrated: boolean;
+            /**
+             * Min Changed Fraction
+             * @description Desde esta fracción de lo observado con cambio, change_probable; por debajo, no_detectable_change. Provisional (T-BAL-09).
+             */
+            min_changed_fraction: number;
+            /**
+             * Min Observed Fraction
+             * @description Por debajo de esta fracción observada, not_observable.
+             */
+            min_observed_fraction: number;
+        };
         /** EventVerdict */
         EventVerdict: {
             /** Aoi */
             aoi: string;
+            assumption: components["schemas"]["PersistenceAssumption"];
             /** Cause */
             cause: string | null;
             /** Cause Label */
@@ -145,14 +194,35 @@ export interface components {
              * Format: date
              */
             event_date: string;
+            /**
+             * Event Time
+             * @description Hora UTC de inicio del evento, si se indicó. Sin ella, puede empezar en cualquier momento de su día.
+             */
+            event_time: string | null;
+            /**
+             * Event Type
+             * @description Tipo de evento indicado en la consulta, si lo hay.
+             */
+            event_type: ("urban_storm" | "river_flood" | "wildfire") | null;
+            /**
+             * Excluded Passes
+             * @description Pasadas de las series de la zona que catalog excluye, entre previous_pass y next_pass ambas incluidas, estén o no en el manifiesto: no cuentan para el evento. Vacía con datos sintéticos o si catalog no respondió.
+             */
+            excluded_passes: components["schemas"]["ExcludedPassOut"][];
             /** Next Pass */
             next_pass: string | null;
+            /**
+             * Next Pass Acquired At
+             * @description Hora UTC de la siguiente pasada según la línea de tiempo de catalog. null si no se conoce (datos sintéticos o catalog sin respuesta): entonces se considera todo su día.
+             */
+            next_pass_acquired_at: string | null;
             /** Persistence Hours */
             persistence_hours: number;
             /** Previous Pass */
             previous_pass: string | null;
             /**
              * State
+             * @description Responde otra pregunta que los pares: si alguna pasada cayó mientras duraba el evento, en horas UTC. observable exige que caiga dentro en todos los casos posibles y no afirma ningún cambio: hay que consultar el veredicto del par. not_observable lleva su causa; timing_uncertain si solo cae dentro en algunos casos.
              * @enum {string}
              */
             state: "observable" | "not_observable";
@@ -162,16 +232,21 @@ export interface components {
         Evidence: {
             /** Changed Fraction */
             changed_fraction: number;
+            /** @description Umbrales con los que se decidió el estado de este veredicto. */
+            decision_rule: components["schemas"]["DecisionRule"];
             /** Mean Change Hh Db */
             mean_change_hh_db: number | null;
             /** Mean Change Hv Db */
             mean_change_hv_db: number | null;
             /** Observed Fraction */
             observed_fraction: number;
+            optical: components["schemas"]["OpticalEvidence"];
             /** Pixel Counts */
             pixel_counts: {
                 [key: string]: number;
             };
+            /** @description Cambio de nivel de toda la escena entre las dos fechas. null si el manifiesto no trae QA. */
+            scene_shift: components["schemas"]["SceneShiftOut"] | null;
             /** Signature Counts */
             signature_counts: {
                 [key: string]: number;
@@ -180,6 +255,50 @@ export interface components {
             threshold_hh_db: number | null;
             /** Threshold Hv Db */
             threshold_hv_db: number | null;
+            /** @description Contraste del agua del radar con OPERA DSWx-S1 (RF-BAL-07). Un desacuerdo es un dato, no un fallo. */
+            water: components["schemas"]["WaterEvidence"];
+        };
+        /** ExcludedPassOut */
+        ExcludedPassOut: {
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Evidence
+             * @description Cómo lo comprobó Antena.
+             */
+            evidence: string;
+            /**
+             * Granule
+             * @description granule_id que catalog excluye.
+             */
+            granule: string;
+            /**
+             * Reason
+             * @description Código del motivo según catalog; product_defect: fallo en el producto publicado.
+             */
+            reason: string;
+            /** Series */
+            series: string;
+        };
+        /** Freshness */
+        Freshness: {
+            after: components["schemas"]["PassFreshness"];
+            before: components["schemas"]["PassFreshness"];
+            /**
+             * Published At Basis
+             * @default cmr_updated
+             * @constant
+             */
+            published_at_basis: "cmr_updated";
+            /**
+             * Reference Date
+             * Format: date
+             * @description Fecha UTC con la que se calcula age_days (hoy, al responder).
+             */
+            reference_date: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -194,6 +313,211 @@ export interface components {
             change_hv: string;
             /** State */
             state: string;
+        };
+        /** OpticalEvidence */
+        OpticalEvidence: {
+            /** @description Escena más cercana a to_date que no es anterior a la pasada. */
+            after: components["schemas"]["OpticalSide"];
+            /** @description Escena más cercana a from_date que no es posterior a la pasada. */
+            before: components["schemas"]["OpticalSide"];
+            /**
+             * Cloud Cover Basis
+             * @default tile
+             * @constant
+             */
+            cloud_cover_basis: "tile";
+            /** Collection */
+            collection: string | null;
+            /**
+             * Data Kind
+             * @description Las escenas ópticas son siempre datos reales.
+             * @default real
+             * @constant
+             */
+            data_kind: "real";
+            /** License */
+            license: string | null;
+            /** License Url */
+            license_url: string | null;
+            /**
+             * Max Cloud Cover
+             * @description Nubosidad máxima por tesela, en %. Valor inicial sin calibrar.
+             */
+            max_cloud_cover: number;
+            /**
+             * Search Days
+             * @description Días máximos entre la escena óptica y su fecha de radar.
+             */
+            search_days: number;
+            /**
+             * Source
+             * @description Buscador de escenas usado por catalog. null si no respondió.
+             */
+            source: string | null;
+            /**
+             * Text
+             * @description Resumen en el idioma pedido de qué escenas hay y con cuántas nubes.
+             */
+            text: string;
+        };
+        /** OpticalScene */
+        OpticalScene: {
+            /**
+             * Acquired At
+             * Format: date-time
+             * @description Hora UTC de la primera tesela de la adquisición.
+             */
+            acquired_at: string;
+            /**
+             * Attribution
+             * @description Texto de atribución que debe mostrarse junto a la imagen.
+             */
+            attribution: string;
+            /**
+             * Covers Aoi
+             * @description Las teselas juntas cubren toda la zona.
+             */
+            covers_aoi: boolean;
+            /**
+             * Days From Radar
+             * @description Días respecto a radar_date; negativo si es anterior.
+             */
+            days_from_radar: number;
+            /**
+             * Max Cloud Cover
+             * @description Mayor nubosidad entre sus teselas. Es de la tesela, no de la zona.
+             */
+            max_cloud_cover: number;
+            /** Platform */
+            platform: string;
+            /** Tiles */
+            tiles: components["schemas"]["OpticalTileOut"][];
+        };
+        /** OpticalSide */
+        OpticalSide: {
+            /**
+             * Radar Acquired At
+             * @description Hora UTC de la pasada de radar. Si se conoce, antes y después se comparan al segundo; si es null, se compara por día UTC y una escena del mismo día cuenta en los dos lados.
+             */
+            radar_acquired_at: string | null;
+            /**
+             * Radar Date
+             * Format: date
+             */
+            radar_date: string;
+            scene: components["schemas"]["OpticalScene"] | null;
+            /**
+             * Status
+             * @description clear: cubre la zona con nubosidad <= max_cloud_cover. cloudy: la menos nublada que cubre la zona, por encima del límite. partial_coverage: ninguna cubre la zona entera. none_in_window: ninguna a search_days o menos. catalog_unavailable: catalog no respondió.
+             * @enum {string}
+             */
+            status: "clear" | "cloudy" | "partial_coverage" | "none_in_window" | "catalog_unavailable";
+        };
+        /** OpticalTileOut */
+        OpticalTileOut: {
+            /**
+             * Cloud Cover
+             * @description Porcentaje de nubes de la tesela completa, no de la zona.
+             */
+            cloud_cover: number;
+            /**
+             * Tile
+             * @description Tesela MGRS de unos 110 km de lado.
+             */
+            tile: string;
+            /**
+             * Tile Url
+             * @description Plantilla XYZ por el gateway: TiTiler lee visual_url.
+             */
+            tile_url: string;
+            /**
+             * Visual Url
+             * @description COG en color verdadero (TCI) en el bucket público de Sentinel-2.
+             */
+            visual_url: string;
+        };
+        /** PairQuality */
+        PairQuality: {
+            /** @description QA de to_date. null si el manifiesto no lo trae. */
+            after: components["schemas"]["DateQuality"] | null;
+            /** @description QA de from_date. null si el manifiesto no lo trae. */
+            before: components["schemas"]["DateQuality"] | null;
+            /**
+             * Source
+             * @description Copiado de dates[].qa del manifiesto de Eco (T-ECO-03).
+             * @default manifest_qa
+             * @constant
+             */
+            source: "manifest_qa";
+        };
+        /** PassFreshness */
+        PassFreshness: {
+            /**
+             * Acquired At
+             * @description Inicio de la adquisición en UTC, según la línea de tiempo de catalog. null si no se conoce.
+             */
+            acquired_at: string | null;
+            /**
+             * Age Days
+             * @description Días entre la fecha de la pasada y reference_date.
+             */
+            age_days: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Granule */
+            granule: string;
+            /**
+             * Latency Status
+             * @description Por qué hay o no hay latencia: dato real disponible, dato sintético, catalog sin respuesta, gránulo ausente del catálogo o gránulo sin fecha de publicación.
+             * @enum {string}
+             */
+            latency_status: "available" | "synthetic" | "catalog_unavailable" | "granule_not_in_catalog" | "not_published";
+            /**
+             * Publication Latency Hours
+             * @description Horas entre la adquisición y published_at, tal como las da catalog. null si no se conoce.
+             */
+            publication_latency_hours: number | null;
+            /**
+             * Published At
+             * @description Fecha 'updated' de CMR en UTC: aproxima la publicación. null si no se conoce.
+             */
+            published_at: string | null;
+        };
+        /** PersistenceAssumption */
+        PersistenceAssumption: {
+            /**
+             * Calibrated
+             * @description Siempre false: las persistencias son valores iniciales sin calibrar.
+             */
+            calibrated: boolean;
+            /** Event Type */
+            event_type: ("urban_storm" | "river_flood" | "wildfire") | null;
+            /**
+             * Hours By Event Type
+             * @description Tabla completa de persistencias supuestas, en horas.
+             */
+            hours_by_event_type: {
+                [key: string]: number;
+            };
+            /**
+             * Persistence Hours
+             * @description Horas que se supone que dura el evento. Nunca es una medición.
+             */
+            persistence_hours: number;
+            /**
+             * Source
+             * @description event_type: valor de la tabla por tipo; user: persistence_hours de la consulta; default: valor por omisión, sin tipo ni horas.
+             * @enum {string}
+             */
+            source: "event_type" | "user" | "default";
+            /**
+             * Text
+             * @description El supuesto redactado en el idioma pedido; también va en summary.does_not_prove.
+             */
+            text: string;
         };
         /** PixelChange */
         PixelChange: {
@@ -234,6 +558,32 @@ export interface components {
             /** Values */
             values: components["schemas"]["PixelDate"][];
         };
+        /** RadarWaterRule */
+        RadarWaterRule: {
+            /**
+             * Calibrated
+             * @description Siempre false.
+             * @default false
+             */
+            calibrated: boolean;
+            /**
+             * Hh Db Below
+             * @description Un píxel es agua para el radar si HH está por debajo de este valor y...
+             */
+            hh_db_below: number;
+            /**
+             * Hv Db Below
+             * @description ...HV por debajo de este. Umbrales de T-ECO-06, sin calibrar.
+             */
+            hv_db_below: number;
+            /**
+             * Resampling
+             * @description El radar de 10 m se promedia en la malla de DSWx-S1 (30 m) antes de aplicar los umbrales.
+             * @default average
+             * @constant
+             */
+            resampling: "average";
+        };
         /** Receipt */
         Receipt: {
             /** Crid */
@@ -245,8 +595,14 @@ export interface components {
             data_kind: "real" | "synthetic";
             /** Direction */
             direction: string;
+            /**
+             * Excluded Passes
+             * @description Pasadas de esta serie que catalog excluye, entre from_date y to_date ambas incluidas. Vacía con datos sintéticos o si catalog no respondió.
+             */
+            excluded_passes: components["schemas"]["ExcludedPassOut"][];
             /** Frame */
             frame: number;
+            freshness: components["schemas"]["Freshness"];
             /** Granules */
             granules: string[];
             /** Maturity */
@@ -257,12 +613,53 @@ export interface components {
             notices: string[];
             /** Polarization */
             polarization: string;
+            /** @description Control de calidad de Eco de las dos fechas (RF-BAL-09). */
+            quality: components["schemas"]["PairQuality"];
             /** Series */
             series: string;
             /** Spans Data Gap */
             spans_data_gap: boolean;
             /** Track */
             track: number;
+        };
+        /** SceneShiftOut */
+        SceneShiftOut: {
+            /**
+             * Basis
+             * @description pair_stats: stats.scene_shift_* del par, que processor mide desde T-ECO-07 y ya restó del cambio. qa_median_difference: mediana de to_date menos la de from_date, del QA de Eco, sin restar.
+             * @enum {string}
+             */
+            basis: "pair_stats" | "qa_median_difference";
+            /**
+             * Calibrated
+             * @description Siempre false.
+             * @default false
+             */
+            calibrated: boolean;
+            /**
+             * Corrected
+             * @description true: el porcentaje de cambio ya descuenta este desplazamiento (basis pair_stats). false: no lo descuenta y puede reflejarlo.
+             */
+            corrected: boolean;
+            /**
+             * Exceeds Threshold
+             * @description Si es true, summary.does_not_prove avisa del cambio de nivel de toda la escena: que ya se descontó (corrected) o que el porcentaje puede reflejarlo. No cambia el estado.
+             */
+            exceeds_threshold: boolean;
+            /** Hh Db */
+            hh_db: number | null;
+            /** Hv Db */
+            hv_db: number | null;
+            /**
+             * Same Direction
+             * @description HH y HV se mueven en el mismo sentido. null si falta alguna o alguna no se movió.
+             */
+            same_direction: boolean | null;
+            /**
+             * Threshold Db
+             * @description Por encima de este valor absoluto, el veredicto avisa. Sin calibrar.
+             */
+            threshold_db: number;
         };
         /** SeriesInfo */
         SeriesInfo: {
@@ -321,6 +718,11 @@ export interface components {
             /** Id */
             id: string;
             /**
+             * Interval Days
+             * @description Días entre from_date y to_date.
+             */
+            interval_days: number;
+            /**
              * Kind
              * @enum {string}
              */
@@ -340,6 +742,190 @@ export interface components {
              * Format: date
              */
             to_date: string;
+        };
+        /** WaterComparison */
+        WaterComparison: {
+            /**
+             * Agreement Fraction
+             * @description Fracción de los píxeles comparables en que las dos fuentes dicen lo mismo.
+             */
+            agreement_fraction: number;
+            /** Both Not Water */
+            both_not_water: number;
+            /** Both Water */
+            both_water: number;
+            /**
+             * Comparable Pixels
+             * @description Píxeles de la malla de DSWx-S1 con dato de radar y clase 0, 1 o 3 en B01_WTR.
+             */
+            comparable_pixels: number;
+            /**
+             * Compared Fraction
+             * @description comparable_pixels entre todos los píxeles de la zona. Por debajo de min_compared_fraction no hay assessment (status partial_overlap).
+             */
+            compared_fraction: number;
+            /**
+             * Not Comparable Pixels
+             * @description Píxeles de la zona sin dato en alguna fuente o enmascarados por DSWx-S1 (HAND, layover o sombra).
+             */
+            not_comparable_pixels: number;
+            /** Radar Only Water */
+            radar_only_water: number;
+            /** Radar Water Fraction */
+            radar_water_fraction: number;
+            /** Reference Only Water */
+            reference_only_water: number;
+            /** Reference Water Fraction */
+            reference_water_fraction: number;
+            /**
+             * Water Iou
+             * @description Píxeles con agua en las dos entre los píxeles con agua en alguna. null si ninguna ve agua.
+             */
+            water_iou: number | null;
+        };
+        /** WaterEvidence */
+        WaterEvidence: {
+            /** @description Producto más cercano a to_date. */
+            after: components["schemas"]["WaterSide"];
+            /**
+             * Attribution
+             * @description Texto de atribución que debe mostrarse junto al producto.
+             */
+            attribution: string | null;
+            /** @description Producto más cercano a from_date. */
+            before: components["schemas"]["WaterSide"];
+            /** Collection */
+            collection: string | null;
+            /**
+             * Data Kind
+             * @description Los productos DSWx-S1 son siempre datos reales.
+             * @default real
+             * @constant
+             */
+            data_kind: "real";
+            /** Doi */
+            doi: string | null;
+            /**
+             * Min Compared Fraction
+             * @description Fracción mínima de la zona con dato en las dos fuentes para dar acuerdo o desacuerdo. covers_aoi no basta: mira la caja de la tesela, no los píxeles válidos.
+             */
+            min_compared_fraction: number;
+            /**
+             * Min Water Body Ha
+             * @description Superficie mínima de agua abierta que DSWx-S1 detecta.
+             */
+            min_water_body_ha: number | null;
+            /**
+             * Min Water Body Width M
+             * @description Anchura mínima de agua abierta que DSWx-S1 detecta.
+             */
+            min_water_body_width_m: number | null;
+            /**
+             * Min Water Fraction
+             * @description Si ninguna fuente llega a esta fracción de agua, coinciden en que no hay agua apreciable. Sin calibrar.
+             */
+            min_water_fraction: number;
+            /**
+             * Min Water Iou
+             * @description water_iou mínimo para hablar de acuerdo. Sin calibrar.
+             */
+            min_water_iou: number;
+            /** Product Spec Url */
+            product_spec_url: string | null;
+            radar_rule: components["schemas"]["RadarWaterRule"];
+            /**
+             * Reference Water Classes
+             * @description Clases de B01_WTR que cuentan como agua: 1 agua abierta y 3 vegetación inundada.
+             */
+            reference_water_classes: number[];
+            /**
+             * Search Days
+             * @description Días máximos entre el producto DSWx-S1 y su fecha de radar.
+             */
+            search_days: number;
+            /**
+             * Source
+             * @description Buscador usado por catalog. null si no respondió.
+             */
+            source: string | null;
+            /**
+             * Text
+             * @description Resumen en el idioma pedido: qué productos hay, si coinciden y sus límites.
+             */
+            text: string;
+        };
+        /** WaterReference */
+        WaterReference: {
+            /**
+             * Acquired At
+             * Format: date-time
+             * @description Hora UTC de la primera tesela de la pasada de Sentinel-1.
+             */
+            acquired_at: string;
+            /**
+             * Covers Aoi
+             * @description Las cajas de sus teselas contienen la zona. No dice si hay datos válidos en toda ella.
+             */
+            covers_aoi: boolean;
+            /**
+             * Days From Radar
+             * @description Días respecto a radar_date; negativo si es anterior.
+             */
+            days_from_radar: number;
+            /** Platform */
+            platform: string;
+            /** Tiles */
+            tiles: components["schemas"]["WaterTileOut"][];
+        };
+        /** WaterSide */
+        WaterSide: {
+            /**
+             * Assessment
+             * @description Acuerdo o desacuerdo entre dos métodos sobre dónde hay agua. disagree no dice cuál acierta. null si no se comparó.
+             */
+            assessment: ("agree" | "disagree") | null;
+            /**
+             * Assessment Basis
+             * @description little_water: ninguna fuente ve agua en min_water_fraction o más de los píxeles comparables, y eso cuenta como acuerdo. water_overlap: se decide con water_iou frente a min_water_iou.
+             */
+            assessment_basis: ("little_water" | "water_overlap") | null;
+            comparison: components["schemas"]["WaterComparison"] | null;
+            /**
+             * Radar Date
+             * Format: date
+             */
+            radar_date: string;
+            /** @description Pasada DSWx-S1 elegida: la más cercana a radar_date, antes o después; primero las que cubren la zona. */
+            reference: components["schemas"]["WaterReference"] | null;
+            /**
+             * Status
+             * @description compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de min_compared_fraction de la zona; hay conteos pero no assessment.
+             * @enum {string}
+             */
+            status: "compared" | "synthetic" | "no_credentials" | "none_in_window" | "catalog_unavailable" | "read_failed" | "no_overlap" | "partial_overlap";
+        };
+        /** WaterTileOut */
+        WaterTileOut: {
+            /**
+             * Bbox
+             * @description Caja de la tesela MGRS en WGS84, [oeste, sur, este, norte], de los boxes de CMR vía catalog. Sirve para situar browse_url en el mapa. Si oeste > este, cruza el antimeridiano. null si catalog no la da.
+             */
+            bbox?: number[] | null;
+            /**
+             * Browse Url
+             * @description Vista previa PNG pública de PO.DAAC, sin georreferencia. null si no hay.
+             */
+            browse_url: string | null;
+            /**
+             * Id
+             * @description Título del producto DSWx-S1 en CMR. Es el que cita el recibo.
+             */
+            id: string;
+            /**
+             * Tile
+             * @description Tesela MGRS.
+             */
+            tile: string;
         };
     };
     responses: never;
@@ -374,7 +960,12 @@ export interface operations {
         parameters: {
             query: {
                 date: string;
+                /** @description Horas que dura el evento. Si se da, manda sobre event_type. Sin ninguno de los dos, 24 h. */
                 persistence_hours?: number;
+                /** @description Tipo de evento: fija una persistencia supuesta (urban_storm 6 h, river_flood 72 h, wildfire 240 h). */
+                event_type?: ("urban_storm" | "river_flood" | "wildfire") | null;
+                /** @description Hora UTC de inicio del evento, HH:MM. Opcional. */
+                time?: string | null;
                 lang?: "es" | "en";
             };
             header?: never;

@@ -5,16 +5,66 @@
   },
   "language": { "label": "Language", "es": "Español", "en": "English" },
   "series": {
-    "heading": "Available series",
     "loading": "Loading data…",
-    "error": "Could not reach the API. Check that the stack is running.",
-    "dates_one": "{{count}} date",
-    "dates_other": "{{count}} dates",
-    "range": "from {{from}} to {{to}}",
-    "dataKind": "Data",
-    "maturity": "Maturity"
+    "error": "Could not reach the API. Check that the stack is running."
   },
   "dataKind": { "real": "real", "synthetic": "synthetic" },
+  "synthetic": {
+    "banner": "Synthetic data: it shows how the application works and does not describe what happened in Parral.",
+    "card": "This verdict uses synthetic data."
+  },
+  "picker": {
+    "heading": "Verdict by date pair",
+    "series": "Series",
+    "pair": "Date pair",
+    "fullWindow": "full window",
+    "loading": "Loading verdicts…",
+    "error": "Could not load the verdicts for this series. Try again in a few seconds.",
+    "empty": "This series has no verdicts yet."
+  },
+  "verdict": {
+    "state": {
+      "change_probable": "Probable change",
+      "no_detectable_change": "No detectable change",
+      "not_observable": "Not observable"
+    },
+    "cause": "Why it could not be measured: {{cause}}",
+    "dates_one": "from {{from}} to {{to}} · {{count}} day",
+    "dates_other": "from {{from}} to {{to}} · {{count}} days",
+    "detected": "What we detected",
+    "doesNotProve": "What it does not prove",
+    "missing": "What is missing",
+    "hypotheses": "Possible explanations, unverified"
+  },
+  "receipt": {
+    "summary": "Receipt: where this answer comes from",
+    "dataKind": "Data",
+    "maturity": "Maturity",
+    "series": "Series",
+    "seriesValue": "{{id}}: track {{track}}, {{direction}}, frame {{frame}}",
+    "direction": { "A": "ascending", "D": "descending" },
+    "modePolarization": "Mode and polarization",
+    "crid": "Processing version (CRID)",
+    "granules": "Granules",
+    "dataGap": "Spans a gap with no acquisitions",
+    "yes": "yes",
+    "no": "no",
+    "notices": "Notices",
+    "freshness": "Freshness",
+    "before": "Earlier pass",
+    "after": "Later pass",
+    "age_one": "{{date}}, {{count}} day ago",
+    "age_other": "{{date}}, {{count}} days ago",
+    "latency": "published {{hours}} h after the pass",
+    "latencyStatus": {
+      "synthetic": "publication latency does not apply to synthetic data",
+      "catalog_unavailable": "latency unknown: the catalog did not respond",
+      "granule_not_in_catalog": "latency unknown: the granule is not in the catalog",
+      "not_published": "latency unknown: the catalog gives no publication date"
+    },
+    "optical": "Optical comparison (Sentinel-2)",
+    "water": "Water comparison (OPERA DSWx-S1)"
+  },
   "map": {
     "label": "Map",
     "pending": "Atlas's map will go here.",
