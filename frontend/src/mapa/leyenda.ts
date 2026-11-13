@@ -38,6 +38,8 @@ export interface EstadoLeyenda {
   opacidad: number;
   rango: [number, number] | null;
   causa?: string;
+  /** El cambio de este par puede ser de nivel de toda la escena (scene_shift.exceeds_threshold). */
+  avisoEscena?: boolean;
 }
 
 interface Manejadores {
@@ -100,11 +102,12 @@ export function crearLeyenda(contenedor: HTMLElement, m: Manejadores) {
     }
 
     const lista = el("ul", "atlas-leyenda");
+    // Va junto a lo que muestra cambio (el estado o la escala en dB), nunca suelto.
+    const aviso = e.avisoEscena ? el("small", "atlas-aviso-escena", t.avisoEscena) : null;
     if (e.capa === "state") {
-      lista.append(
-        entrada("atlas-muestra-cambio", t.cambioProbable),
-        entrada("atlas-muestra-vacia", t.sinCambio, t.sinCambioNota),
-      );
+      const cambio = entrada("atlas-muestra-cambio", t.cambioProbable);
+      if (aviso) cambio.querySelector(".atlas-entrada")!.append(aviso);
+      lista.append(cambio, entrada("atlas-muestra-vacia", t.sinCambio, t.sinCambioNota));
     } else {
       const li = el("li", "atlas-escala");
       const barra = el("div", "atlas-degradado");
@@ -116,6 +119,7 @@ export function crearLeyenda(contenedor: HTMLElement, m: Manejadores) {
         el("span", "", e.rango ? `${t.subio} ${formatoDb(max)}` : t.subio),
       );
       li.append(barra, marcas, el("small", "", t.escalaDb));
+      if (aviso) li.append(aviso);
       lista.append(li);
     }
     const noObs = entrada("atlas-muestra-trama", t.noObservable, t.noObservableNota);

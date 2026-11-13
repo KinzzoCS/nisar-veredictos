@@ -437,3 +437,12 @@
   margin-top: 4px;
   color: #4b5563;
 }
+
+/* Aviso de desplazamiento de toda la escena (PR 37), junto a lo que muestra cambio. */
+.atlas-leyenda .atlas-aviso-escena {
+  margin-top: 4px;
+  padding: 3px 6px;
+  border-left: 3px solid #9a3412;
+  background: #fff7ed;
+  color: #7c2d12;
+}

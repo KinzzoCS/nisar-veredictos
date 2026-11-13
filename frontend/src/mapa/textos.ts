@@ -20,6 +20,8 @@ interface Textos {
   bajo: string;
   subio: string;
   escalaDb: string;
+  /** Con scene_shift.exceeds_threshold (PR 37). */
+  avisoEscena: string;
   // Selección de punto (T-ATL-04)
   puntoSeleccionado: string;
   lon: string;
@@ -96,6 +98,8 @@ export const TEXTOS: Record<Idioma, Textos> = {
     subio: "Subió",
     escalaDb:
       "Cuánto cambió el brillo del radar, en decibelios (dB). Cerca de 0 dB, casi no cambió.",
+    avisoEscena:
+      "Aviso: entre estas dos fechas cambió el nivel de toda la escena. Parte de lo marcado puede no ser un cambio local.",
     puntoSeleccionado: "Punto seleccionado",
     lon: "Lon",
     lat: "Lat",
@@ -153,6 +157,8 @@ export const TEXTOS: Record<Idioma, Textos> = {
     bajo: "Decreased",
     subio: "Increased",
     escalaDb: "How much the radar brightness changed, in decibels (dB). Near 0 dB, it barely changed.",
+    avisoEscena:
+      "Warning: the level of the whole scene changed between these two dates. Some of what is marked may not be a local change.",
     puntoSeleccionado: "Selected point",
     lon: "Lon",
     lat: "Lat",

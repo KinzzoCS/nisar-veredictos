@@ -16,6 +16,8 @@ const mapa = crearMapa(document.getElementById("mapa")!, {
   dataKind: veredicto.receipt.data_kind, // "synthetic" muestra el distintivo
   layers: conHost(veredicto.layers),     // plantillas de la API con el host delante
   causaNoObservable: veredicto.cause_label ?? undefined,
+  // Cambio de nivel de toda la escena (PR 37): la leyenda avisa de que puede no ser local.
+  desplazamientoEscena: veredicto.evidence.scene_shift?.exceeds_threshold ?? false,
   idioma: "es",                         // o "en"
   // Serie por píxel de la serie activa: al seleccionar un punto, el mapa la pide y la enseña.
   pixelUrl: `${GATEWAY}/api/verdicts/aois/parral/series/${serie.id}/pixel`,

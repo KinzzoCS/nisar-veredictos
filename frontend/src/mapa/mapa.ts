@@ -38,6 +38,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     layers: opciones.layers,
     capa: opciones.activeLayer ?? ("state" as CapaRadar),
     causa: opciones.causaNoObservable,
+    avisoEscena: opciones.desplazamientoEscena ?? false,
     dataKind: opciones.dataKind,
     idioma: opciones.idioma ?? "es",
     opacidad: 0.85,
@@ -169,6 +170,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       opacidad: estado.opacidad,
       rango: estado.capa === "state" ? null : rangoReescalado(estado.layers[estado.capa]),
       causa: estado.causa,
+      avisoEscena: estado.avisoEscena,
     });
   }
 
@@ -300,6 +302,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       }
       if ("nombreZona" in c) estado.zona = c.nombreZona;
       if ("causaNoObservable" in c) estado.causa = c.causaNoObservable;
+      if ("desplazamientoEscena" in c) estado.avisoEscena = c.desplazamientoEscena ?? false;
       if (c.idioma) estado.idioma = c.idioma;
       if (c.activeLayer) estado.capa = c.activeLayer;
       const recargar = "layers" in c || (c.dataKind && c.dataKind !== estado.dataKind);

@@ -23,6 +23,11 @@ export interface OpcionesMapa
   nombreZona?: string;
   /** `verdict.cause_label`, si el veredicto es no observable. Se muestra en la leyenda. */
   causaNoObservable?: string;
+  /**
+   * `verdict.evidence.scene_shift?.exceeds_threshold` (PR 37). Si es true, la leyenda avisa
+   * de que el cambio puede ser de nivel de toda la escena y no local. No cambia los colores.
+   */
+  desplazamientoEscena?: boolean;
   /** Idioma de los textos del mapa. Por defecto, "es". */
   idioma?: Idioma;
   /**
@@ -46,6 +51,7 @@ export type CambiosMapa = Partial<
     | "layers"
     | "activeLayer"
     | "causaNoObservable"
+    | "desplazamientoEscena"
     | "dataKind"
     | "idioma"
     | "pixelUrl"
