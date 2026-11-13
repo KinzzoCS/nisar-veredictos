@@ -40,6 +40,24 @@ Que cualquier persona entienda en menos de un minuto qué pasó, qué no sabemos
 - [ ] Ningún texto de interfaz afirma más que la API.
 - [ ] La demo completa funciona solo con teclado.
 
+### Tarjeta de veredicto (T-FAR-02) y distintivo de datos sintéticos (T-FAR-04)
+
+Consume `GET /aois/{aoi}/series` y `GET /aois/{aoi}/series/{series_id}/verdicts?lang=`. Los textos del veredicto se muestran tal como llegan de la API: Faro solo pone rótulos.
+
+- [x] La persona elige la serie y el par de fechas con controles nativos (`select`) que tienen rótulo y se usan con teclado. Al abrir, se elige el primer par consecutivo de la primera serie.
+- [x] El encabezado de la tarjeta dice el estado en una frase, con un icono distinto por estado y el texto escrito, nunca solo con color: "Cambio probable", "Sin cambio detectable" y "No observable".
+- [x] `not_observable` tiene un estilo propio (borde discontinuo y trama), distinto de `no_detectable_change`, y muestra `cause_label` junto al estado.
+- [x] Bajo el estado se ven las fechas y `interval_days` ("del 2026-06-17 al 2026-06-29 · 12 días").
+- [x] "Qué detectamos", "Qué no prueba" y "Qué falta" (`summary.detected`, `summary.does_not_prove` y `summary.missing`) salen siempre juntos y visibles, sin plegar.
+- [x] Las hipótesis salen en una lista con el rótulo "Hipótesis, no conclusiones" solo si `hypotheses` no está vacío.
+- [x] El recibo va plegado en un `details` nativo y muestra: tipo de datos, madurez, serie (pista, dirección y marco), modo y polarización, CRID, gránulos, si cruza el hueco de adquisición, avisos (`notices`), la frescura de cada pasada (antigüedad en días y latencia de publicación o su motivo) y el texto del contraste óptico (`evidence.optical.text`).
+- [x] Al cambiar de idioma se vuelven a pedir los veredictos con el `lang` nuevo.
+- [x] Si la API falla, se avisa con `role="alert"` sin mostrar un veredicto viejo como si fuera actual.
+- [x] **Distintivo de datos sintéticos:** si la serie elegida o el recibo tiene `data_kind: synthetic`, se muestra en la cabecera de la página un aviso fijo, que no se puede cerrar, y otro dentro de la tarjeta. El texto dice que los datos son sintéticos y que no describen Parral. Con datos reales no aparece.
+- [x] Ningún texto de interfaz en `src/i18n/` usa las palabras que prohíbe la prueba de lenguaje de Balanza (`services/verdicts/tests/test_language.py`): una prueba del frontend lo comprueba.
+
+Fuera de esta entrega: el mapa (T-FAR-05), la consulta de evento (T-FAR-03), la serie por píxel, el comparador óptico (Atlas) y la auditoría WCAG completa (T-FAR-07). Se cuidan desde ya el teclado, el foco visible y los estados no solo por color.
+
 ## Interfaces
 
 - **Consume:** API de veredictos y la interfaz del mapa de Atlas.

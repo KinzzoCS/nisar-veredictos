@@ -5,16 +5,65 @@
   },
   "language": { "label": "Idioma", "es": "Español", "en": "English" },
   "series": {
-    "heading": "Series disponibles",
     "loading": "Cargando datos…",
-    "error": "No se pudo conectar con la API. Comprueba que la pila está levantada.",
-    "dates_one": "{{count}} fecha",
-    "dates_other": "{{count}} fechas",
-    "range": "del {{from}} al {{to}}",
-    "dataKind": "Datos",
-    "maturity": "Madurez"
+    "error": "No se pudo conectar con la API. Comprueba que la pila está levantada."
   },
   "dataKind": { "real": "reales", "synthetic": "sintéticos" },
+  "synthetic": {
+    "banner": "Datos sintéticos: sirven para mostrar cómo funciona la aplicación y no describen lo que pasó en Parral.",
+    "card": "Este veredicto usa datos sintéticos."
+  },
+  "picker": {
+    "heading": "Veredicto por par de fechas",
+    "series": "Serie",
+    "pair": "Par de fechas",
+    "fullWindow": "ventana completa",
+    "loading": "Cargando veredictos…",
+    "error": "No se pudieron cargar los veredictos de esta serie. Vuelve a intentarlo en unos segundos.",
+    "empty": "Esta serie todavía no tiene veredictos."
+  },
+  "verdict": {
+    "state": {
+      "change_probable": "Cambio probable",
+      "no_detectable_change": "Sin cambio detectable",
+      "not_observable": "No observable"
+    },
+    "cause": "Por qué: {{cause}}",
+    "dates_one": "del {{from}} al {{to}} · {{count}} día",
+    "dates_other": "del {{from}} al {{to}} · {{count}} días",
+    "detected": "Qué detectamos",
+    "doesNotProve": "Qué no prueba",
+    "missing": "Qué falta",
+    "hypotheses": "Hipótesis, no conclusiones"
+  },
+  "receipt": {
+    "summary": "Recibo: de dónde sale esta respuesta",
+    "dataKind": "Datos",
+    "maturity": "Madurez",
+    "series": "Serie",
+    "seriesValue": "{{id}}: pista {{track}}, {{direction}}, marco {{frame}}",
+    "direction": { "A": "ascendente", "D": "descendente" },
+    "modePolarization": "Modo y polarización",
+    "crid": "Versión de procesado (CRID)",
+    "granules": "Gránulos",
+    "dataGap": "Cruza el hueco de adquisición",
+    "yes": "sí",
+    "no": "no",
+    "notices": "Avisos",
+    "freshness": "Frescura",
+    "before": "Pasada anterior",
+    "after": "Pasada posterior",
+    "age_one": "{{date}}, hace {{count}} día",
+    "age_other": "{{date}}, hace {{count}} días",
+    "latency": "publicada {{hours}} h después de la pasada",
+    "latencyStatus": {
+      "synthetic": "la latencia de publicación no aplica a datos sintéticos",
+      "catalog_unavailable": "latencia desconocida: el catálogo no respondió",
+      "granule_not_in_catalog": "latencia desconocida: el gránulo no aparece en el catálogo",
+      "not_published": "latencia desconocida: el catálogo no da fecha de publicación"
+    },
+    "optical": "Contraste óptico (Sentinel-2)"
+  },
   "map": {
     "label": "Mapa",
     "pending": "Aquí irá el mapa de Atlas.",
