@@ -4,7 +4,7 @@ import "./mapa.css";
 import { crearComparador, type Comparador } from "./comparador";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { ladoDisponible } from "./optico";
-import { contornoZona, estiloMapaBase, textoExtension, validarBbox } from "./mapaBase";
+import { bboxContinuo, contornoZona, estiloMapaBase, textoExtension, validarBbox } from "./mapaBase";
 import { OPACIDAD_MINIMA_TRAMA } from "./estado";
 import { plantillaEstado } from "./protocolo";
 import {
@@ -56,7 +56,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   const map = new maplibregl.Map({
     container: lienzo,
     style: estiloMapaBase(),
-    bounds: estado.aoi,
+    bounds: bboxContinuo(estado.aoi),
     fitBoundsOptions: { padding: 32 },
     attributionControl: false,
     // Sin rotación: la escala y el contorno se leen siempre con el norte arriba.
@@ -298,7 +298,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
         (map.getSource("aoi") as maplibregl.GeoJSONSource | undefined)?.setData(
           contornoZona(estado.aoi),
         );
-        map.fitBounds(estado.aoi, { padding: 32 });
+        map.fitBounds(bboxContinuo(estado.aoi), { padding: 32 });
       }
       if ("nombreZona" in c) estado.zona = c.nombreZona;
       if ("causaNoObservable" in c) estado.causa = c.causaNoObservable;
@@ -326,7 +326,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       if ("optical" in c || c.compare || c.idioma || c.aoi) aplicarComparador();
     },
     fijarOpacidad,
-    encuadrar: () => map.fitBounds(estado.aoi, { padding: 32 }),
+    encuadrar: () => map.fitBounds(bboxContinuo(estado.aoi), { padding: 32 }),
     destruir: () => {
       peticion?.abort();
       comparador?.destruir();

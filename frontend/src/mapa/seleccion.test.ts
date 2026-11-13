@@ -62,6 +62,8 @@ describe("textos de la serie", () => {
     expect(etiquetaEstado("low_looks", "es")).toBe("No observable: muy pocas muestras de radar por píxel");
     expect(etiquetaEstado("terrain", "en")).toBe("Not observable: terrain hides or distorts the signal");
     expect(etiquetaEstado(null, "es")).toBe("sin dato");
+    // Una causa nueva de Eco sin texto todavía sigue diciendo que no se pudo observar.
+    expect(etiquetaEstado("causa_nueva", "es")).toBe("No observable: causa_nueva");
   });
 
   it("escribe los dB con un decimal y marca los huecos", () => {

@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   CAUSAS_NO_OBSERVABLE,
+  esNoObservable,
+  PRIMER_CODIGO_NO_OBSERVABLE,
+  ULTIMO_CODIGO_NO_OBSERVABLE,
   COLOR_CAMBIO,
   OPACIDAD_MINIMA_TRAMA,
   PERIODO_TRAMA,
@@ -26,11 +29,23 @@ function fila(codigos: (number | null)[]): Uint8ClampedArray {
 const px = (a: Uint8ClampedArray, i: number) => Array.from(a.slice(i * 4, i * 4 + 4));
 
 describe("paleta codificada", () => {
-  it("cubre los códigos 0, 1 y 10-15 de processor", () => {
-    expect(Object.keys(paletaCodificada()).map(Number).sort((a, b) => a - b)).toEqual([
-      0, 1, 10, 11, 12, 13, 14, 15,
-    ]);
-    expect(Object.keys(CAUSAS_NO_OBSERVABLE)).toHaveLength(6);
+  it("cubre 0, 1 y todo el rango reservado de no observable, no solo los 10-15 actuales", () => {
+    const codigos = Object.keys(paletaCodificada()).map(Number).sort((a, b) => a - b);
+    expect(codigos.slice(0, 2)).toEqual([0, 1]);
+    expect(codigos.slice(2)).toEqual(
+      Array.from({ length: ULTIMO_CODIGO_NO_OBSERVABLE - PRIMER_CODIGO_NO_OBSERVABLE + 1 }, (_, i) => PRIMER_CODIGO_NO_OBSERVABLE + i),
+    );
+    for (const c of Object.keys(CAUSAS_NO_OBSERVABLE).map(Number)) expect(codigos).toContain(c);
+  });
+
+  it("una causa nueva de Eco (p. ej. 16) se pinta con trama, nunca como «sin cambio»", () => {
+    expect(esNoObservable(16)).toBe(true);
+    expect(paletaCodificada()["16"]).toBe("#100000ff");
+    const a = fila([16]);
+    pintarEstado(a, 1, "trama");
+    expect(px(a, 0)[3]).toBeGreaterThan(0);
+    expect(esNoObservable(1)).toBe(false);
+    expect(esNoObservable(0)).toBe(false);
   });
 
   it("guarda el código en el canal rojo con alfa opaco", () => {
