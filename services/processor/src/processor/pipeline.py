@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import re
 import tempfile
 from datetime import date
 from pathlib import Path
@@ -135,6 +136,12 @@ def _read(path: Path, bbox: list[float], params: Params, speckle: MultitemporalF
     return speckle.apply(scene, observable(scene, params)) if speckle else scene
 
 
+def _date_in_name(name: str) -> str:
+    """Fecha de inicio del nombre de un gránulo NISAR (…_20260813T014433_…); el nombre entero si no la trae."""
+    found = re.search(r"_(\d{4})(\d{2})(\d{2})T\d{6}_", name)
+    return "-".join(found.groups()) if found else name
+
+
 def excluded_granules(aoi: dict) -> dict[str, str]:
     """granule_id -> motivo, según `series[].exclude[]` de la zona (lo mantiene Antena, T-ANT-10)."""
     return {
@@ -155,10 +162,15 @@ def process_series(
     exclude: dict[str, str] | None = None,
 ) -> dict:
     """Procesa la serie con como máximo dos escenas en memoria, sea cual sea el número de fechas."""
-    ordered = sorted(((read_meta_path(path), path) for path in paths), key=lambda item: item[0].date)
-    # Se decide por el granuleId de dentro del archivo, no por su nombre en disco.
-    skipped = [(meta, exclude[meta.granule_id]) for meta, _ in ordered if exclude and meta.granule_id in exclude]
-    ordered = [(meta, path) for meta, path in ordered if not exclude or meta.granule_id not in exclude]
+    exclude = exclude or {}
+    # Primero por el nombre en disco, que ingest escribe igual que el granuleId: así un excluido que además
+    # venga corrupto ni se abre. Los renombrados se reconocen después por el granuleId de dentro del archivo.
+    skipped = [(_date_in_name(path.stem), exclude[path.stem]) for path in paths if path.stem in exclude]
+    ordered = sorted(
+        ((read_meta_path(path), path) for path in paths if path.stem not in exclude), key=lambda item: item[0].date
+    )
+    skipped += [(meta.date, exclude[meta.granule_id]) for meta, _ in ordered if meta.granule_id in exclude]
+    ordered = [(meta, path) for meta, path in ordered if meta.granule_id not in exclude]
     if len(ordered) < 2:
         raise GranuleError("Hacen falta al menos dos fechas")
     reference = ordered[0][0]
@@ -209,7 +221,7 @@ def process_series(
         + [QA_NOTICE.format(params.qa_outlier_db)]
         + ([MULTITEMPORAL_NOTICE.format(window=params.multitemporal_window, dates=len(ordered))] if speckle else [])
         + (
-            [EXCLUDED_NOTICE.format(items=", ".join(f"{meta.date} ({reason})" for meta, reason in skipped))]
+            [EXCLUDED_NOTICE.format(items=", ".join(f"{day} ({reason})" for day, reason in sorted(skipped)))]
             if skipped
             else []
         )

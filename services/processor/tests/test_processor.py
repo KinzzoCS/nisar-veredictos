@@ -643,3 +643,23 @@ def test_pipeline_skips_excluded_granules_by_their_internal_id_and_says_so(serie
     assert len(manifest["dates"]) == len(paths) - 1
     assert all(bad.granule_id not in pair["granules"] for pair in manifest["pairs"])
     assert any(f"{bad.date} (product_defect)" in notice for notice in manifest["notices"])
+
+
+def test_excluded_granule_is_skipped_by_name_without_opening_it(series, tmp_path):
+    paths, _ = series
+    bad = read_meta_path(paths[1])
+    corrupt = tmp_path / f"{bad.granule_id}.h5"  # mismo nombre que escribe ingest, pero el archivo está roto
+    corrupt.write_bytes(b"no es un HDF5")
+    inputs = [paths[0], corrupt, *paths[2:]]
+    manifest = process_series(inputs, AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL",
+                              exclude={bad.granule_id: "product_defect"})
+    assert len(manifest["dates"]) == len(paths) - 1
+    assert any(f"{bad.date} (product_defect)" in notice for notice in manifest["notices"])
+
+
+def test_a_corrupt_granule_that_is_not_excluded_still_fails(series, tmp_path):
+    paths, _ = series
+    corrupt = tmp_path / "otro.h5"
+    corrupt.write_bytes(b"no es un HDF5")
+    with pytest.raises(OSError):
+        process_series([paths[0], corrupt, *paths[2:]], AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", exclude={})
