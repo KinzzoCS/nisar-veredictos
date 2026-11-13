@@ -13,3 +13,4 @@
 | T-ANT-09 | Siguiente pasada con el plan de observación de NISAR (`NISAR_COP`): `ingest plan` y `observation_plan` en la línea de tiempo (diseño en `plan.md`) | P2 | — | hecha |
 | T-ANT-10 | Excluir gránulos defectuosos declarados en la zona (T171 del 2026-08-13) | P0 | — | hecha |
 | T-ANT-11 | Copiar `radarGrid` al recorte para que Eco marque layover y sombra (T-ECO-05) | P0 | — | hecha |
+| T-ANT-12 | Cerrar los criterios de horas UTC en ISO 8601 y de 502 ante fallos externos | P1 | — | hecha |

@@ -26,6 +26,7 @@ from processor.change import (
     otsu,
 )
 from processor.georef import agreement, best_shift, shared_components, shift_mask, water_from_ndwi, water_from_sar
+from processor.multitemporal import MultitemporalFilter, equivalent_looks
 from processor.terrain import geometry_on_grid, glo30_tiles, layover_shadow, read_radar_grid
 from processor.gcov import GRID, IDENTIFICATION, GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from processor.pipeline import process_series
@@ -213,7 +214,7 @@ def test_unobservable_pixels_keep_their_cause_in_the_written_state(series):
     for pair in manifest["pairs"]:
         a = read_scene(by_date[pair["from"].replace("-", "")], BBOX)
         b = read_scene(by_date[pair["to"].replace("-", "")], BBOX)
-        hidden = ~(observable(a, params.min_looks) & observable(b, params.min_looks))
+        hidden = ~(observable(a, params) & observable(b, params))
         expected = _state_for_unobservable(a, b, params)
         expected[hidden & (expected == NO_CHANGE)] = NO_DATA
         with rasterio.open(root / "artifacts" / pair["layers"]["state"]) as dataset:
@@ -510,3 +511,107 @@ def test_terrain_is_skipped_when_radar_grid_uses_another_projection(tmp_path):
     manifest = process_series(paths, AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])
     assert any("radarGrid está en EPSG:32614 y la malla en EPSG:32613" in notice for notice in manifest["notices"])
     assert all(pair["stats"]["counts"]["terrain"] == 0 for pair in manifest["pairs"])
+
+
+SHIFT_2_DB = 10 ** (2 / 10)
+
+
+def test_a_scene_wide_shift_is_not_local_change_and_is_published():
+    before = scene(rng=np.random.default_rng(1))
+    after = scene(hh=np.full(SHAPE, 0.05 * SHIFT_2_DB, np.float32), hv=np.full(SHAPE, 0.01 * SHIFT_2_DB, np.float32),
+                  rng=np.random.default_rng(2))
+    corrected = compare(before, after)
+    assert corrected.stats["scene_shift_hh_db"] == pytest.approx(2, abs=0.3)
+    assert corrected.stats["scene_shift_hv_db"] == pytest.approx(2, abs=0.3)
+    assert corrected.stats["counts"]["change_probable"] == 0
+    raw = compare(before, after, Params(correct_scene_shift=False))
+    # Sin corrección no se publica: la presencia de scene_shift_* en el manifiesto significa "ya restado".
+    assert "scene_shift_hh_db" not in raw.stats and "scene_shift_hv_db" not in raw.stats
+    assert np.nanmedian(raw.change_hh) == pytest.approx(2, abs=0.3)
+    assert abs(np.nanmedian(corrected.change_hh)) < 0.3
+
+
+def test_local_change_on_top_of_a_scene_shift_is_still_found_with_its_size():
+    before = scene(rng=np.random.default_rng(1))
+    hh = np.full(SHAPE, 0.05 * SHIFT_2_DB, np.float32)
+    hh[20:40, 20:40] *= 10 ** (6 / 10)  # +6 dB locales sobre +2 dB de toda la escena
+    result = compare(before, scene(hh=hh, rng=np.random.default_rng(2)))
+    assert result.state[30, 30] == CHANGE_PROBABLE and result.state[60, 60] == NO_CHANGE
+    assert result.stats["mean_change_hh_db"] == pytest.approx(6, abs=1.0)
+
+
+def test_low_looks_is_judged_on_the_window_not_on_single_pixels():
+    looks = np.full(SHAPE, 4.0, np.float32)
+    looks[10, 10] = 1.0  # un píxel suelto con pocos looks: la ventana suma de sobra
+    looks[50:70, 50:70] = 1.0  # una zona entera con pocos looks: la ventana suma 25
+    state = compare(scene(looks=looks, rng=np.random.default_rng(1)), scene(looks=looks, rng=np.random.default_rng(2))).state
+    assert state[10, 10] != LOW_LOOKS
+    assert state[60, 60] == LOW_LOOKS
+    assert (state == LOW_LOOKS).sum() < 20 * 20 + 1
+
+
+def _stack(n, changed=None):
+    """n fechas de la misma superficie con speckle independiente; `changed` = índice de la fecha con +10 dB."""
+    scenes = []
+    for index in range(n):
+        hh = np.ones(SHAPE, np.float32)
+        if index == changed:
+            hh[20:40, 20:40] *= 10
+        scenes.append(scene(hh=hh, hv=hh.copy(), rng=np.random.default_rng(100 + index)))
+    return scenes
+
+
+def _filtered(scenes, window=7):
+    valid = np.ones(SHAPE, bool)
+    speckle = MultitemporalFilter(SHAPE, window)
+    for item in scenes:
+        speckle.add(item, valid)
+    return [speckle.apply(item, valid) for item in scenes]
+
+
+def test_multitemporal_filter_reduces_speckle_and_keeps_the_local_mean():
+    scenes = _stack(8)
+    valid = np.ones(SHAPE, bool)
+    before = equivalent_looks(scenes[3].hh, valid, block=10)
+    raw_mean = float(scenes[3].hh.mean())
+    filtered = _filtered(scenes)
+    after = equivalent_looks(filtered[3].hh, valid, block=10)
+    assert after > 2 * before
+    assert float(filtered[3].hh.mean()) == pytest.approx(raw_mean, rel=0.05)
+
+
+def test_multitemporal_filter_keeps_a_change_in_its_date_and_barely_leaks_it():
+    scenes = _stack(8, changed=5)
+    filtered = _filtered(scenes)
+    inside, outside = (slice(24, 36), slice(24, 36)), (slice(55, 75), slice(55, 75))
+    gain = 10 * np.log10(filtered[5].hh[inside].mean() / filtered[5].hh[outside].mean())
+    assert gain == pytest.approx(10, abs=1.0)
+    for index in (0, 4, 7):
+        leak = 10 * np.log10(filtered[index].hh[inside].mean() / filtered[index].hh[outside].mean())
+        assert abs(leak) < 0.5, (index, leak)
+
+
+def test_multitemporal_filter_leaves_invalid_pixels_untouched():
+    scenes = _stack(3)
+    valid = np.ones(SHAPE, bool)
+    valid[:, :10] = False
+    speckle = MultitemporalFilter(SHAPE)
+    original = scenes[1].hh.copy()
+    for item in scenes:
+        speckle.add(item, valid)
+    out = speckle.apply(scenes[1], valid)
+    assert np.array_equal(out.hh[:, :10], original[:, :10])
+    assert not np.array_equal(out.hh[:, 20:], original[:, 20:])
+
+
+def test_pipeline_with_multitemporal_declares_it_and_still_finds_the_wetting(series, tmp_path):
+    paths, _ = series
+    params = Params(multitemporal=True)
+    manifest = process_series(paths, AOI, "T048A-F015", tmp_path, "PROVISIONAL", params)
+    assert any("Filtro multitemporal" in notice and f"{len(paths)} fechas" in notice for notice in manifest["notices"])
+    full = next(pair for pair in manifest["pairs"] if pair["kind"] == "full_window")
+    assert full["stats"]["counts"]["change_probable"] > 0
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+    plain = process_series(paths, AOI, "T048A-F015", tmp_path / "plain", "PROVISIONAL")
+    assert not any("Filtro multitemporal" in notice for notice in plain["notices"])

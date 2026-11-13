@@ -25,11 +25,12 @@ class SeriesSpec:
     dates: tuple[str, ...]
 
 
-# Fechas reales de CMR para Parral: la cadencia es verdadera, los valores no.
+# Fechas reales de CMR para Parral: la cadencia es verdadera, los valores no. Sin el 2026-08-13 de T171,
+# excluido en config/aois/parral.yaml por un defecto del producto: la demo muestra los mismos pares que los datos reales.
 PARRAL_SERIES = (
     SeriesSpec(48, "A", 15, ("20260617", "20260629", "20260711", "20260723", "20260816",
                              "20260828", "20260909", "20260921", "20261003", "20261015")),
-    SeriesSpec(171, "D", 75, ("20260626", "20260708", "20260720", "20260813", "20260825",
+    SeriesSpec(171, "D", 75, ("20260626", "20260708", "20260720", "20260825",
                               "20260906", "20260918", "20260930", "20261012")),
 )
 
