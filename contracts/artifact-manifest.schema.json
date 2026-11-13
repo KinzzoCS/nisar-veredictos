@@ -100,7 +100,7 @@
               "threshold_hv_db": { "type": ["number", "null"] },
               "mean_change_hh_db": { "type": ["number", "null"] },
               "mean_change_hv_db": { "type": ["number", "null"] },
-              "scene_shift_hh_db": { "type": ["number", "null"], "description": "Mediana de la diferencia HH en lo observable (desplazamiento de toda la escena). Opcional; desde T-ECO-07 se resta antes del umbral." },
+              "scene_shift_hh_db": { "type": ["number", "null"], "description": "Mediana de la diferencia HH en lo observable (desplazamiento de toda la escena). Opcional. Solo está presente cuando ya se restó de los cambios antes del umbral (T-ECO-07); si falta, el cambio no está corregido." },
               "scene_shift_hv_db": { "type": ["number", "null"], "description": "Igual que scene_shift_hh_db, para HV." }
             }
           }

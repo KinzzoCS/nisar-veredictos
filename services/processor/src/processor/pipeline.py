@@ -20,10 +20,12 @@ BASE_NOTICES = [
     "Datos PROVISIONAL: se reprocesarán a VALIDATED en 2027 y no deben mezclarse con otra versión.",
     "Hueco permanente de adquisición del 2026-07-27 al 2026-08-10.",
     "Umbrales estimados sobre la propia escena: indicador del modelo, no error calibrado.",
+]
+SHIFT_NOTICE = (
     "El cambio de cada par se mide respecto al desplazamiento de toda la escena: se resta la mediana de la "
     "diferencia (scene_shift_hh_db y scene_shift_hv_db en stats) antes de aplicar el umbral. Un cambio que "
-    "afecta a casi toda la zona, como una lluvia general, queda en ese desplazamiento y no como cambio local.",
-]
+    "afecta a casi toda la zona, como una lluvia general, queda en ese desplazamiento y no como cambio local."
+)
 QA_NOTICE = (
     "El control de calidad marca una fecha si su mediana se aparta más de {:g} dB de la serie. "
     "Ese umbral no está calibrado y la marca es una advertencia, no una exclusión."
@@ -161,6 +163,7 @@ def process_series(
     notices = (
         ([SYNTHETIC_NOTICE] if reference.data_kind == "synthetic" else [])
         + BASE_NOTICES
+        + ([SHIFT_NOTICE] if params.correct_scene_shift else [])
         + [
             TERRAIN_NOTICE.format(detail=terrain_detail)
             if terrain is not None

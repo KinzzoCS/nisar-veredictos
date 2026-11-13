@@ -196,20 +196,17 @@ def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray |
 
     counts = {name: int(np.count_nonzero(state == code)) for name, code in STATE_CODES.items()}
     signatures = _signature_counts(change["hh"][changed], change["hv"][changed])
-    return PairResult(
-        state=state,
-        change_hh=change["hh"],
-        change_hv=change["hv"],
-        stats={
-            "counts": counts,
-            "signature_counts": signatures,
-            "threshold_hh_db": thresholds["hh"],
-            "threshold_hv_db": thresholds["hv"],
-            "mean_change_hh_db": _mean(change["hh"][changed]),
-            "mean_change_hv_db": _mean(change["hv"][changed]),
-            # Mediana de la diferencia en lo observable: desplazamiento de toda la escena. Se publica siempre;
-            # si correct_scene_shift está activo, ya está restado de los cambios y de los umbrales.
-            "scene_shift_hh_db": shifts["hh"],
-            "scene_shift_hv_db": shifts["hv"],
-        },
-    )
+    stats = {
+        "counts": counts,
+        "signature_counts": signatures,
+        "threshold_hh_db": thresholds["hh"],
+        "threshold_hv_db": thresholds["hv"],
+        "mean_change_hh_db": _mean(change["hh"][changed]),
+        "mean_change_hv_db": _mean(change["hv"][changed]),
+    }
+    if params.correct_scene_shift:
+        # Mediana de la diferencia en lo observable: desplazamiento de toda la escena, ya restado de los cambios.
+        # Solo se publica cuando se restó, para que su presencia en el manifiesto signifique "corregido".
+        stats["scene_shift_hh_db"] = shifts["hh"]
+        stats["scene_shift_hv_db"] = shifts["hv"]
+    return PairResult(state=state, change_hh=change["hh"], change_hv=change["hv"], stats=stats)

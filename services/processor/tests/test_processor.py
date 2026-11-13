@@ -524,7 +524,8 @@ def test_a_scene_wide_shift_is_not_local_change_and_is_published():
     assert corrected.stats["scene_shift_hv_db"] == pytest.approx(2, abs=0.3)
     assert corrected.stats["counts"]["change_probable"] == 0
     raw = compare(before, after, Params(correct_scene_shift=False))
-    assert raw.stats["scene_shift_hh_db"] == pytest.approx(2, abs=0.3)
+    # Sin corrección no se publica: la presencia de scene_shift_* en el manifiesto significa "ya restado".
+    assert "scene_shift_hh_db" not in raw.stats and "scene_shift_hv_db" not in raw.stats
     assert np.nanmedian(raw.change_hh) == pytest.approx(2, abs=0.3)
     assert abs(np.nanmedian(corrected.change_hh)) < 0.3
 
