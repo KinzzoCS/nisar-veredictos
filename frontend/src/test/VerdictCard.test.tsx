@@ -22,12 +22,12 @@ test('muestra siempre los tres textos juntos, con el estado en texto e icono', (
   expect(screen.getByText(/Falta contrastar/)).toBeVisible()
 })
 
-test('rotula las hipótesis como hipótesis y las omite si no hay', () => {
+test('rotula las hipótesis como explicaciones sin comprobar y las omite si no hay', () => {
   const { rerender } = render(<VerdictCard verdict={makeVerdict()} />)
-  const box = screen.getByRole('region', { name: 'Hipótesis, no conclusiones' })
+  const box = screen.getByRole('region', { name: 'Posibles explicaciones, sin comprobar' })
   expect(within(box).getByText(/secado del suelo/)).toBeInTheDocument()
   rerender(<VerdictCard verdict={makeVerdict({ hypotheses: [] })} />)
-  expect(screen.queryByText('Hipótesis, no conclusiones')).not.toBeInTheDocument()
+  expect(screen.queryByText('Posibles explicaciones, sin comprobar')).not.toBeInTheDocument()
 })
 
 test('no observable tiene su propio estilo, icono y causa, distinto de sin cambio', () => {
@@ -42,12 +42,12 @@ test('no observable tiene su propio estilo, icono y causa, distinto de sin cambi
     />,
   )
   expect(screen.getByRole('heading', { name: /No observable/ })).toBeInTheDocument()
-  expect(screen.getByText('Por qué: la zona queda fuera de la pasada')).toBeInTheDocument()
+  expect(screen.getByText('Motivo de que no se pudiera medir: la zona queda fuera de la pasada')).toBeInTheDocument()
   expect(container.querySelector('article')).toHaveClass('verdict-not_observable')
 
   rerender(<VerdictCard verdict={makeVerdict({ state: 'no_detectable_change', hypotheses: [] })} />)
   expect(screen.getByRole('heading', { name: /Sin cambio detectable/ })).toBeInTheDocument()
-  expect(screen.queryByText(/Por qué:/)).not.toBeInTheDocument()
+  expect(screen.queryByText(/Motivo de que no se pudiera medir/)).not.toBeInTheDocument()
   expect(container.querySelector('article')).toHaveClass('verdict-no_detectable_change')
   expect(screen.getByText('○')).toBeInTheDocument()
 })
@@ -69,6 +69,9 @@ test('el recibo está plegado y muestra la procedencia al abrirlo', async () => 
   expect(receipt.getByText(/2026-06-17, hace 148 días; publicada 40 h después/)).toBeInTheDocument()
   expect(receipt.getByText(/latencia desconocida: el catálogo no respondió/)).toBeInTheDocument()
   expect(receipt.getByText(/Escena Sentinel-2 del 2026-06-18/)).toBeInTheDocument()
+  expect(receipt.getByText('Contraste de agua (OPERA DSWx-S1)')).toBeInTheDocument()
+  expect(receipt.getByText('Sin referencia OPERA DSWx-S1 a ±7 días.')).toBeInTheDocument()
+  expect(receipt.getByText('Cruza un hueco sin adquisiciones')).toBeInTheDocument()
   expect(receipt.getByText(/se reprocesarán a VALIDATED/)).toBeInTheDocument()
 })
 

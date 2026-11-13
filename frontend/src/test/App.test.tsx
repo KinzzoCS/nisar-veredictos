@@ -111,7 +111,7 @@ test('cambia de par y de serie solo con el teclado', async () => {
   series.focus()
   await user.selectOptions(series, 'T171D-F075')
   expect(await screen.findByRole('heading', { name: /No observable/ })).toBeInTheDocument()
-  expect(screen.getByText('Por qué: la zona queda fuera de la pasada')).toBeInTheDocument()
+  expect(screen.getByText('Motivo de que no se pudiera medir: la zona queda fuera de la pasada')).toBeInTheDocument()
 })
 
 test('vuelve a pedir los veredictos en inglés al cambiar de idioma', async () => {

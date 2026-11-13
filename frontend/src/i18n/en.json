@@ -28,13 +28,13 @@
       "no_detectable_change": "No detectable change",
       "not_observable": "Not observable"
     },
-    "cause": "Why: {{cause}}",
+    "cause": "Why it could not be measured: {{cause}}",
     "dates_one": "from {{from}} to {{to}} · {{count}} day",
     "dates_other": "from {{from}} to {{to}} · {{count}} days",
     "detected": "What we detected",
     "doesNotProve": "What it does not prove",
     "missing": "What is missing",
-    "hypotheses": "Hypotheses, not conclusions"
+    "hypotheses": "Possible explanations, unverified"
   },
   "receipt": {
     "summary": "Receipt: where this answer comes from",
@@ -46,7 +46,7 @@
     "modePolarization": "Mode and polarization",
     "crid": "Processing version (CRID)",
     "granules": "Granules",
-    "dataGap": "Spans the acquisition gap",
+    "dataGap": "Spans a gap with no acquisitions",
     "yes": "yes",
     "no": "no",
     "notices": "Notices",
@@ -62,7 +62,8 @@
       "granule_not_in_catalog": "latency unknown: the granule is not in the catalog",
       "not_published": "latency unknown: the catalog gives no publication date"
     },
-    "optical": "Optical comparison (Sentinel-2)"
+    "optical": "Optical comparison (Sentinel-2)",
+    "water": "Water comparison (OPERA DSWx-S1)"
   },
   "map": {
     "label": "Map",
