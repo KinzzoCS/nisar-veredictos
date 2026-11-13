@@ -307,9 +307,14 @@ class DecisionRule(BaseModel):
     min_observed_fraction: float = Field(description="Por debajo de esta fracción observada, not_observable.")
     min_changed_fraction: float = Field(
         description="Desde esta fracción de lo observado con cambio, change_probable; por debajo, "
-        "no_detectable_change. Provisional (T-BAL-09)."
+        "no_detectable_change. Fijado en el 5 % con el ruido de 16 pares consecutivos reales de Parral, "
+        "que tras corregir el desplazamiento de la escena quedan entre 0,58 % y 4,64 % salvo dos (T-BAL-09)."
     )
-    calibrated: bool = Field(False, description="Siempre false: valores iniciales, sin calibrar con verdad de campo.")
+    calibrated: bool = Field(
+        False,
+        description="Siempre false: min_changed_fraction se fijó con el ruido medido en pares reales, pero ninguno de "
+        "los dos umbrales se ha contrastado con verdad de campo.",
+    )
 
 
 class Evidence(BaseModel):

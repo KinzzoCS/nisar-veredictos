@@ -160,13 +160,13 @@ export interface components {
         DecisionRule: {
             /**
              * Calibrated
-             * @description Siempre false: valores iniciales, sin calibrar con verdad de campo.
+             * @description Siempre false: min_changed_fraction se fijó con el ruido medido en pares reales, pero ninguno de los dos umbrales se ha contrastado con verdad de campo.
              * @default false
              */
             calibrated: boolean;
             /**
              * Min Changed Fraction
-             * @description Desde esta fracción de lo observado con cambio, change_probable; por debajo, no_detectable_change. Provisional (T-BAL-09).
+             * @description Desde esta fracción de lo observado con cambio, change_probable; por debajo, no_detectable_change. Fijado en el 5 % con el ruido de 16 pares consecutivos reales de Parral, que tras corregir el desplazamiento de la escena quedan entre 0,58 % y 4,64 % salvo dos (T-BAL-09).
              */
             min_changed_fraction: number;
             /**
@@ -899,7 +899,7 @@ export interface components {
             reference: components["schemas"]["WaterReference"] | null;
             /**
              * Status
-             * @description compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de min_compared_fraction de la zona; hay conteos pero no assessment.
+             * @description compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o el radar. no_overlap: sin píxeles válidos en común, aunque reference.covers_aoi sea true (la caja de la tesela no garantiza datos). partial_overlap: se comparó menos de min_compared_fraction de la zona; hay conteos pero no assessment.
              * @enum {string}
              */
             status: "compared" | "synthetic" | "no_credentials" | "none_in_window" | "catalog_unavailable" | "read_failed" | "no_overlap" | "partial_overlap";

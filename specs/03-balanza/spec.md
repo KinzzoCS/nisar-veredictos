@@ -30,7 +30,7 @@ Convertir mediciones en respuestas que una persona entienda **y pueda comprobar*
 | RF-BAL-05 | La prueba de humo cubre todas las rutas nuevas, incluidas las de Antena | Hecho |
 | RF-BAL-06 | Eventos con las horas UTC de la línea de tiempo y persistencias por tipo de evento declaradas como supuestos | Hecho |
 | RF-BAL-07 | Contraste con OPERA DSWx-S1: acuerdo o desacuerdo sobre agua, presentado como desacuerdo y no como error | Hecho (T-BAL-08); probado con radar real de T048 y T171 y token de Earthdata |
-| RF-BAL-08 | Calibrar reglas con datos reales junto a Eco | En curso: `MIN_CHANGED_FRACTION` provisional del 5 % sobre el cambio corregido de Eco (T-ECO-07) |
+| RF-BAL-08 | Calibrar reglas con datos reales junto a Eco | Hecho (T-BAL-09): `MIN_CHANGED_FRACTION` del 5 %, fijado con el ruido de 16 pares reales corregidos por Eco (T-ECO-07); sin verdad de campo, así que `calibrated` sigue en false y los demás umbrales quedan como supuestos declarados |
 | RF-BAL-09 | Las fechas con bandera de calidad de Eco se reflejan en el texto y en el recibo | Hecho (T-BAL-07), con aviso de desplazamiento de la escena |
 
 ## Criterios de aceptación

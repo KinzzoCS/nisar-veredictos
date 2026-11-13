@@ -133,8 +133,9 @@ def pair_summary(
         elif decision.state == rules.NO_DETECTABLE_CHANGE and decision.changed_fraction > 0:
             detected = (
                 f"Entre {start} y {end} ({span}) la señal de radar superó el umbral en el {changed} de la superficie "
-                f"observada, por debajo del {_fraction(rules.MIN_CHANGED_FRACTION, lang)} que exige el veredicto "
-                "(valor sin calibrar): el ruido del radar puede dar cifras de ese orden, así que no lo contamos como cambio."
+                f"observada, por debajo del {_fraction(rules.MIN_CHANGED_FRACTION, lang)} que exige el veredicto. "
+                "Ese mínimo se fijó con 16 pares reales de Parral, donde casi todos dieron cifras de hasta casi el 5 % "
+                "que no se pueden distinguir del ruido del radar, así que no lo contamos como cambio."
             )
             limits = "No demuestra que nada cambiara: lo pequeño, lo breve o lo ocurrido entre pasadas puede no aparecer."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
@@ -161,8 +162,9 @@ def pair_summary(
         elif decision.state == rules.NO_DETECTABLE_CHANGE and decision.changed_fraction > 0:
             detected = (
                 f"Between {start} and {end} ({span}), the radar signal exceeded the threshold over {changed} of the "
-                f"observed surface, below the {_fraction(rules.MIN_CHANGED_FRACTION, lang)} the verdict requires "
-                "(an uncalibrated value): radar noise can give figures of that size, so we do not count it as change."
+                f"observed surface, below the {_fraction(rules.MIN_CHANGED_FRACTION, lang)} the verdict requires. "
+                "That minimum was set with 16 real pairs from Parral, almost all of which gave figures of up to almost "
+                "5 % that cannot be told apart from radar noise, so we do not count it as change."
             )
             limits = "It does not prove nothing changed: small, brief or between-pass changes may not appear."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:

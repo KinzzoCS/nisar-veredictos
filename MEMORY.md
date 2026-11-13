@@ -62,6 +62,7 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-12 | Mapa con **MapLibre GL JS 6.16.0** (BSD-3-Clause) y mapa base de **teselas raster de OpenStreetMap** con atribución visible (T-ATL-01) | Licencias de los paquetes comprobadas con `npm view` (MapLibre BSD-3-Clause; Vite y Vitest MIT). Las teselas de OSM son ODbL y exigen atribución visible; su política de uso (operations.osmfoundation.org/policies/tiles) no admite tráfico alto, así que valen para la demo y no para producción. Esa política no se releyó el 2026-11-12: conviene revisarla antes de la entrega. EOX cloudless se descarta por las restricciones de algunas ediciones |
 | 2026-11-12 | El mapa es una función, `crearMapa(contenedor, opciones)`, que no depende del framework y vive en `frontend/src/mapa/` dentro de la app de Faro (Vite + React + TypeScript, PR 27). Atlas solo añade esa carpeta, la dependencia `maplibre-gl` y el script `dev:mapa` | Faro monta el mapa desde React con `actualizar()` y `destruir()`. Carpeta y forma confirmadas por Faro el 2026-11-12 |
 | 2026-11-12 | El mapa pide `state` con su propia paleta: sustituye el parámetro `colormap` de la plantilla para que cada píxel lleve su código (0, 1, 10-15) en el canal rojo, y pinta en el navegador el cambio probable en color sólido y lo no observable con trama diagonal (T-ATL-03) | TiTiler no dibuja tramas, y lo no observable debe distinguirse sin depender del color (constitución IX.2). La trama va en una capa propia, siempre visible y con opacidad mínima del 70 %. Depende de dos cosas de Balanza y Eco: que la API siga aceptando `colormap` y que `state` use remuestreo `nearest`. Probado solo con teselas generadas en el navegador, no con la API |
+| 2026-11-13 | `MIN_CHANGED_FRACTION` queda fijado en el 5 % y T-BAL-09 se cierra. `calibrated` sigue en false; los textos ya no lo llaman "valor sin calibrar", sino fijado con 16 pares reales de Parral. El desplazamiento de escena (1,5 dB), las persistencias, los umbrales de agua y las reglas de DSWx-S1 quedan como supuestos declarados | Sin verdad de campo, se calibra contra el ruido: 14 de 16 pares corregidos quedan entre 0,58 % y 4,64 % (PR 39). Quedan `change_probable` T048 08-16→08-28 (5,18 %) y 08-28→09-09 (9,56 %). Un umbral por dispersión del par exigiría cambiar el manifiesto de Eco a un día del congelamiento |
 
 ## Datos verificados
 
@@ -182,7 +183,7 @@ Comprobado el 2026-11-12 por Antena con CMR, con los XML bajados con el token y 
 - Lista de recursos oficial del reto.
 - Troceado HDF5 de los gránulos reales. La coincidencia de mallas ya se verificó en las 10 fechas de T048 y entre T048 y T171 (ver "Series completas").
 - Harmony para extraer capas GCOV.
-- Umbrales: `min_threshold_db`, `MIN_CHANGED_FRACTION`, `qa_outlier_db` (1,5 dB) y las firmas por polarización son valores iniciales sin calibrar con banda L.
+- Umbrales: `min_threshold_db`, `qa_outlier_db` (1,5 dB) y las firmas por polarización son valores iniciales sin calibrar con banda L. `MIN_CHANGED_FRACTION` (5 %) se fijó con el ruido de 16 pares reales (T-BAL-09), pero tampoco tiene verdad de campo.
 
 ## Pendientes
 
