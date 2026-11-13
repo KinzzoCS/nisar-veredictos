@@ -25,11 +25,12 @@ class SeriesSpec:
     dates: tuple[str, ...]
 
 
-# Fechas reales de CMR para Parral: la cadencia es verdadera, los valores no.
+# Fechas reales de CMR para Parral: la cadencia es verdadera, los valores no. Sin el 2026-08-13 de T171,
+# excluido en config/aois/parral.yaml por un defecto del producto: la demo muestra los mismos pares que los datos reales.
 PARRAL_SERIES = (
     SeriesSpec(48, "A", 15, ("20260617", "20260629", "20260711", "20260723", "20260816",
                              "20260828", "20260909", "20260921", "20261003", "20261015")),
-    SeriesSpec(171, "D", 75, ("20260626", "20260708", "20260720", "20260813", "20260825",
+    SeriesSpec(171, "D", 75, ("20260626", "20260708", "20260720", "20260825",
                               "20260906", "20260918", "20260930", "20261012")),
 )
 
@@ -73,12 +74,42 @@ def _write(path: Path, name: str, hh, hv, mask, looks, exception, x, y, day, spe
         grid["projection"].attrs["epsg_code"] = EPSG
 
 
+def write_radar_grid(path: Path, x: np.ndarray, y: np.ndarray, direction: str, incidence=(33.0, 47.0)) -> None:
+    """Añade un radarGrid falso: incidencia que crece hacia el alcance lejano y visión a la izquierda.
+
+    El vector de visión va del suelo al sensor, como en los gránulos reales (comprobado el 2026-11-12:
+    losUnitVectorX medio de +0,62 en T048 ascendente y de −0,63 en T171 descendente). processor no depende del signo.
+    """
+    xs = np.linspace(x.min() - 2000, x.max() + 2000, 12)
+    ys = np.linspace(y.max() + 2000, y.min() - 2000, 10)
+    heights = np.array([-500.0, 0.0, 1000.0, 2000.0, 3000.0, 4000.0])
+    near_to_far = (xs.max() - xs) / np.ptp(xs) if direction == "A" else (xs - xs.min()) / np.ptp(xs)
+    inc = incidence[0] + (incidence[1] - incidence[0]) * near_to_far
+    cube = np.broadcast_to(inc[None, None, :], (heights.size, ys.size, xs.size)).astype(np.float32)
+    look_east = 1.0 if direction == "A" else -1.0  # del suelo al sensor: el sensor queda al este en ascendente
+    with h5py.File(path, "a") as handle:
+        group = handle.require_group("/science/LSAR/GCOV/metadata/radarGrid")
+        group["xCoordinates"] = xs
+        group["yCoordinates"] = ys
+        group["heightAboveEllipsoid"] = heights
+        group["incidenceAngle"] = cube
+        group["losUnitVectorX"] = np.full(cube.shape, look_east * 0.9, np.float32)
+        group["losUnitVectorY"] = np.full(cube.shape, 0.15, np.float32)
+        group["projection"] = np.uint32(EPSG)
+        group["projection"].attrs["epsg_code"] = EPSG
+
+
 def _speckle(rng: np.random.Generator, db: np.ndarray) -> np.ndarray:
     return 10 ** (db / 10) * rng.gamma(LOOKS, 1 / LOOKS, db.shape)
 
 
 def generate_series(
-    spec: SeriesSpec, bbox: list[float], out_dir: Path, seed: int = 7, posting_m: float = POSTING_M
+    spec: SeriesSpec,
+    bbox: list[float],
+    out_dir: Path,
+    seed: int = 7,
+    posting_m: float = POSTING_M,
+    radar_grid: bool = False,
 ) -> list[Path]:
     left, bottom, right, top = transform_bounds("EPSG:4326", f"EPSG:{EPSG}", *bbox)
     margin = 4 * posting_m
@@ -128,5 +159,7 @@ def generate_series(
         hv_power[mask == 255] = np.nan
         path = out_dir / f"{name}.h5"
         _write(path, name, hh_power, hv_power, mask, looks, exception, x, y, day, spec)
+        if radar_grid:
+            write_radar_grid(path, x, y, spec.direction)
         paths.append(path)
     return paths

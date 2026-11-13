@@ -6,6 +6,20 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
+_FRACTION = re.compile(r"\.(\d+)")
+
+
+def parse_utc(raw: str) -> datetime:
+    """Lee una hora ISO 8601 de CMR o de STAC y la devuelve en UTC.
+
+    Sin zona se toma como UTC, que es la referencia que publican CMR y Earth Search. Con otra
+    zona se convierte. Python 3.10 solo acepta fracciones de 3 o 6 cifras, así que se ajustan a 6.
+    """
+    text = _FRACTION.sub(lambda m: "." + (m[1] + "000000")[:6], raw.strip().replace("Z", "+00:00"), count=1)
+    value = datetime.fromisoformat(text)
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
 # Hueco permanente de adquisición publicado por ASF.
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 
@@ -104,6 +118,10 @@ def crosses_gap(first: date, second: date) -> bool:
     return first < DATA_GAP[1] and second > DATA_GAP[0]
 
 
+def series_id(track: int, direction: str, frame: int, mode: str, polarization: str, crid: str) -> str:
+    return f"T{track:03d}{direction}-F{frame:03d}-{mode}-{polarization}-{crid}"
+
+
 def build_series(granules: list[Granule], bbox: list[float], min_dates: int = 2) -> list[Series]:
     groups: dict[tuple, dict[date, Granule]] = defaultdict(dict)
     for granule in granules:
@@ -117,7 +135,7 @@ def build_series(granules: list[Granule], bbox: list[float], min_dates: int = 2)
         pairs = list(zip(ordered, ordered[1:]))
         result.append(
             Series(
-                id=f"T{track:03d}{direction}-F{frame:03d}-{mode}-{polarization}-{crid}",
+                id=series_id(track, direction, frame, mode, polarization, crid),
                 track=track,
                 direction=direction,
                 frame=frame,

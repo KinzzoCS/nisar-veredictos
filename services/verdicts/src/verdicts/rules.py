@@ -2,8 +2,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, timedelta
-from math import ceil
+from datetime import date, datetime, time, timedelta, timezone
 
 CHANGE_PROBABLE = "change_probable"
 NO_DETECTABLE_CHANGE = "no_detectable_change"
@@ -39,6 +38,8 @@ class EventStatus:
     cause: str | None
     previous_pass: date | None
     next_pass: date | None
+    seen_by: date | None = None  # pasada que cae seguro dentro del evento, si la hay
+    next_pass_at: datetime | None = None
 
 
 def decide(counts: dict[str, int]) -> Decision:
@@ -67,14 +68,74 @@ def hypotheses(signature_counts: dict[str, int]) -> list[str]:
     return [SIGNATURE_HYPOTHESIS[name] for _, name in sorted(relevant, reverse=True)]
 
 
-def event_status(dates: list[date], event: date, persistence_hours: int) -> EventStatus:
-    """Decide si alguna pasada pudo ver un evento mientras duraba."""
+DAY = timedelta(days=1)
+
+# Persistencias supuestas por tipo de evento, en horas. Valores iniciales sin calibrar: se
+# devuelven siempre como supuesto en la respuesta, nunca como medición.
+PERSISTENCE_BY_EVENT_TYPE = {
+    "urban_storm": 6,
+    "river_flood": 72,
+    "wildfire": 240,
+}
+DEFAULT_PERSISTENCE_HOURS = 24
+
+
+@dataclass(frozen=True)
+class Persistence:
+    hours: int
+    source: str  # "event_type", "user" o "default"
+    event_type: str | None
+
+
+def persistence(event_type: str | None, hours: int | None) -> Persistence:
+    """Horas que se suponen para el evento: las indicadas, las del tipo o el valor por omisión."""
+    if hours is not None:
+        return Persistence(hours, "user", event_type)
+    if event_type is not None:
+        return Persistence(PERSISTENCE_BY_EVENT_TYPE[event_type], "event_type", event_type)
+    return Persistence(DEFAULT_PERSISTENCE_HOURS, "default", None)
+
+
+def _span(day: date, at: datetime | None) -> tuple[datetime, datetime]:
+    """Intervalo UTC en que cae algo: el instante si se conoce la hora, o el día completo si no."""
+    if at is not None:
+        return at, at
+    start = datetime.combine(day, time.min, tzinfo=timezone.utc)
+    return start, start + DAY - timedelta(microseconds=1)
+
+
+def event_status(
+    dates: list[date],
+    event: date,
+    persistence_hours: int,
+    event_time: time | None = None,
+    pass_times: dict[date, datetime] | None = None,
+) -> EventStatus:
+    """Decide si alguna pasada cayó mientras duraba el evento, comparando en horas UTC.
+
+    Sin hora del evento, puede empezar en cualquier momento de su día UTC; sin hora de la
+    pasada, también. "observable" exige que la pasada caiga dentro del evento en todos los
+    casos posibles; si solo cae en algunos, se declara timing_uncertain.
+    """
+    times = pass_times or {}
+    duration = timedelta(hours=persistence_hours)
+    start_lo, start_hi = _span(
+        event, datetime.combine(event, event_time, tzinfo=timezone.utc) if event_time else None
+    )
     ordered = sorted(set(dates))
-    previous_pass = max((day for day in ordered if day < event), default=None)
-    next_pass = min((day for day in ordered if day >= event), default=None)
-    deadline = event + timedelta(days=ceil(persistence_hours / 24))
+    spans = [(day, *_span(day, times.get(day))) for day in ordered]
+    # La siguiente es la primera que pudo ser posterior al inicio del evento; la anterior, la de antes.
+    following = [item for item in spans if item[2] >= start_lo]
+    earlier = [item for item in spans if item[2] < start_lo]
+    previous_pass = earlier[-1][0] if earlier else None
+    next_pass = following[0][0] if following else None
+    next_at = times.get(next_pass) if next_pass else None
     if next_pass is None or previous_pass is None:
-        return EventStatus(NOT_OBSERVABLE, "outside_series_window", previous_pass, next_pass)
-    if next_pass <= deadline:
-        return EventStatus(OBSERVABLE, None, previous_pass, next_pass)
-    return EventStatus(NOT_OBSERVABLE, "no_acquisition_during_event", previous_pass, next_pass)
+        return EventStatus(NOT_OBSERVABLE, "outside_series_window", previous_pass, next_pass, None, next_at)
+    candidates = [item for item in following if item[1] <= start_hi + duration]
+    for day, pass_lo, pass_hi in candidates:
+        if pass_lo >= start_hi and pass_hi <= start_lo + duration:
+            return EventStatus(OBSERVABLE, None, previous_pass, next_pass, day, next_at)
+    if candidates:
+        return EventStatus(NOT_OBSERVABLE, "timing_uncertain", previous_pass, next_pass, None, next_at)
+    return EventStatus(NOT_OBSERVABLE, "no_acquisition_during_event", previous_pass, next_pass, None, next_at)

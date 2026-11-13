@@ -3,14 +3,17 @@ from __future__ import annotations
 
 import argparse
 import shutil
+import urllib.request
 import sys
 from pathlib import Path
 
 import yaml
 
+from .change import Params
 from .gcov import GranuleError
 from .pipeline import process_series
 from .synthetic import PARRAL_SERIES, generate_series
+from .terrain import glo30_tiles
 
 
 def load_aoi(aoi_dir: Path, aoi_id: str) -> dict:
@@ -40,11 +43,38 @@ def seed_synthetic(args: argparse.Namespace) -> int:
     return 0
 
 
+def fetch_dem(args: argparse.Namespace) -> int:
+    """Baja las teselas públicas GLO-30 que cubren la zona (no necesita cuenta)."""
+    aoi = load_aoi(args.aoi_dir, args.aoi)
+    target = args.data_dir / "dem" / aoi["id"]
+    target.mkdir(parents=True, exist_ok=True)
+    for url in glo30_tiles(aoi["bbox"]):
+        path = target / url.rsplit("/", 1)[1]
+        if path.exists():
+            print(f"{path.name}: ya existe")
+            continue
+        partial = path.with_suffix(".part")
+        urllib.request.urlretrieve(url, partial)
+        partial.replace(path)
+        print(f"{path.name}: {path.stat().st_size / 1e6:.1f} MB")
+    return 0
+
+
 def run(args: argparse.Namespace) -> int:
     aoi = load_aoi(args.aoi_dir, args.aoi)
     paths = sorted(args.input.glob("*.h5"))
+    dem_dir = args.dem_dir or args.data_dir / "dem" / aoi["id"]
+    dem = sorted(dem_dir.glob("*.tif")) if dem_dir.is_dir() else []
     try:
-        manifest = process_series(paths, aoi, args.series, args.data_dir / "artifacts", aoi["maturity"])
+        manifest = process_series(
+            paths,
+            aoi,
+            args.series,
+            args.data_dir / "artifacts",
+            aoi["maturity"],
+            Params(multitemporal=args.multitemporal),
+            dem_sources=dem,
+        )
     except GranuleError as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -66,7 +96,15 @@ def main() -> int:
     process.add_argument("--aoi", required=True)
     process.add_argument("--series", required=True)
     process.add_argument("--input", type=Path, required=True)
+    process.add_argument("--dem-dir", type=Path, help="Teselas GLO-30; por omisión <data-dir>/dem/<zona>")
+    process.add_argument(
+        "--multitemporal", action="store_true", help="Aplica el filtro multitemporal de speckle (T-ECO-08)"
+    )
     process.set_defaults(handler=run)
+
+    dem = commands.add_parser("fetch-dem", help="Baja el DEM Copernicus GLO-30 de una zona")
+    dem.add_argument("--aoi", required=True)
+    dem.set_defaults(handler=fetch_dem)
 
     args = parser.parse_args()
     return args.handler(args)

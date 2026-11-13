@@ -23,11 +23,11 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 | ID | Requisito | Prioridad |
 |---|---|---|
 | RF-ECO-01 | Detectar cambio entre pares comparables y clasificar cada píxel con su estado | Hecho |
-| RF-ECO-02 | Procesar una serie real completa de la zona sin cargar todas las fechas en memoria | P0 |
-| RF-ECO-03 | Control de calidad por fecha en el manifiesto: fracción válida, mediana en dB de HH y HV, desviación respecto a la serie y banderas | P0 |
-| RF-ECO-04 | Leer modo y polarización de los metadatos del producto, no del nombre del archivo | P0 |
-| RF-ECO-05 | Marcar layover y sombra con el DEM Copernicus GLO-30 (estado 15) | P1 |
-| RF-ECO-06 | Verificar la georreferencia contra un rasgo conocido y documentar el desplazamiento | P1 |
+| RF-ECO-02 | Procesar una serie real completa de la zona sin cargar todas las fechas en memoria | Hecho (T-ECO-02) |
+| RF-ECO-03 | Control de calidad por fecha en el manifiesto: fracción válida, mediana en dB de HH y HV, desviación respecto a la serie y banderas | Hecho (T-ECO-03) |
+| RF-ECO-04 | Leer modo y polarización de los metadatos del producto, no del nombre del archivo | Hecho (T-ECO-04) |
+| RF-ECO-05 | Marcar layover y sombra con el DEM Copernicus GLO-30 (estado 15) | Hecho (T-ECO-05) |
+| RF-ECO-06 | Verificar la georreferencia contra un rasgo conocido y documentar el desplazamiento | Hecho (T-ECO-06) |
 | RF-ECO-07 | Calibrar umbrales con datos reales junto a Balanza | P1 |
 | RF-ECO-08 | Filtro multitemporal opcional para reducir el speckle | P2 |
 
@@ -52,6 +52,8 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 ## Resultados
 
 - RF-ECO-06 (2026-11-12): frente a Sentinel-2 en La Boquilla no hay un desplazamiento detectable mayor que un píxel (10 m). Método y cifras en `MEMORY.md`; se repite con `bench/georref.py`.
+- RF-ECO-07 (2026-11-12, acordado con Balanza): `low_looks` se decide con la suma de looks en la ventana de 5 × 5 (mínimo 50), no por píxel. El cambio de cada par se mide respecto al desplazamiento de toda la escena (mediana de la diferencia), que se resta antes del umbral y se publica en `stats.scene_shift_hh_db` y `scene_shift_hv_db`. El umbral de fracción del veredicto lo calibra Balanza (T-BAL-07).
+- RF-ECO-08 (2026-11-12): filtro de Quegan y Yu, opcional con `processor run --multitemporal` y apagado por omisión. Con T048 real reduce el speckle (ENL de 2,1 a 3,4 en HH) y entre un 10 % y un 50 % el cambio por par, pero no corrige el desplazamiento de toda la escena (T-ECO-07). Si se usa, el manifiesto lo declara.
 
 ## Preguntas abiertas
 
