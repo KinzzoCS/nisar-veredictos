@@ -25,9 +25,23 @@ class PassTime:
     latency_hours: float | None
 
 
+@dataclass(frozen=True)
+class ExcludedPass:
+    """Pasada que existe en CMR pero Antena declaró inservible (excluded[] de la línea de tiempo)."""
+
+    id: str
+    series: str
+    date: dt.date
+    reason: str
+    evidence: str
+
+
 class TimelineSource(Protocol):
     def passes(self, aoi: str) -> dict[str, PassTime]:
         """Pasadas de la zona por id de gránulo. Lanza CatalogUnavailable si no hay respuesta."""
+
+    def excluded(self, aoi: str) -> list[ExcludedPass]:
+        """Pasadas excluidas por catalog. Lanza CatalogUnavailable si no hay respuesta."""
 
 
 def granule_key(granule_id: str) -> str:
@@ -35,16 +49,32 @@ def granule_key(granule_id: str) -> str:
     return granule_id.removesuffix(".h5")
 
 
-def _parse(body: dict) -> dict[str, PassTime]:
+def utc_time(value: str) -> dt.datetime:
+    """Lee una hora ISO 8601 de catalog. fromisoformat solo acepta la "Z" desde Python 3.11."""
+    return dt.datetime.fromisoformat(value.replace("Z", "+00:00"))
+
+
+def _parse(body: dict) -> tuple[dict[str, PassTime], list[ExcludedPass]]:
     result = {}
     for item in body["passes"]:
         published = item.get("published_at")
         result[granule_key(item["granule_id"])] = PassTime(
-            acquired_at=dt.datetime.fromisoformat(item["acquired_at"]),
-            published_at=dt.datetime.fromisoformat(published) if published else None,
+            acquired_at=utc_time(item["acquired_at"]),
+            published_at=utc_time(published) if published else None,
             latency_hours=item.get("latency_hours"),
         )
-    return result
+    # excluded[] llegó con T-ANT (PR 22); un catalog anterior no lo trae y cuenta como lista vacía.
+    excluded = [
+        ExcludedPass(
+            id=granule_key(item["id"]),
+            series=item["series"],
+            date=dt.date.fromisoformat(item["date"]),
+            reason=item["reason"],
+            evidence=item.get("evidence", ""),
+        )
+        for item in body.get("excluded", [])
+    ]
+    return result, excluded
 
 
 class HttpTimeline:
@@ -54,9 +84,9 @@ class HttpTimeline:
         self.base_url = base_url.rstrip("/")
         self.client = client or httpx.Client(timeout=TIMEOUT_SECONDS)
         self.monotonic = monotonic
-        self._cache: dict[str, tuple[float, dict[str, PassTime] | None]] = {}
+        self._cache: dict[str, tuple[float, tuple[dict[str, PassTime], list[ExcludedPass]] | None]] = {}
 
-    def passes(self, aoi: str) -> dict[str, PassTime]:
+    def _timeline(self, aoi: str) -> tuple[dict[str, PassTime], list[ExcludedPass]]:
         now = self.monotonic()
         cached = self._cache.get(aoi)
         if cached and cached[0] > now:
@@ -72,6 +102,12 @@ class HttpTimeline:
             raise CatalogUnavailable(aoi) from exc
         self._cache[aoi] = (now + CACHE_SECONDS, result)
         return result
+
+    def passes(self, aoi: str) -> dict[str, PassTime]:
+        return self._timeline(aoi)[0]
+
+    def excluded(self, aoi: str) -> list[ExcludedPass]:
+        return self._timeline(aoi)[1]
 
 
 # --- T-BAL-04: escenas Sentinel-2 de catalog ---------------------------------------------
@@ -124,7 +160,7 @@ def _parse_optical(body: dict) -> OpticalReference:
         acquisitions.append(
             OpticalAcquisition(
                 platform=item["platform"],
-                acquired_at=dt.datetime.fromisoformat(item["acquired_at"].replace("Z", "+00:00")),
+                acquired_at=utc_time(item["acquired_at"]),
                 covers_aoi=bool(item["covers_aoi"]),
                 max_cloud_cover=float(item["max_cloud_cover"]),
                 tiles=tiles,
@@ -230,7 +266,7 @@ def _parse_opera(body: dict) -> OperaReference:
         acquisitions.append(
             OperaAcquisition(
                 platform=item["platform"],
-                acquired_at=dt.datetime.fromisoformat(item["acquired_at"].replace("Z", "+00:00")),
+                acquired_at=utc_time(item["acquired_at"]),
                 covers_aoi=bool(item["covers_aoi"]),
                 tiles=tiles,
             )

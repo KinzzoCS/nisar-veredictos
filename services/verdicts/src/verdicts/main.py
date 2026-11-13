@@ -22,6 +22,7 @@ from .catalog import (
     OperaSource,
     OpticalReference,
     OpticalSource,
+    ExcludedPass,
     PassTime,
     TimelineSource,
     granule_key,
@@ -92,6 +93,14 @@ class PairQuality(BaseModel):
     after: DateQuality | None = Field(description="QA de to_date. null si el manifiesto no lo trae.")
 
 
+class ExcludedPassOut(BaseModel):
+    granule: str = Field(description="granule_id que catalog excluye.")
+    series: str
+    date: dt.date
+    reason: str = Field(description="Código del motivo según catalog; product_defect: fallo en el producto publicado.")
+    evidence: str = Field(description="Cómo lo comprobó Antena.")
+
+
 class Receipt(BaseModel):
     data_kind: Literal["real", "synthetic"]
     maturity: str
@@ -107,6 +116,10 @@ class Receipt(BaseModel):
     notices: list[str]
     freshness: Freshness
     quality: PairQuality = Field(description="Control de calidad de Eco de las dos fechas (RF-BAL-09).")
+    excluded_passes: list[ExcludedPassOut] = Field(
+        description="Pasadas de esta serie que catalog excluye, entre from_date y to_date ambas incluidas. "
+        "Vacía con datos sintéticos o si catalog no respondió."
+    )
 
 
 class OpticalTileOut(BaseModel):
@@ -362,6 +375,11 @@ class EventVerdict(BaseModel):
         "(datos sintéticos o catalog sin respuesta): entonces se considera todo su día."
     )
     data_kind: Literal["real", "synthetic"]
+    excluded_passes: list[ExcludedPassOut] = Field(
+        description="Pasadas de las series de la zona que catalog excluye, entre previous_pass y next_pass ambas "
+        "incluidas, estén o no en el manifiesto: no cuentan para el evento. Vacía con datos sintéticos o si catalog "
+        "no respondió."
+    )
     summary: Summary
 
 
@@ -525,6 +543,26 @@ def build_water(
     )
 
 
+def _same_series(catalog_series: str, series: dict) -> bool:
+    """catalog nombra la serie con modo, polarización y CRID (T171D-F075-4005-DHDH-P05023); el manifiesto, sin ellos."""
+    full = f"{series['id']}-{series['mode']}-{series['polarization']}-{series['crid']}"
+    return catalog_series in (series["id"], full)
+
+
+def _excluded_out(item: ExcludedPass) -> ExcludedPassOut:
+    return ExcludedPassOut(
+        granule=item.id, series=item.series, date=item.date, reason=item.reason, evidence=item.evidence
+    )
+
+
+def _with_skipped(summary: dict, between: list[ExcludedPass], lang: narrative.Lang) -> dict:
+    """En eventos, cita las pasadas excluidas entre la anterior y la siguiente: explican por qué no cuentan."""
+    notes = [narrative.excluded_pass_text(item.date.isoformat(), item.reason, False, lang) for item in between]
+    if not notes:
+        return summary
+    return {**summary, "missing": " ".join([summary["missing"], *notes])}
+
+
 def _date_quality(day: str, qa: dict | None) -> DateQuality | None:
     return None if not qa else DateQuality(date=day, **qa)
 
@@ -536,6 +574,7 @@ def with_quality(
     after: tuple[str, dict | None],
     shift: quality.SceneShift | None,
     lang: narrative.Lang,
+    excluded_notes: list[str] | None = None,
 ) -> dict:
     """Añade al resumen las fechas que marca el QA de Eco y el cambio de nivel de toda la escena.
 
@@ -546,7 +585,7 @@ def with_quality(
         narrative.quality_flag_text(day, qa["deviation_hh_db"], qa["deviation_hv_db"], quality.SCENE_SHIFT_DB, lang)
         for day, qa in (before, after)
         if quality.flagged(qa)
-    ]
+    ] + list(excluded_notes or [])
     result = dict(summary)
     if notes:
         result["missing"] = " ".join([summary["missing"], *notes])
@@ -614,8 +653,15 @@ def build_verdict(
     passes: dict[str, PassTime] | None = None,
     optical_refs: dict[dt.date, OpticalReference | None] | None = None,
     water_evidence: WaterEvidence | None = None,
+    excluded: list[ExcludedPass] | None = None,
 ) -> Verdict:
     stats = pair["stats"]
+    start, end = dt.date.fromisoformat(pair["from"]), dt.date.fromisoformat(pair["to"])
+    used = {granule_key(granule) for granule in pair["granules"]}
+    in_pair = [
+        item for item in (excluded or [])
+        if _same_series(item.series, manifest["series"]) and start <= item.date <= end
+    ]
     freshness = build_freshness(manifest, pair, today or dt.datetime.now(dt.timezone.utc).date(), passes)
     refs = optical_refs or {}
     optical_evidence = build_optical(
@@ -673,6 +719,12 @@ def build_verdict(
                 (pair["to"], qa_after),
                 shift,
                 lang,
+                [
+                    narrative.excluded_pass_text(
+                        item.date.isoformat(), item.reason, item.id in used or item.date in (start, end), lang
+                    )
+                    for item in in_pair
+                ],
             )
         ),
         hypotheses=hypotheses,
@@ -713,6 +765,7 @@ def build_verdict(
             quality=PairQuality(
                 before=_date_quality(pair["from"], qa_before), after=_date_quality(pair["to"], qa_after)
             ),
+            excluded_passes=[_excluded_out(item) for item in in_pair],
         ),
     )
 
@@ -746,6 +799,15 @@ def create_app(
             return timeline.passes(manifest["aoi"])
         except CatalogUnavailable:
             return None
+
+    def excluded_for(manifest: dict) -> list[ExcludedPass]:
+        """Pasadas excluidas por catalog; vacía con sintéticos o sin catalog, igual que passes_for."""
+        if manifest["data_kind"] == "synthetic" or timeline is None:
+            return []
+        try:
+            return timeline.excluded(manifest["aoi"])
+        except CatalogUnavailable:
+            return []
 
     def optical_for(aoi: str, days: set[dt.date]) -> dict[dt.date, OpticalReference | None]:
         """Escenas por fecha de radar, en paralelo. Una fecha sin respuesta queda en None.
@@ -802,7 +864,8 @@ def create_app(
         refs = optical_for(manifest["aoi"], days)
         sides, meta = water_sides(manifest, days)
         return build_verdict(
-            manifest, pair, lang, now().date(), passes_for(manifest), refs, water_for(pair, sides, meta, lang)
+            manifest, pair, lang, now().date(), passes_for(manifest), refs, water_for(pair, sides, meta, lang),
+            excluded_for(manifest),
         )
 
     def manifests_or_404(aoi: str) -> list[dict]:
@@ -841,12 +904,12 @@ def create_app(
     @app.get("/aois/{aoi}/series/{series_id}/verdicts", response_model=list[Verdict])
     def verdicts(aoi: str, series_id: str, lang: narrative.Lang = "es") -> list[Verdict]:
         manifest = manifest_or_404(aoi, series_id)
-        today, passes = now().date(), passes_for(manifest)
+        today, passes, excluded = now().date(), passes_for(manifest), excluded_for(manifest)
         days = pair_days(manifest["pairs"])
         refs = optical_for(manifest["aoi"], days)
         sides, meta = water_sides(manifest, days)
         return [
-            build_verdict(manifest, pair, lang, today, passes, refs, water_for(pair, sides, meta, lang))
+            build_verdict(manifest, pair, lang, today, passes, refs, water_for(pair, sides, meta, lang), excluded)
             for pair in manifest["pairs"]
         ]
 
@@ -877,11 +940,18 @@ def create_app(
         explicit = persistence_hours if "persistence_hours" in request.query_params else None
         assumed = rules.persistence(event_type, explicit)
         manifests = manifests_or_404(aoi)
-        passes, pass_times = [], {}
+        passes, pass_times, excluded = [], {}, {}
         for manifest in manifests:
             known = passes_for(manifest) or {}
+            series_excluded = [item for item in excluded_for(manifest) if _same_series(item.series, manifest["series"])]
+            # Se citan aunque el manifiesto ya no traiga esa fecha (Eco aparta los gránulos defectuosos).
+            excluded.update({item.id: item for item in series_excluded})
             for item in manifest["dates"]:
                 day = dt.date.fromisoformat(item["date"])
+                # Una pasada que catalog declara inservible no cuenta como observación del evento. Se reconoce
+                # por gránulo o por fecha: una serie pasa como mucho una vez al día.
+                if any(ex.id == granule_key(item["granule"]) or ex.date == day for ex in series_excluded):
+                    continue
                 passes.append(day)
                 found = known.get(granule_key(item["granule"]))
                 if found is not None:
@@ -889,6 +959,8 @@ def create_app(
         event_time = time.replace(tzinfo=None) if time else None
         status = rules.event_status(passes, date, assumed.hours, event_time, pass_times)
         synthetic = any(manifest["data_kind"] == "synthetic" for manifest in manifests)
+        low, high = status.previous_pass or dt.date.min, status.next_pass or dt.date.max
+        between = sorted((item for item in excluded.values() if low <= item.date <= high), key=lambda item: item.date)
         return EventVerdict(
             aoi=aoi,
             event_date=date,
@@ -910,7 +982,10 @@ def create_app(
             next_pass=status.next_pass,
             next_pass_acquired_at=status.next_pass_at,
             data_kind="synthetic" if synthetic else "real",
-            summary=Summary(**narrative.event_summary(status, date.isoformat(), lang, synthetic, assumed)),
+            excluded_passes=[_excluded_out(item) for item in between],
+            summary=Summary(**_with_skipped(
+                narrative.event_summary(status, date.isoformat(), lang, synthetic, assumed), between, lang
+            )),
         )
 
     @app.get("/aois/{aoi}/series/{series_id}/pixel", response_model=PixelSeries)
