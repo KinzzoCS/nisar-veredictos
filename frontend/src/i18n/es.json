@@ -28,13 +28,13 @@
       "no_detectable_change": "Sin cambio detectable",
       "not_observable": "No observable"
     },
-    "cause": "Por qué: {{cause}}",
+    "cause": "Motivo de que no se pudiera medir: {{cause}}",
     "dates_one": "del {{from}} al {{to}} · {{count}} día",
     "dates_other": "del {{from}} al {{to}} · {{count}} días",
     "detected": "Qué detectamos",
     "doesNotProve": "Qué no prueba",
     "missing": "Qué falta",
-    "hypotheses": "Hipótesis, no conclusiones"
+    "hypotheses": "Posibles explicaciones, sin comprobar"
   },
   "receipt": {
     "summary": "Recibo: de dónde sale esta respuesta",
@@ -46,7 +46,7 @@
     "modePolarization": "Modo y polarización",
     "crid": "Versión de procesado (CRID)",
     "granules": "Gránulos",
-    "dataGap": "Cruza el hueco de adquisición",
+    "dataGap": "Cruza un hueco sin adquisiciones",
     "yes": "sí",
     "no": "no",
     "notices": "Avisos",
@@ -62,7 +62,8 @@
       "granule_not_in_catalog": "latencia desconocida: el gránulo no aparece en el catálogo",
       "not_published": "latencia desconocida: el catálogo no da fecha de publicación"
     },
-    "optical": "Contraste óptico (Sentinel-2)"
+    "optical": "Contraste óptico (Sentinel-2)",
+    "water": "Contraste de agua (OPERA DSWx-S1)"
   },
   "map": {
     "label": "Mapa",

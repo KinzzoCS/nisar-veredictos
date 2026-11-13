@@ -32,6 +32,7 @@ function Receipt({ verdict }: { verdict: Verdict }) {
   const { t } = useTranslation()
   const r = verdict.receipt
   const optical = verdict.evidence.optical
+  const water = verdict.evidence.water
   return (
     <details className="receipt">
       <summary>{t('receipt.summary')}</summary>
@@ -68,6 +69,12 @@ function Receipt({ verdict }: { verdict: Verdict }) {
           <>
             <dt>{t('receipt.optical')}</dt>
             <dd>{optical.text}</dd>
+          </>
+        )}
+        {water?.text && (
+          <>
+            <dt>{t('receipt.water')}</dt>
+            <dd>{water.text}</dd>
           </>
         )}
         <dt>{t('receipt.granules')}</dt>
