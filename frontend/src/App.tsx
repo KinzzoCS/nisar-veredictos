@@ -5,6 +5,7 @@ import { hasOpticalScene, mapOptionsFor } from './api/mapOptions'
 import { LanguageSwitch } from './components/LanguageSwitch'
 import { AtlasMap } from './components/AtlasMap'
 import { EventQuery } from './components/EventQuery'
+import { Story } from './components/Story'
 import { SyntheticBanner } from './components/SyntheticBadge'
 import { VerdictCard } from './components/VerdictCard'
 
@@ -85,6 +86,18 @@ export default function App() {
   const verdict = items.find((v) => v.id === pairId)
   const synthetic = series?.data_kind === 'synthetic' || verdict?.receipt.data_kind === 'synthetic'
 
+  // Desde la historia: elige ese par en el selector y lleva el foco allí.
+  function showPair(nextSeries: string, nextPair: string) {
+    setSeriesId(nextSeries)
+    setPairId(nextPair)
+    // Tras el render; setTimeout también corre con la pestaña en segundo plano, requestAnimationFrame no.
+    setTimeout(() => {
+      const select = document.getElementById(pairSelect)
+      select?.scrollIntoView({ block: 'start' })
+      select?.focus()
+    }, 0)
+  }
+
   // El mapa sigue con la última respuesta mientras llega la nueva (tapado), para no recrearlo.
   const shown = loaded?.status === 'ready' ? loaded : undefined
   const mapSeries = state.status === 'ready' ? state.series.find((s) => s.id === shown?.seriesId) : undefined
@@ -106,6 +119,7 @@ export default function App() {
       {synthetic && <SyntheticBanner />}
 
       <main>
+        {aoi && <Story aoi={aoi} lang={lang} onShowPair={showPair} />}
         {state.status === 'loading' && <p>{t('series.loading')}</p>}
         {state.status === 'error' && <p role="alert">{t('series.error')}</p>}
 

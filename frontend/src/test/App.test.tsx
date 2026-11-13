@@ -158,7 +158,8 @@ test('con datos reales no hay aviso de sintéticos', async () => {
 test('si fallan los veredictos avisa y no muestra ninguna tarjeta', async () => {
   stubApi('real', true)
   render(<App />)
-  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudieron cargar los veredictos')
+  // La historia también está en la página y puede avisar de lo suyo: se busca el aviso de los veredictos.
+  expect(await screen.findByText(/No se pudieron cargar los veredictos/)).toHaveAttribute('role', 'alert')
   expect(screen.queryByRole('article')).not.toBeInTheDocument()
 })
 

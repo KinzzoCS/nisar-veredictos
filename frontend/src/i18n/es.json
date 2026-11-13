@@ -20,6 +20,37 @@
     "banner": "Datos sintéticos: sirven para mostrar cómo funciona la aplicación y no describen lo que pasó en Parral.",
     "card": "Este veredicto usa datos sintéticos."
   },
+  "story": {
+    "heading": "La historia de Parral en tres escenas",
+    "intro": "Tres preguntas sobre Hidalgo del Parral. Cada respuesta llega en vivo de los datos, con lo que se sabe y lo que no.",
+    "nav": "Escenas",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "position": "Escena {{n}} de {{total}}",
+    "loading": "Cargando la escena…",
+    "error": "No se pudo cargar esta escena. Las demás siguen disponibles.",
+    "storm": {
+      "step": "La tormenta",
+      "title": "1. La tormenta del 1 de julio de 2026",
+      "text": "El 1 de julio de 2026, una tormenta dejó calles con agua en Parral y un vehículo arrastrado en el Arroyo de las Quintas. Protección Civil de Chihuahua registró 22,8 mm de lluvia en una hora. ¿Pasó el satélite mientras duraba?",
+      "source": "Fuente: boletín de la Coordinación Estatal de Protección Civil, Gobierno de Chihuahua (1 de julio de 2026)"
+    },
+    "monsoon": {
+      "step": "El monzón",
+      "title": "2. Un par de fechas en temporada de lluvias",
+      "text": "Del 16 al 28 de agosto de 2026, en plena temporada de lluvias de verano. Esto es lo que dice el radar sobre ese par de fechas, y lo que no puede probar.",
+      "showOnMap": "Ver este par en el mapa"
+    },
+    "mine": {
+      "step": "La mina",
+      "title": "3. Un punto junto a la Mina La Prieta",
+      "text": "La Mina La Prieta es parte de la historia minera de Parral. Tomamos un punto junto a ella, según OpenStreetMap, y miramos qué detectó el radar en cada par de fechas.",
+      "point": "Punto: lon {{lon}}, lat {{lat}} · serie {{series}}",
+      "count": "{{same}} de {{total}} pares sin cambio detectable en este punto.",
+      "note": "No detectar cambio también es información, pero no prueba que nada cambiara: dice que el radar no vio un cambio mayor que su umbral.",
+      "pairs": "Resultado por par de fechas"
+    }
+  },
   "picker": {
     "heading": "Veredicto por par de fechas",
     "series": "Serie",
