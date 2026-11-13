@@ -9,7 +9,7 @@ from typing import Protocol
 
 import httpx
 
-from .pairing import Point, point_in_polygon
+from .pairing import Point, parse_utc, point_in_polygon
 
 SEARCH_URL = "https://earth-search.aws.element84.com/v1/search"
 COLLECTION = "sentinel-2-l2a"
@@ -58,7 +58,7 @@ class SceneSource(Protocol):
 
 
 def _parse_time(raw: str) -> datetime:
-    return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    return parse_utc(raw)
 
 
 def _footprint(geometry: dict | None) -> tuple[Point, ...]:

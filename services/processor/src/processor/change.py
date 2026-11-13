@@ -35,12 +35,19 @@ STATE_CODES = {
 @dataclass(frozen=True)
 class Params:
     window: int = 5
-    min_looks: float = 4.0
+    # Looks sumados en la ventana de suavizado (T-ECO-07). Con 50 (unos 2 por píxel) queda fuera ~1 % en Parral;
+    # antes se exigían 4 por píxel y quedaba fuera el 15 %, aunque luego se promediaba 5 × 5.
+    min_window_looks: float = 50.0
+    # Resta a cada par la mediana de su diferencia, para medir el cambio local y no el de toda la escena.
+    correct_scene_shift: bool = True
     # Otsu siempre encuentra un umbral, incluso sin cambio; este suelo evita marcar ruido.
     min_threshold_db: float = 3.0
     min_cluster_pixels: int = 4
     # Umbral inicial sin calibrar con banda L: desviación de la mediana de una fecha respecto a la serie.
     qa_outlier_db: float = 1.5
+    # Filtro multitemporal de speckle (T-ECO-08). Apagado por omisión: mezcla información entre fechas.
+    multitemporal: bool = False
+    multitemporal_window: int = 7
 
 
 @dataclass
@@ -51,9 +58,20 @@ class PairResult:
     stats: dict
 
 
-def observable(scene: Scene, min_looks: float) -> np.ndarray:
+def window_looks(scene: Scene, size: int) -> np.ndarray:
+    """Suma de `numberOfLooks` de los píxeles válidos en la ventana de suavizado."""
+    valid = np.isin(scene.mask, [1, 2, 3, 4, 5])
+    looks = np.where(valid, scene.looks, 0).astype(np.float32)
+    return ndimage.uniform_filter(looks, size, mode="nearest") * np.float32(size * size)
+
+
+def enough_looks(scene: Scene, params: "Params") -> np.ndarray:
+    return window_looks(scene, params.window) >= params.min_window_looks
+
+
+def observable(scene: Scene, params: "Params") -> np.ndarray:
     finite = np.isfinite(scene.hh) & np.isfinite(scene.hv) & (scene.hh > 0) & (scene.hv > 0)
-    return np.isin(scene.mask, [1, 2, 3, 4, 5]) & (scene.exception == 0) & finite & (scene.looks >= min_looks)
+    return np.isin(scene.mask, [1, 2, 3, 4, 5]) & (scene.exception == 0) & finite & enough_looks(scene, params)
 
 
 def valid_weight(valid: np.ndarray, size: int) -> np.ndarray:
@@ -94,7 +112,7 @@ def otsu(values: np.ndarray, bins: int = 256) -> float:
 def _state_for_unobservable(a: Scene, b: Scene, params: Params, terrain: np.ndarray | None = None) -> np.ndarray:
     state = np.full(a.hh.shape, NO_CHANGE, np.uint8)
     for scene in (a, b):
-        state[scene.looks < params.min_looks] = LOW_LOOKS
+        state[~enough_looks(scene, params)] = LOW_LOOKS
     if terrain is not None:
         # El relieve explica mejor que los pocos looks por qué no se ve: va encima.
         state[terrain] = TERRAIN
@@ -113,6 +131,11 @@ def _threshold(values: np.ndarray, params: Params) -> float | None:
     if values.size < 2 or np.ptp(values) == 0:
         return None
     return max(otsu(values), params.min_threshold_db)
+
+
+def _median(values: np.ndarray) -> float | None:
+    values = values[np.isfinite(values)]
+    return float(np.median(values)) if values.size else None
 
 
 def _mean(values: np.ndarray) -> float | None:
@@ -140,7 +163,7 @@ def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray |
         raise ValueError(f"Mallas distintas: {a.meta.granule_id} y {b.meta.granule_id}")
 
     state = _state_for_unobservable(a, b, params, terrain)
-    both = observable(a, params.min_looks) & observable(b, params.min_looks)
+    both = observable(a, params) & observable(b, params)
     if terrain is not None:
         both &= ~terrain
     state[~both & (state == NO_CHANGE)] = NO_DATA
@@ -152,6 +175,13 @@ def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray |
         after -= to_db(smooth(getattr(a, name), both, params.window, weight))
         change[name] = after
     del weight
+
+    shifts: dict[str, float | None] = {}
+    for name, value in change.items():
+        shift = _median(value[both])
+        shifts[name] = shift
+        if params.correct_scene_shift and shift is not None:
+            value -= np.float32(shift)
 
     thresholds = {name: _threshold(np.abs(change[name][both]), params) for name in change}
     changed = np.zeros(state.shape, bool)
@@ -169,16 +199,17 @@ def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray |
 
     counts = {name: int(np.count_nonzero(state == code)) for name, code in STATE_CODES.items()}
     signatures = _signature_counts(change["hh"][changed], change["hv"][changed])
-    return PairResult(
-        state=state,
-        change_hh=change["hh"],
-        change_hv=change["hv"],
-        stats={
-            "counts": counts,
-            "signature_counts": signatures,
-            "threshold_hh_db": thresholds["hh"],
-            "threshold_hv_db": thresholds["hv"],
-            "mean_change_hh_db": _mean(change["hh"][changed]),
-            "mean_change_hv_db": _mean(change["hv"][changed]),
-        },
-    )
+    stats = {
+        "counts": counts,
+        "signature_counts": signatures,
+        "threshold_hh_db": thresholds["hh"],
+        "threshold_hv_db": thresholds["hv"],
+        "mean_change_hh_db": _mean(change["hh"][changed]),
+        "mean_change_hv_db": _mean(change["hv"][changed]),
+    }
+    if params.correct_scene_shift:
+        # Mediana de la diferencia en lo observable: desplazamiento de toda la escena, ya restado de los cambios.
+        # Solo se publica cuando se restó, para que su presencia en el manifiesto signifique "corregido".
+        stats["scene_shift_hh_db"] = shifts["hh"]
+        stats["scene_shift_hv_db"] = shifts["hv"]
+    return PairResult(state=state, change_hh=change["hh"], change_hv=change["hv"], stats=stats)

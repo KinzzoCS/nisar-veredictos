@@ -7,7 +7,7 @@ from typing import Protocol
 
 import httpx
 
-from .pairing import Granule, Point, parse_title
+from .pairing import Granule, Point, parse_title, parse_utc
 
 BASE_URL = "https://cmr.earthdata.nasa.gov/search/granules.json"
 PAGE_SIZE = 500
@@ -35,7 +35,7 @@ def updated_at(entry: dict) -> datetime | None:
     raw = entry.get("updated")
     if not raw:
         return None
-    return datetime.fromisoformat(raw.replace("Z", "+00:00"))
+    return parse_utc(raw)
 
 
 def data_url(entry: dict) -> str:
