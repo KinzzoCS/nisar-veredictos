@@ -3,12 +3,19 @@
     "title": "NISAR Veredictos",
     "tagline": "Qué cambió, qué no se detectó y qué no se puede saber, con los datos que lo respaldan."
   },
-  "language": { "label": "Idioma", "es": "Español", "en": "English" },
+  "language": {
+    "label": "Idioma",
+    "es": "Español",
+    "en": "English"
+  },
   "series": {
     "loading": "Cargando datos…",
     "error": "No se pudo conectar con la API. Comprueba que la pila está levantada."
   },
-  "dataKind": { "real": "reales", "synthetic": "sintéticos" },
+  "dataKind": {
+    "real": "reales",
+    "synthetic": "sintéticos"
+  },
   "synthetic": {
     "banner": "Datos sintéticos: sirven para mostrar cómo funciona la aplicación y no describen lo que pasó en Parral.",
     "card": "Este veredicto usa datos sintéticos."
@@ -42,7 +49,10 @@
     "maturity": "Madurez",
     "series": "Serie",
     "seriesValue": "{{id}}: pista {{track}}, {{direction}}, marco {{frame}}",
-    "direction": { "A": "ascendente", "D": "descendente" },
+    "direction": {
+      "A": "ascendente",
+      "D": "descendente"
+    },
     "modePolarization": "Modo y polarización",
     "crid": "Versión de procesado (CRID)",
     "granules": "Gránulos",
@@ -64,6 +74,36 @@
     },
     "optical": "Contraste óptico (Sentinel-2)",
     "water": "Contraste de agua (OPERA DSWx-S1)"
+  },
+  "event": {
+    "heading": "¿Pudo el satélite ver un evento?",
+    "intro": "Indica cuándo pasó algo (una tormenta, una crecida, un incendio) y te decimos si NISAR pasó por la zona mientras duraba. No dice si algo cambió.",
+    "date": "Fecha del evento",
+    "type": "Tipo de evento",
+    "types": {
+      "none": "Sin especificar",
+      "urban_storm": "Tormenta en la ciudad",
+      "river_flood": "Crecida de río",
+      "wildfire": "Incendio"
+    },
+    "time": "Hora de inicio (UTC, opcional)",
+    "timeHelp": "En Parral, la hora UTC es la local más 6 horas: las 15:37 de Parral son las 21:37 UTC.",
+    "submit": "Consultar",
+    "example": "Probar con la tormenta del 1 de julio de 2026",
+    "loading": "Consultando…",
+    "error": "No se pudo hacer la consulta. Revisa la fecha y vuelve a intentarlo.",
+    "state": {
+      "observable": "Observable: hubo una pasada mientras duraba el evento",
+      "not_observable": "No observable"
+    },
+    "cause": "Motivo: {{cause}}",
+    "observableNote": "Esto no dice que algo cambiara: para eso hay que mirar el veredicto del par de fechas que incluye esa pasada.",
+    "detected": "Qué encontramos",
+    "previousPass": "Pasada anterior",
+    "nextPass": "Pasada siguiente",
+    "none": "ninguna",
+    "assumption": "Duración supuesta",
+    "excluded": "Pasadas excluidas"
   },
   "map": {
     "label": "Mapa",
