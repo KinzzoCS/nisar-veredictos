@@ -263,6 +263,15 @@ for verdict in d:
         assert shift['calibrated'] is False and shift['threshold_db'] > 0, verdict['id']
 "
 
+# Pasadas excluidas por catalog: el campo existe siempre; con sintéticos va vacío.
+check "veredictos: pasadas excluidas" verdicts "
+for verdict in d:
+    excluded = verdict['receipt']['excluded_passes']
+    assert isinstance(excluded, list), verdict['id']
+    if verdict['receipt']['data_kind'] == 'synthetic':
+        assert excluded == [], verdict['id']
+"
+
 # T-BAL-08: contraste con OPERA DSWx-S1. Con radar sintético se lista el producto pero nunca se compara.
 check "veredictos: contraste de agua" verdicts "
 for verdict in d:

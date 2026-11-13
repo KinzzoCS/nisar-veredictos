@@ -141,6 +141,10 @@ def rendered_texts() -> list[tuple[str, dict]]:
         for hh, hv, same in ((1.8, 1.7, True), (-1.9, 0.4, False), (None, 2.0, None)):
             text = narrative.scene_shift_text(hh, hv, same, lang)
             found.append((f"shift {lang} {hh}/{hv}/{same}", {"shift": text}))
+        # Pasadas excluidas por catalog: motivo conocido y desconocido, dentro del par o usada por él.
+        for reason, used in itertools.product(("product_defect", "otro_motivo"), (True, False)):
+            text = narrative.excluded_pass_text("2026-08-13", reason, used, lang)
+            found.append((f"excluded {lang} {reason} used={used}", {"excluded": text}))
     return found
 
 

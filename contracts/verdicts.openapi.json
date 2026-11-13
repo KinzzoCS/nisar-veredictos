@@ -153,6 +153,14 @@
             "description": "Tipo de evento indicado en la consulta, si lo hay.",
             "title": "Event Type"
           },
+          "excluded_passes": {
+            "description": "Pasadas de los manifiestos que catalog excluye y que por eso no cuentan para el evento. Vacía con datos sintéticos o si catalog no respondió.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedPassOut"
+            },
+            "title": "Excluded Passes",
+            "type": "array"
+          },
           "next_pass": {
             "anyOf": [
               {
@@ -221,6 +229,7 @@
           "next_pass",
           "next_pass_acquired_at",
           "data_kind",
+          "excluded_passes",
           "summary"
         ],
         "title": "EventVerdict",
@@ -327,6 +336,43 @@
           "water"
         ],
         "title": "Evidence",
+        "type": "object"
+      },
+      "ExcludedPassOut": {
+        "properties": {
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "evidence": {
+            "description": "Cómo lo comprobó Antena.",
+            "title": "Evidence",
+            "type": "string"
+          },
+          "granule": {
+            "description": "granule_id que catalog excluye.",
+            "title": "Granule",
+            "type": "string"
+          },
+          "reason": {
+            "description": "Código del motivo según catalog; product_defect: fallo en el producto publicado.",
+            "title": "Reason",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "granule",
+          "series",
+          "date",
+          "reason",
+          "evidence"
+        ],
+        "title": "ExcludedPassOut",
         "type": "object"
       },
       "Freshness": {
@@ -976,6 +1022,14 @@
             "title": "Direction",
             "type": "string"
           },
+          "excluded_passes": {
+            "description": "Pasadas de esta serie que catalog excluye, entre from_date y to_date ambas incluidas. Vacía con datos sintéticos o si catalog no respondió.",
+            "items": {
+              "$ref": "#/components/schemas/ExcludedPassOut"
+            },
+            "title": "Excluded Passes",
+            "type": "array"
+          },
           "frame": {
             "title": "Frame",
             "type": "integer"
@@ -1040,7 +1094,8 @@
           "spans_data_gap",
           "notices",
           "freshness",
-          "quality"
+          "quality",
+          "excluded_passes"
         ],
         "title": "Receipt",
         "type": "object"

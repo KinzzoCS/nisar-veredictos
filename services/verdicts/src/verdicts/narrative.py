@@ -460,3 +460,25 @@ def scene_shift_text(hh: float | None, hv: float | None, same_direction: bool | 
     return (f"The level of the whole scene changed between the two dates (median HH {_db(hh, lang)} dB and HV "
             f"{_db(hv, lang)} dB{together}). The change percentage may reflect that general shift, "
             "such as soil moisture or a radiometric effect, rather than a local change.")
+
+
+# --- Pasadas excluidas por catalog (excluded[] de la línea de tiempo, Antena) ----------------
+
+EXCLUSION_REASONS = {
+    "es": {"product_defect": "defecto del producto publicado"},
+    "en": {"product_defect": "defect in the published product"},
+}
+
+
+def excluded_pass_text(day: str, reason: str, used_by_pair: bool, lang: Lang) -> str:
+    """Una pasada que existe pero catalog declaró inservible: se dice, no se oculta."""
+    label = EXCLUSION_REASONS[lang].get(reason, reason)
+    if lang == "es":
+        if used_by_pair:
+            return (f"El catálogo excluye la pasada del {day} ({label}) y este par la usa: "
+                    "su resultado no debe interpretarse.")
+        return f"Además falta la pasada del {day} de esta serie: el catálogo la excluye ({label})."
+    if used_by_pair:
+        return (f"The catalog excludes the {day} pass ({label}) and this pair uses it: "
+                "its result should not be interpreted.")
+    return f"The {day} pass of this series is also missing: the catalog excludes it ({label})."
