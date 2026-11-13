@@ -263,23 +263,38 @@ class WaterEvidence(BaseModel):
 
 
 class SceneShiftOut(BaseModel):
-    basis: Literal["qa_median_difference"] = Field(
-        "qa_median_difference", description="Mediana de to_date menos la de from_date, del QA de Eco."
+    basis: Literal["pair_stats", "qa_median_difference"] = Field(
+        description="pair_stats: stats.scene_shift_* del par, que processor mide desde T-ECO-07 y ya restó del "
+        "cambio. qa_median_difference: mediana de to_date menos la de from_date, del QA de Eco, sin restar."
+    )
+    corrected: bool = Field(
+        description="true: el porcentaje de cambio ya descuenta este desplazamiento (basis pair_stats). "
+        "false: no lo descuenta y puede reflejarlo."
     )
     hh_db: float | None
     hv_db: float | None
     same_direction: bool | None = Field(description="HH y HV se mueven en el mismo sentido. null si falta alguna o alguna no se movió.")
     threshold_db: float = Field(description="Por encima de este valor absoluto, el veredicto avisa. Sin calibrar.")
     exceeds_threshold: bool = Field(
-        description="Si es true, el porcentaje de cambio puede reflejar un cambio de nivel de toda la escena y no "
-        "un cambio local; summary.does_not_prove lo dice. No cambia el estado."
+        description="Si es true, summary.does_not_prove avisa del cambio de nivel de toda la escena: que ya se "
+        "descontó (corrected) o que el porcentaje puede reflejarlo. No cambia el estado."
     )
     calibrated: bool = Field(False, description="Siempre false.")
+
+
+class DecisionRule(BaseModel):
+    min_observed_fraction: float = Field(description="Por debajo de esta fracción observada, not_observable.")
+    min_changed_fraction: float = Field(
+        description="Desde esta fracción de lo observado con cambio, change_probable; por debajo, "
+        "no_detectable_change. Provisional (T-BAL-09)."
+    )
+    calibrated: bool = Field(False, description="Siempre false: valores iniciales, sin calibrar con verdad de campo.")
 
 
 class Evidence(BaseModel):
     observed_fraction: float
     changed_fraction: float
+    decision_rule: DecisionRule = Field(description="Umbrales con los que se decidió el estado de este veredicto.")
     threshold_hh_db: float | None
     threshold_hv_db: float | None
     mean_change_hh_db: float | None
@@ -583,7 +598,7 @@ def with_quality(
     if notes:
         result["missing"] = " ".join([summary["missing"], *notes])
     if shift is not None and shift.exceeds_threshold and decision.state != rules.NOT_OBSERVABLE:
-        text = narrative.scene_shift_text(shift.hh_db, shift.hv_db, shift.same_direction, lang)
+        text = narrative.scene_shift_text(shift.hh_db, shift.hv_db, shift.same_direction, lang, shift.corrected)
         result["does_not_prove"] = f"{summary['does_not_prove']} {text}"
     return result
 
@@ -675,7 +690,7 @@ def build_verdict(
     decision = rules.decide(stats["counts"])
     qa = quality.qa_by_date(manifest)
     qa_before, qa_after = qa.get(pair["from"]), qa.get(pair["to"])
-    shift = quality.scene_shift(qa_before, qa_after)
+    shift = quality.scene_shift(qa_before, qa_after, stats)
     synthetic = manifest["data_kind"] == "synthetic"
     series = manifest["series"]
     hypotheses = []
@@ -723,6 +738,9 @@ def build_verdict(
         hypotheses=hypotheses,
         evidence=Evidence(
             observed_fraction=decision.observed_fraction,
+            decision_rule=DecisionRule(
+                min_observed_fraction=rules.MIN_OBSERVED_FRACTION, min_changed_fraction=rules.MIN_CHANGED_FRACTION
+            ),
             changed_fraction=decision.changed_fraction,
             threshold_hh_db=stats["threshold_hh_db"],
             threshold_hv_db=stats["threshold_hv_db"],
@@ -737,6 +755,8 @@ def build_verdict(
                 same_direction=shift.same_direction,
                 threshold_db=quality.SCENE_SHIFT_DB,
                 exceeds_threshold=shift.exceeds_threshold,
+                basis=shift.basis,
+                corrected=shift.corrected,
             ),
             water=water_evidence,
         ),

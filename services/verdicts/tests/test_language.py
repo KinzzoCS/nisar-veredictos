@@ -86,7 +86,9 @@ def literal_texts() -> list[tuple[str, str]]:
 
 def _decisions() -> list[rules.Decision]:
     states = [rules.Decision(rules.CHANGE_PROBABLE, None, 0.9, 0.12),
-              rules.Decision(rules.NO_DETECTABLE_CHANGE, None, 0.95, 0.0)]
+              rules.Decision(rules.NO_DETECTABLE_CHANGE, None, 0.95, 0.0),
+              # Por debajo de MIN_CHANGED_FRACTION, pero con píxeles sobre el umbral (T-BAL-09).
+              rules.Decision(rules.NO_DETECTABLE_CHANGE, None, 0.95, 0.03)]
     states += [rules.Decision(rules.NOT_OBSERVABLE, cause, 0.2, 0.0) for cause in rules.UNOBSERVABLE_CAUSES]
     return states
 
@@ -138,9 +140,11 @@ def rendered_texts() -> list[tuple[str, dict]]:
         for hh, hv in ((1.89, 1.6), (-2.1, None), (None, None)):
             text = narrative.quality_flag_text("2026-10-15", hh, hv, 1.5, lang)
             found.append((f"qa {lang} {hh}/{hv}", {"qa": text}))
-        for hh, hv, same in ((1.8, 1.7, True), (-1.9, 0.4, False), (None, 2.0, None)):
-            text = narrative.scene_shift_text(hh, hv, same, lang)
-            found.append((f"shift {lang} {hh}/{hv}/{same}", {"shift": text}))
+        for (hh, hv, same), corrected in itertools.product(
+            ((1.8, 1.7, True), (-1.9, 0.4, False), (None, 2.0, None)), (False, True)
+        ):
+            text = narrative.scene_shift_text(hh, hv, same, lang, corrected)
+            found.append((f"shift {lang} {hh}/{hv}/{same} corrected={corrected}", {"shift": text}))
         # Pasadas excluidas por catalog: motivo conocido y desconocido, dentro del par o usada por él.
         for reason, used in itertools.product(("product_defect", "otro_motivo"), (True, False)):
             text = narrative.excluded_pass_text("2026-08-13", reason, used, lang)
