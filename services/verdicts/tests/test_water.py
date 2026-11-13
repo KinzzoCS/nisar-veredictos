@@ -1,4 +1,5 @@
 """Contraste con OPERA DSWx-S1 (T-BAL-08, RF-BAL-07): acuerdo o desacuerdo sobre agua, nunca un error."""
+import json
 from datetime import date, datetime, timezone
 
 import httpx
@@ -179,8 +180,18 @@ def test_real_radar_without_token_says_it_was_not_compared(manifest_root):
     assert "cuenta de Earthdata" in body["evidence"]["water"]["text"]
 
 
-def _real_with_products(manifest_root, wtr_before, wtr_after):
+def _tile_sized_aoi(manifest_root):
+    """La zona del manifiesto pasa a ser la de las capas de prueba (0,04°), para que se compare entera."""
+    path = manifest_root / "parral/T048A-F015/manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["bbox"] = [LON - 0.02, LAT - 0.02, LON + 0.02, LAT + 0.02]
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+
+
+def _real_with_products(manifest_root, wtr_before, wtr_after, whole_aoi=True):
     _as_real(manifest_root)
+    if whole_aoi:
+        _tile_sized_aoi(manifest_root)
     wet = (_water_columns(0, 20, -20, -10), _water_columns(0, 20, -26, -18))
     _radar(manifest_root, "20260629", *wet)
     _radar(manifest_root, "20260711", *wet)
@@ -208,6 +219,29 @@ def test_real_radar_compares_and_presents_disagreement_as_such(manifest_root):
     english = client.get(VERDICT, params={"lang": "en"}).json()["evidence"]["water"]["text"]
     assert "disagreement between two methods" in english
     assert len(fetcher.urls) == 2  # el segundo idioma usa la caché
+
+
+def test_partial_coverage_gives_counts_but_no_assessment(manifest_root):
+    # Revisión de Antena (PR 34): una pasada con 13RDK y 13RDL dejó el 78,9 % de Parral en WTR 255 y salía disagree.
+    elsewhere = np.zeros((40, 40))
+    elsewhere[:, 25:] = 1
+    opera, fetcher = _real_with_products(manifest_root, elsewhere, elsewhere, whole_aoi=False)
+    evidence = _client(manifest_root, opera, fetcher).get(VERDICT).json()["evidence"]["water"]
+    before = evidence["before"]
+    assert before["status"] == "partial_overlap" and before["assessment"] is None
+    assert 0 < before["comparison"]["compared_fraction"] < 0.5 and evidence["min_compared_fraction"] == 0.5
+    assert "solo se pudo comparar el" in evidence["text"] and "menos del 50 %" in evidence["text"]
+    assert "no coinciden" not in evidence["text"]
+
+
+def test_half_of_the_area_with_data_is_enough(manifest_root):
+    half = np.full((40, 40), 255)
+    half[:, :20] = 1
+    opera, fetcher = _real_with_products(manifest_root, half, half)
+    before = _client(manifest_root, opera, fetcher).get(VERDICT).json()["evidence"]["water"]["before"]
+    assert before["comparison"]["compared_fraction"] == pytest.approx(0.5, abs=0.03)
+    assert before["status"] in ("compared", "partial_overlap")
+    assert (before["status"] == "compared") == (before["comparison"]["compared_fraction"] >= 0.5)
 
 
 def test_read_failure_is_declared_and_retried(manifest_root):
