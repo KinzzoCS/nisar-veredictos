@@ -131,6 +131,7 @@ export interface components {
         EventVerdict: {
             /** Aoi */
             aoi: string;
+            assumption: components["schemas"]["PersistenceAssumption"];
             /** Cause */
             cause: string | null;
             /** Cause Label */
@@ -145,14 +146,30 @@ export interface components {
              * Format: date
              */
             event_date: string;
+            /**
+             * Event Time
+             * @description Hora UTC de inicio del evento, si se indicó. Sin ella, puede empezar en cualquier momento de su día.
+             */
+            event_time: string | null;
+            /**
+             * Event Type
+             * @description Tipo de evento indicado en la consulta, si lo hay.
+             */
+            event_type: ("urban_storm" | "river_flood" | "wildfire") | null;
             /** Next Pass */
             next_pass: string | null;
+            /**
+             * Next Pass Acquired At
+             * @description Hora UTC de la siguiente pasada según la línea de tiempo de catalog. null si no se conoce (datos sintéticos o catalog sin respuesta): entonces se considera todo su día.
+             */
+            next_pass_acquired_at: string | null;
             /** Persistence Hours */
             persistence_hours: number;
             /** Previous Pass */
             previous_pass: string | null;
             /**
              * State
+             * @description Responde otra pregunta que los pares: si alguna pasada cayó mientras duraba el evento, en horas UTC. observable exige que caiga dentro en todos los casos posibles y no afirma ningún cambio: hay que consultar el veredicto del par. not_observable lleva su causa; timing_uncertain si solo cae dentro en algunos casos.
              * @enum {string}
              */
             state: "observable" | "not_observable";
@@ -168,6 +185,7 @@ export interface components {
             mean_change_hv_db: number | null;
             /** Observed Fraction */
             observed_fraction: number;
+            optical: components["schemas"]["OpticalEvidence"];
             /** Pixel Counts */
             pixel_counts: {
                 [key: string]: number;
@@ -180,6 +198,23 @@ export interface components {
             threshold_hh_db: number | null;
             /** Threshold Hv Db */
             threshold_hv_db: number | null;
+        };
+        /** Freshness */
+        Freshness: {
+            after: components["schemas"]["PassFreshness"];
+            before: components["schemas"]["PassFreshness"];
+            /**
+             * Published At Basis
+             * @default cmr_updated
+             * @constant
+             */
+            published_at_basis: "cmr_updated";
+            /**
+             * Reference Date
+             * Format: date
+             * @description Fecha UTC con la que se calcula age_days (hoy, al responder).
+             */
+            reference_date: string;
         };
         /** HTTPValidationError */
         HTTPValidationError: {
@@ -194,6 +229,197 @@ export interface components {
             change_hv: string;
             /** State */
             state: string;
+        };
+        /** OpticalEvidence */
+        OpticalEvidence: {
+            /** @description Escena más cercana a to_date que no es anterior a la pasada. */
+            after: components["schemas"]["OpticalSide"];
+            /** @description Escena más cercana a from_date que no es posterior a la pasada. */
+            before: components["schemas"]["OpticalSide"];
+            /**
+             * Cloud Cover Basis
+             * @default tile
+             * @constant
+             */
+            cloud_cover_basis: "tile";
+            /** Collection */
+            collection: string | null;
+            /**
+             * Data Kind
+             * @description Las escenas ópticas son siempre datos reales.
+             * @default real
+             * @constant
+             */
+            data_kind: "real";
+            /** License */
+            license: string | null;
+            /** License Url */
+            license_url: string | null;
+            /**
+             * Max Cloud Cover
+             * @description Nubosidad máxima por tesela, en %. Valor inicial sin calibrar.
+             */
+            max_cloud_cover: number;
+            /**
+             * Search Days
+             * @description Días máximos entre la escena óptica y su fecha de radar.
+             */
+            search_days: number;
+            /**
+             * Source
+             * @description Buscador de escenas usado por catalog. null si no respondió.
+             */
+            source: string | null;
+            /**
+             * Text
+             * @description Resumen en el idioma pedido de qué escenas hay y con cuántas nubes.
+             */
+            text: string;
+        };
+        /** OpticalScene */
+        OpticalScene: {
+            /**
+             * Acquired At
+             * Format: date-time
+             * @description Hora UTC de la primera tesela de la adquisición.
+             */
+            acquired_at: string;
+            /**
+             * Attribution
+             * @description Texto de atribución que debe mostrarse junto a la imagen.
+             */
+            attribution: string;
+            /**
+             * Covers Aoi
+             * @description Las teselas juntas cubren toda la zona.
+             */
+            covers_aoi: boolean;
+            /**
+             * Days From Radar
+             * @description Días respecto a radar_date; negativo si es anterior.
+             */
+            days_from_radar: number;
+            /**
+             * Max Cloud Cover
+             * @description Mayor nubosidad entre sus teselas. Es de la tesela, no de la zona.
+             */
+            max_cloud_cover: number;
+            /** Platform */
+            platform: string;
+            /** Tiles */
+            tiles: components["schemas"]["OpticalTileOut"][];
+        };
+        /** OpticalSide */
+        OpticalSide: {
+            /**
+             * Radar Acquired At
+             * @description Hora UTC de la pasada de radar. Si se conoce, antes y después se comparan al segundo; si es null, se compara por día UTC y una escena del mismo día cuenta en los dos lados.
+             */
+            radar_acquired_at: string | null;
+            /**
+             * Radar Date
+             * Format: date
+             */
+            radar_date: string;
+            scene: components["schemas"]["OpticalScene"] | null;
+            /**
+             * Status
+             * @description clear: cubre la zona con nubosidad <= max_cloud_cover. cloudy: la menos nublada que cubre la zona, por encima del límite. partial_coverage: ninguna cubre la zona entera. none_in_window: ninguna a search_days o menos. catalog_unavailable: catalog no respondió.
+             * @enum {string}
+             */
+            status: "clear" | "cloudy" | "partial_coverage" | "none_in_window" | "catalog_unavailable";
+        };
+        /** OpticalTileOut */
+        OpticalTileOut: {
+            /**
+             * Cloud Cover
+             * @description Porcentaje de nubes de la tesela completa, no de la zona.
+             */
+            cloud_cover: number;
+            /**
+             * Tile
+             * @description Tesela MGRS de unos 110 km de lado.
+             */
+            tile: string;
+            /**
+             * Tile Url
+             * @description Plantilla XYZ por el gateway: TiTiler lee visual_url.
+             */
+            tile_url: string;
+            /**
+             * Visual Url
+             * @description COG en color verdadero (TCI) en el bucket público de Sentinel-2.
+             */
+            visual_url: string;
+        };
+        /** PassFreshness */
+        PassFreshness: {
+            /**
+             * Acquired At
+             * @description Inicio de la adquisición en UTC, según la línea de tiempo de catalog. null si no se conoce.
+             */
+            acquired_at: string | null;
+            /**
+             * Age Days
+             * @description Días entre la fecha de la pasada y reference_date.
+             */
+            age_days: number;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /** Granule */
+            granule: string;
+            /**
+             * Latency Status
+             * @description Por qué hay o no hay latencia: dato real disponible, dato sintético, catalog sin respuesta, gránulo ausente del catálogo o gránulo sin fecha de publicación.
+             * @enum {string}
+             */
+            latency_status: "available" | "synthetic" | "catalog_unavailable" | "granule_not_in_catalog" | "not_published";
+            /**
+             * Publication Latency Hours
+             * @description Horas entre la adquisición y published_at, tal como las da catalog. null si no se conoce.
+             */
+            publication_latency_hours: number | null;
+            /**
+             * Published At
+             * @description Fecha 'updated' de CMR en UTC: aproxima la publicación. null si no se conoce.
+             */
+            published_at: string | null;
+        };
+        /** PersistenceAssumption */
+        PersistenceAssumption: {
+            /**
+             * Calibrated
+             * @description Siempre false: las persistencias son valores iniciales sin calibrar.
+             */
+            calibrated: boolean;
+            /** Event Type */
+            event_type: ("urban_storm" | "river_flood" | "wildfire") | null;
+            /**
+             * Hours By Event Type
+             * @description Tabla completa de persistencias supuestas, en horas.
+             */
+            hours_by_event_type: {
+                [key: string]: number;
+            };
+            /**
+             * Persistence Hours
+             * @description Horas que se supone que dura el evento. Nunca es una medición.
+             */
+            persistence_hours: number;
+            /**
+             * Source
+             * @description event_type: valor de la tabla por tipo; user: persistence_hours de la consulta; default: valor por omisión, sin tipo ni horas.
+             * @enum {string}
+             */
+            source: "event_type" | "user" | "default";
+            /**
+             * Text
+             * @description El supuesto redactado en el idioma pedido; también va en summary.does_not_prove.
+             */
+            text: string;
         };
         /** PixelChange */
         PixelChange: {
@@ -247,6 +473,7 @@ export interface components {
             direction: string;
             /** Frame */
             frame: number;
+            freshness: components["schemas"]["Freshness"];
             /** Granules */
             granules: string[];
             /** Maturity */
@@ -321,6 +548,11 @@ export interface components {
             /** Id */
             id: string;
             /**
+             * Interval Days
+             * @description Días entre from_date y to_date.
+             */
+            interval_days: number;
+            /**
              * Kind
              * @enum {string}
              */
@@ -374,7 +606,12 @@ export interface operations {
         parameters: {
             query: {
                 date: string;
+                /** @description Horas que dura el evento. Si se da, manda sobre event_type. Sin ninguno de los dos, 24 h. */
                 persistence_hours?: number;
+                /** @description Tipo de evento: fija una persistencia supuesta (urban_storm 6 h, river_flood 72 h, wildfire 240 h). */
+                event_type?: ("urban_storm" | "river_flood" | "wildfire") | null;
+                /** @description Hora UTC de inicio del evento, HH:MM. Opcional. */
+                time?: string | null;
                 lang?: "es" | "en";
             };
             header?: never;
