@@ -103,6 +103,12 @@ def freshness_text(age_days: int, latency_hours: float | None, latency_status: s
     return f"{age} {latency}"
 
 
+def _fraction(value: float, lang: Lang) -> str:
+    """Fracción como porcentaje sin decimales sobrantes: 0.05 -> "5 %"."""
+    text = f"{value * 100:.1f}".removesuffix(".0")
+    return (text.replace(".", ",") if lang == "es" else text) + " %"
+
+
 def pair_summary(
     decision: rules.Decision,
     start: str,
@@ -124,6 +130,13 @@ def pair_summary(
         if decision.state == rules.CHANGE_PROBABLE:
             detected = f"Entre {start} y {end} ({span}) cambió la señal de radar en el {changed} de la superficie observada."
             limits = "No identifica la causa ni mide sus consecuencias; explicarlo requiere otra fuente o verificación en campo."
+        elif decision.state == rules.NO_DETECTABLE_CHANGE and decision.changed_fraction > 0:
+            detected = (
+                f"Entre {start} y {end} ({span}) la señal de radar superó el umbral en el {changed} de la superficie "
+                f"observada, por debajo del {_fraction(rules.MIN_CHANGED_FRACTION, lang)} que exige el veredicto "
+                "(valor sin calibrar): el ruido del radar puede dar cifras de ese orden, así que no lo contamos como cambio."
+            )
+            limits = "No demuestra que nada cambiara: lo pequeño, lo breve o lo ocurrido entre pasadas puede no aparecer."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
             detected = f"Entre {start} y {end} ({span}) no detectamos cambios sobre el umbral en el {observed} observado de la zona."
             limits = "No demuestra que nada cambiara: lo pequeño, lo breve o lo ocurrido entre pasadas puede no aparecer."
@@ -145,6 +158,13 @@ def pair_summary(
         if decision.state == rules.CHANGE_PROBABLE:
             detected = f"Between {start} and {end} ({span}), the radar signal changed over {changed} of the observed surface."
             limits = "It does not identify the cause or measure its consequences; explaining it needs another source or field checks."
+        elif decision.state == rules.NO_DETECTABLE_CHANGE and decision.changed_fraction > 0:
+            detected = (
+                f"Between {start} and {end} ({span}), the radar signal exceeded the threshold over {changed} of the "
+                f"observed surface, below the {_fraction(rules.MIN_CHANGED_FRACTION, lang)} the verdict requires "
+                "(an uncalibrated value): radar noise can give figures of that size, so we do not count it as change."
+            )
+            limits = "It does not prove nothing changed: small, brief or between-pass changes may not appear."
         elif decision.state == rules.NO_DETECTABLE_CHANGE:
             detected = f"Between {start} and {end} ({span}), we detected no change above the threshold in the {observed} of the area observed."
             limits = "It does not prove nothing changed: small, brief or between-pass changes may not appear."
@@ -459,17 +479,28 @@ def quality_flag_text(day: str, deviation_hh: float | None, deviation_hv: float 
             f"from the series median, more than {limit} dB (uncalibrated threshold). It is a warning, not an exclusion.")
 
 
-def scene_shift_text(hh: float | None, hv: float | None, same_direction: bool | None, lang: Lang) -> str:
-    """Aviso de que el nivel de toda la escena cambió entre las dos fechas."""
+def scene_shift_text(
+    hh: float | None, hv: float | None, same_direction: bool | None, lang: Lang, corrected: bool = False
+) -> str:
+    """Aviso de que el nivel de toda la escena cambió entre las dos fechas.
+
+    corrected: processor ya descontó ese desplazamiento antes de medir el cambio (stats.scene_shift_*).
+    """
     if lang == "es":
         together = {True: ", en el mismo sentido", False: ", en sentidos opuestos", None: ""}[same_direction]
-        return (f"Entre las dos fechas cambió el nivel de toda la escena (mediana de HH {_db(hh, lang)} dB y de HV "
-                f"{_db(hv, lang)} dB{together}). El porcentaje de cambio puede reflejar ese desplazamiento general, "
-                "como humedad del suelo o un efecto radiométrico, y no un cambio local.")
+        shift = (f"Entre las dos fechas cambió el nivel de toda la escena (mediana de HH {_db(hh, lang)} dB y de HV "
+                 f"{_db(hv, lang)} dB{together}), quizá por humedad del suelo o por un efecto radiométrico.")
+        if corrected:
+            return (f"{shift} Ese desplazamiento general se descontó antes de medir el cambio, suponiendo que es "
+                    "igual en toda la zona; si no lo es, parte de lo que queda puede seguir siendo general y no local.")
+        return f"{shift} El porcentaje de cambio puede reflejar ese desplazamiento general y no un cambio local."
     together = {True: ", in the same direction", False: ", in opposite directions", None: ""}[same_direction]
-    return (f"The level of the whole scene changed between the two dates (median HH {_db(hh, lang)} dB and HV "
-            f"{_db(hv, lang)} dB{together}). The change percentage may reflect that general shift, "
-            "such as soil moisture or a radiometric effect, rather than a local change.")
+    shift = (f"The level of the whole scene changed between the two dates (median HH {_db(hh, lang)} dB and HV "
+             f"{_db(hv, lang)} dB{together}), perhaps from soil moisture or a radiometric effect.")
+    if corrected:
+        return (f"{shift} That general shift was removed before measuring change, assuming it is the same across "
+                "the whole area; if it is not, part of what remains may still be general rather than local.")
+    return f"{shift} The change percentage may reflect that general shift rather than a local change."
 
 
 # --- Pasadas excluidas por catalog (excluded[] de la línea de tiempo, Antena) ----------------

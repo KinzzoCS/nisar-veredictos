@@ -79,6 +79,32 @@
         "title": "DateQuality",
         "type": "object"
       },
+      "DecisionRule": {
+        "properties": {
+          "calibrated": {
+            "default": false,
+            "description": "Siempre false: valores iniciales, sin calibrar con verdad de campo.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "min_changed_fraction": {
+            "description": "Desde esta fracción de lo observado con cambio, change_probable; por debajo, no_detectable_change. Provisional (T-BAL-09).",
+            "title": "Min Changed Fraction",
+            "type": "number"
+          },
+          "min_observed_fraction": {
+            "description": "Por debajo de esta fracción observada, not_observable.",
+            "title": "Min Observed Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min_observed_fraction",
+          "min_changed_fraction"
+        ],
+        "title": "DecisionRule",
+        "type": "object"
+      },
       "EventVerdict": {
         "properties": {
           "aoi": {
@@ -241,6 +267,10 @@
             "title": "Changed Fraction",
             "type": "number"
           },
+          "decision_rule": {
+            "$ref": "#/components/schemas/DecisionRule",
+            "description": "Umbrales con los que se decidió el estado de este veredicto."
+          },
           "mean_change_hh_db": {
             "anyOf": [
               {
@@ -325,6 +355,7 @@
         "required": [
           "observed_fraction",
           "changed_fraction",
+          "decision_rule",
           "threshold_hh_db",
           "threshold_hv_db",
           "mean_change_hh_db",
@@ -1103,9 +1134,11 @@
       "SceneShiftOut": {
         "properties": {
           "basis": {
-            "const": "qa_median_difference",
-            "default": "qa_median_difference",
-            "description": "Mediana de to_date menos la de from_date, del QA de Eco.",
+            "description": "pair_stats: stats.scene_shift_* del par, que processor mide desde T-ECO-07 y ya restó del cambio. qa_median_difference: mediana de to_date menos la de from_date, del QA de Eco, sin restar.",
+            "enum": [
+              "pair_stats",
+              "qa_median_difference"
+            ],
             "title": "Basis",
             "type": "string"
           },
@@ -1115,8 +1148,13 @@
             "title": "Calibrated",
             "type": "boolean"
           },
+          "corrected": {
+            "description": "true: el porcentaje de cambio ya descuenta este desplazamiento (basis pair_stats). false: no lo descuenta y puede reflejarlo.",
+            "title": "Corrected",
+            "type": "boolean"
+          },
           "exceeds_threshold": {
-            "description": "Si es true, el porcentaje de cambio puede reflejar un cambio de nivel de toda la escena y no un cambio local; summary.does_not_prove lo dice. No cambia el estado.",
+            "description": "Si es true, summary.does_not_prove avisa del cambio de nivel de toda la escena: que ya se descontó (corrected) o que el porcentaje puede reflejarlo. No cambia el estado.",
             "title": "Exceeds Threshold",
             "type": "boolean"
           },
@@ -1161,6 +1199,8 @@
           }
         },
         "required": [
+          "basis",
+          "corrected",
           "hh_db",
           "hv_db",
           "same_direction",

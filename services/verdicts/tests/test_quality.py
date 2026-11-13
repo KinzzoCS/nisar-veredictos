@@ -26,7 +26,14 @@ def _with_qa(manifest_root, before, after, **pair_changes):
             item["qa"] = qa
     manifest["pairs"][0].update(pair_changes)
     schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
-    jsonschema.validate(manifest, schema)
+    allowed = schema["properties"]["pairs"]["items"]["properties"]["stats"]["properties"]
+    # stats.scene_shift_* llegan con el PR 39 de Eco. Hasta que el esquema los tenga, se valida sin ellos;
+    # después, esta comprobación vuelve a cubrir el manifiesto completo sin tocar nada.
+    checked = json.loads(json.dumps(manifest))
+    for name in ("scene_shift_hh_db", "scene_shift_hv_db"):
+        if name not in allowed:
+            checked["pairs"][0]["stats"].pop(name, None)
+    jsonschema.validate(checked, schema)
     path.write_text(json.dumps(manifest), encoding="utf-8")
 
 
@@ -111,3 +118,62 @@ def test_not_observable_pair_does_not_talk_about_the_shift(manifest_root):
     assert "toda la escena" not in body["summary"]["does_not_prove"]
     assert "El control de calidad marca" in body["summary"]["missing"]  # la fecha marcada se avisa igual
     assert body["evidence"]["scene_shift"]["exceeds_threshold"] is True
+
+
+# --- Cambio ya corregido por processor (PR 39 de Eco, T-ECO-07) ------------------------------
+
+# T171 09-18 -> 09-30 real: +2,29 dB en HH; corregido queda un 2,3 % de cambio local.
+CORRECTED_STATS = {
+    "counts": counts(no_change=977, change_probable=23), "signature_counts": {"hh_up_hv_up": 23},
+    "threshold_hh_db": 3.0, "threshold_hv_db": 3.0, "mean_change_hh_db": 3.4, "mean_change_hv_db": 3.1,
+    "scene_shift_hh_db": 2.29, "scene_shift_hv_db": 1.9,
+}
+
+
+def test_stats_shift_wins_over_qa_and_is_declared_corrected(manifest_root):
+    _with_qa(manifest_root, *MONSOON, stats=CORRECTED_STATS)
+    body = _get(manifest_root)
+    shift = body["evidence"]["scene_shift"]
+    assert shift["basis"] == "pair_stats" and shift["corrected"] is True
+    assert shift["hh_db"] == 2.29 and shift["exceeds_threshold"] is True
+    text = body["summary"]["does_not_prove"]
+    assert "Ese desplazamiento general se descontó antes de medir el cambio" in text
+    assert "puede reflejar ese desplazamiento" not in text
+    english = _get(manifest_root, "en")["summary"]["does_not_prove"]
+    assert "That general shift was removed before measuring change" in english
+
+
+def test_stats_shift_works_without_qa(manifest_root):
+    _with_qa(manifest_root, None, None, stats=CORRECTED_STATS)
+    shift = _get(manifest_root)["evidence"]["scene_shift"]
+    assert shift["basis"] == "pair_stats" and shift["corrected"] is True
+
+
+def test_qa_shift_is_declared_uncorrected(manifest_root):
+    _with_qa(manifest_root, *MONSOON)
+    shift = _get(manifest_root)["evidence"]["scene_shift"]
+    assert shift["basis"] == "qa_median_difference" and shift["corrected"] is False
+
+
+# --- MIN_CHANGED_FRACTION provisional del 5 % (T-BAL-09) -------------------------------------
+
+def test_below_five_percent_is_no_detectable_change_and_says_why(manifest_root):
+    _with_qa(manifest_root, None, None, stats=CORRECTED_STATS)
+    body = _get(manifest_root)
+    assert body["state"] == "no_detectable_change"
+    assert body["evidence"]["decision_rule"] == {
+        "min_observed_fraction": 0.5, "min_changed_fraction": 0.05, "calibrated": False,
+    }
+    detected = body["summary"]["detected"]
+    assert "superó el umbral en el 2.3% de la superficie observada, por debajo del 5 % que exige el veredicto" in detected
+    assert "el ruido del radar puede dar cifras de ese orden" in detected
+    english = _get(manifest_root, "en")["summary"]["detected"]
+    assert "below the 5 % the verdict requires" in english
+
+
+def test_t048_pair_at_9_6_percent_stays_change_probable(manifest_root):
+    # T048 08-28 -> 09-09, el único par consecutivo real que queda alto tras corregir.
+    stats = dict(CORRECTED_STATS, counts=counts(no_change=904, change_probable=96), scene_shift_hh_db=1.61)
+    _with_qa(manifest_root, None, None, stats=stats)
+    body = _get(manifest_root)
+    assert body["state"] == "change_probable" and body["evidence"]["changed_fraction"] == pytest.approx(0.096)
