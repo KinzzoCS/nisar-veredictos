@@ -42,6 +42,7 @@ MULTITEMPORAL_NOTICE = (
     "calcular QA, capas y cambios: cada fecha conserva su media local, pero su textura fina sale del promedio de la "
     "serie, así que un cambio fuerte en una fecha se ve atenuado en las demás."
 )
+EXCLUDED_NOTICE = "Fechas excluidas de la serie por declararse inservibles en config/aois: {items}."
 SYNTHETIC_NOTICE = "DATOS SINTÉTICOS: sirven para probar el sistema y no describen ningún lugar real."
 
 
@@ -134,6 +135,15 @@ def _read(path: Path, bbox: list[float], params: Params, speckle: MultitemporalF
     return speckle.apply(scene, observable(scene, params)) if speckle else scene
 
 
+def excluded_granules(aoi: dict) -> dict[str, str]:
+    """granule_id -> motivo, según `series[].exclude[]` de la zona (lo mantiene Antena, T-ANT-10)."""
+    return {
+        entry["granule"]: str(entry.get("reason", "sin motivo"))
+        for item in aoi.get("series") or []
+        for entry in item.get("exclude") or []
+    }
+
+
 def process_series(
     paths: list[Path],
     aoi: dict,
@@ -142,9 +152,13 @@ def process_series(
     maturity: str,
     params: Params = Params(),
     dem_sources: list[Path | str] | None = None,
+    exclude: dict[str, str] | None = None,
 ) -> dict:
     """Procesa la serie con como máximo dos escenas en memoria, sea cual sea el número de fechas."""
     ordered = sorted(((read_meta_path(path), path) for path in paths), key=lambda item: item[0].date)
+    # Se decide por el granuleId de dentro del archivo, no por su nombre en disco.
+    skipped = [(meta, exclude[meta.granule_id]) for meta, _ in ordered if exclude and meta.granule_id in exclude]
+    ordered = [(meta, path) for meta, path in ordered if not exclude or meta.granule_id not in exclude]
     if len(ordered) < 2:
         raise GranuleError("Hacen falta al menos dos fechas")
     reference = ordered[0][0]
@@ -194,6 +208,11 @@ def process_series(
         ]
         + [QA_NOTICE.format(params.qa_outlier_db)]
         + ([MULTITEMPORAL_NOTICE.format(window=params.multitemporal_window, dates=len(ordered))] if speckle else [])
+        + (
+            [EXCLUDED_NOTICE.format(items=", ".join(f"{meta.date} ({reason})" for meta, reason in skipped))]
+            if skipped
+            else []
+        )
     )
     manifest = {
         "schema_version": 1,

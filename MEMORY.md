@@ -223,6 +223,7 @@ Comprobado el 2026-11-12 por Antena con CMR, con los XML bajados con el token y 
   - Con las 10 fechas reales de T048: 345 s y 1913 MB de `ru_maxrss`. Está cerca del límite de 2 GB; sin filtro, el pico del contenedor fue de 1611 MB.
   - Speckle: el ENL mediano en bloques de 15 × 15 (fecha 08-16) pasa de 2,14 a 3,39 en HH y de 2,15 a 3,64 en HV. Es una medida tosca, porque la textura real también cuenta como varianza.
   - `change_probable` baja en todos los pares (por ejemplo, 06-17→06-29 de 3,50 a 1,85 % y la ventana completa de 11,03 a 6,97 %). Los pares con desplazamiento de toda la escena siguen altos (08-28→09-09 de 18,59 a 17,11 %): el filtro no resuelve T-ECO-07.
+- 2026-11-12, `processor run` se salta los gránulos de `series[].exclude[]` de `config/aois/<zona>.yaml` (lista que mantiene Antena desde el PR 22). Compara con el `granuleId` de dentro del archivo, no con el nombre en disco, y lo declara en los avisos del manifiesto. Probado con la configuración del PR 22 y tres recortes reales de T171 (07-20, 08-13 y 08-25): sale un solo par, 07-20→08-25.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación

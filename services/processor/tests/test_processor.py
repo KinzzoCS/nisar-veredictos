@@ -29,7 +29,7 @@ from processor.georef import agreement, best_shift, shared_components, shift_mas
 from processor.multitemporal import MultitemporalFilter, equivalent_looks
 from processor.terrain import geometry_on_grid, glo30_tiles, layover_shadow, read_radar_grid
 from processor.gcov import GRID, IDENTIFICATION, GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
-from processor.pipeline import process_series
+from processor.pipeline import excluded_granules, process_series
 from processor.qa import RADIOMETRIC_OUTLIER, date_qa
 from processor.synthetic import SeriesSpec, generate_series
 
@@ -615,3 +615,31 @@ def test_pipeline_with_multitemporal_declares_it_and_still_finds_the_wetting(ser
     jsonschema.validate(manifest, schema)
     plain = process_series(paths, AOI, "T048A-F015", tmp_path / "plain", "PROVISIONAL")
     assert not any("Filtro multitemporal" in notice for notice in plain["notices"])
+
+
+def test_excluded_granules_come_from_every_series_of_the_aoi():
+    aoi = {"series": [{"id": "a"}, {"id": "b", "exclude": [{"granule": "G1", "reason": "product_defect"}, {"granule": "G2"}]}]}
+    assert excluded_granules(aoi) == {"G1": "product_defect", "G2": "sin motivo"}
+    assert excluded_granules({"series": [{"id": "a", "exclude": None}]}) == {}
+
+
+def test_parral_config_excludes_t171_august_13_if_declared():
+    import yaml
+
+    aoi = yaml.safe_load((ROOT / "config" / "aois" / "parral.yaml").read_text(encoding="utf-8"))
+    bad = "NISAR_L2_PR_GCOV_027_171_D_075_4005_DHDH_A_20260813T014433_20260813T014508_P05023_N_F_J_001"
+    assert excluded_granules(aoi)[bad] == "product_defect"  # lo declaró Antena en el PR 22
+
+
+def test_pipeline_skips_excluded_granules_by_their_internal_id_and_says_so(series, tmp_path):
+    paths, _ = series
+    bad = read_meta_path(paths[1])
+    renamed = tmp_path / "renombrado.h5"  # el nombre en disco no importa
+    shutil.copy(paths[1], renamed)
+    inputs = [paths[0], renamed, *paths[2:]]
+    manifest = process_series(inputs, AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL",
+                              exclude={bad.granule_id: "product_defect"})
+    assert bad.date not in [item["date"] for item in manifest["dates"]]
+    assert len(manifest["dates"]) == len(paths) - 1
+    assert all(bad.granule_id not in pair["granules"] for pair in manifest["pairs"])
+    assert any(f"{bad.date} (product_defect)" in notice for notice in manifest["notices"])
