@@ -73,7 +73,7 @@ test('abre en la tormenta con su fuente y la respuesta en vivo', async () => {
   expect(url.searchParams.get('time')).toBe('21:37')
 })
 
-test('se recorre con Siguiente y Anterior, y el monzón lleva su par al mapa', async () => {
+test('se recorre con Siguiente y Anterior, y la escena de agosto lleva su par al mapa', async () => {
   const user = userEvent.setup()
   stubApi()
   const onShowPair = vi.fn()
@@ -81,8 +81,11 @@ test('se recorre con Siguiente y Anterior, y el monzón lleva su par al mapa', a
 
   expect(screen.getByRole('button', { name: 'Anterior' })).toBeDisabled()
   await user.click(screen.getByRole('button', { name: 'Siguiente' }))
-  expect(screen.getByRole('button', { name: '2. El monzón' })).toHaveAttribute('aria-current', 'step')
+  expect(screen.getByRole('button', { name: '2. Agosto' })).toHaveAttribute('aria-current', 'step')
   expect(await screen.findByText('del 2026-08-16 al 2026-08-28 · 12 días')).toBeInTheDocument()
+
+  // Sin la lluvia como contexto: sugeriría una causa que solo es hipótesis (revisión de Balanza, PR 57).
+  expect(document.querySelector('.story')!.textContent).not.toMatch(/lluvia|monzón/i)
 
   await user.click(screen.getByRole('button', { name: 'Ver este par en el mapa' }))
   expect(onShowPair).toHaveBeenCalledWith('T048A-F015', '20260816_20260828')

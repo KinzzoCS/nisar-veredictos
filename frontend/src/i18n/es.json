@@ -22,7 +22,7 @@
   },
   "story": {
     "heading": "La historia de Parral en tres escenas",
-    "intro": "Tres preguntas sobre Hidalgo del Parral. Cada respuesta llega en vivo de los datos, con lo que se sabe y lo que no.",
+    "intro": "Tres preguntas sobre Hidalgo del Parral. Cada respuesta la da la API con los datos ya procesados, con lo que se sabe y lo que no.",
     "nav": "Escenas",
     "prev": "Anterior",
     "next": "Siguiente",
@@ -36,15 +36,15 @@
       "source": "Fuente: boletín de la Coordinación Estatal de Protección Civil, Gobierno de Chihuahua (1 de julio de 2026)"
     },
     "monsoon": {
-      "step": "El monzón",
-      "title": "2. Un par de fechas en temporada de lluvias",
-      "text": "Del 16 al 28 de agosto de 2026, en plena temporada de lluvias de verano. Esto es lo que dice el radar sobre ese par de fechas, y lo que no puede probar.",
+      "step": "Agosto",
+      "title": "2. Un par de fechas de agosto",
+      "text": "Del 16 al 28 de agosto de 2026. Esto es lo que dice el radar sobre ese par de fechas, y lo que no puede probar.",
       "showOnMap": "Ver este par en el mapa"
     },
     "mine": {
       "step": "La mina",
       "title": "3. Un punto junto a la Mina La Prieta",
-      "text": "La Mina La Prieta es parte de la historia minera de Parral. Tomamos un punto junto a ella, según OpenStreetMap, y miramos qué detectó el radar en cada par de fechas.",
+      "text": "Tomamos un punto junto a la Mina La Prieta, según OpenStreetMap, y miramos qué detectó el radar en cada par de fechas.",
       "point": "Punto: lon {{lon}}, lat {{lat}} · serie {{series}}",
       "count": "{{same}} de {{total}} pares sin cambio detectable en este punto.",
       "note": "No detectar cambio también es información, pero no prueba que nada cambiara: dice que el radar no vio un cambio mayor que su umbral.",

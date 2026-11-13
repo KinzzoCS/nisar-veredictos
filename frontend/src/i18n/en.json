@@ -22,7 +22,7 @@
   },
   "story": {
     "heading": "The story of Parral in three scenes",
-    "intro": "Three questions about Hidalgo del Parral. Each answer comes live from the data, with what is known and what is not.",
+    "intro": "Three questions about Hidalgo del Parral. Each answer comes from the API with the already processed data, with what is known and what is not.",
     "nav": "Scenes",
     "prev": "Previous",
     "next": "Next",
@@ -32,19 +32,19 @@
     "storm": {
       "step": "The storm",
       "title": "1. The storm of 1 July 2026",
-      "text": "On 1 July 2026, a storm left streets under water in Parral and swept a vehicle along the Arroyo de las Quintas. Chihuahua Civil Protection recorded 22.8 mm of rain in one hour. Did the satellite pass while it lasted?",
+      "text": "On 1 July 2026, a storm left water in the streets of Parral and swept a vehicle along the Arroyo de las Quintas. Chihuahua Civil Protection recorded 22.8 mm of rain in one hour. Did the satellite pass while it lasted?",
       "source": "Source: bulletin of the State Civil Protection Coordination, Government of Chihuahua (1 July 2026)"
     },
     "monsoon": {
-      "step": "The monsoon",
-      "title": "2. A date pair in the rainy season",
-      "text": "From 16 to 28 August 2026, in the middle of the summer rainy season. This is what the radar says about that date pair, and what it cannot prove.",
+      "step": "August",
+      "title": "2. A date pair in August",
+      "text": "From 16 to 28 August 2026. This is what the radar says about that date pair, and what it cannot prove.",
       "showOnMap": "Show this pair on the map"
     },
     "mine": {
       "step": "The mine",
       "title": "3. A point next to the La Prieta Mine",
-      "text": "The La Prieta Mine is part of Parral's mining history. We took a point next to it, according to OpenStreetMap, and looked at what the radar detected in each date pair.",
+      "text": "We took a point next to the La Prieta Mine, according to OpenStreetMap, and looked at what the radar detected in each date pair.",
       "point": "Point: lon {{lon}}, lat {{lat}} · series {{series}}",
       "count": "{{same}} of {{total}} pairs with no detectable change at this point.",
       "note": "Detecting no change is also information, but it does not prove that nothing changed: it says the radar saw no change larger than its threshold.",
