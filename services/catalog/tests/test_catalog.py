@@ -121,8 +121,8 @@ class BrokenSource:
         raise httpx.ConnectError("sin red")
 
 
-def timeline_client(source):
-    return TestClient(create_app(ROOT / "config" / "aois", source, clock=lambda: NOW))
+def timeline_client(source, plan_dir=ROOT / "no-existe"):
+    return TestClient(create_app(ROOT / "config" / "aois", source, clock=lambda: NOW, plan_dir=plan_dir))
 
 
 def test_parse_title_keeps_acquisition_time_in_utc():
@@ -169,7 +169,14 @@ def test_timeline_reports_publication_latency_or_null():
 def test_next_pass_is_an_estimate_after_now():
     body = timeline_client(ListSource([granule(d) for d in T048_DATES])).get("/aois/parral/timeline").json()
     assert body["next_pass_estimates"] == [
-        {"series": "T048A-F015-4005-DHDH-P05023", "expected_at": "2026-11-20T09:42:25Z", "basis": "12-day cycle"}
+        {
+            "series": "T048A-F015-4005-DHDH-P05023",
+            "expected_at": "2026-11-20T09:42:25Z",
+            "basis": "12-day cycle",
+            "observation_plan": {
+                "status": "unknown", "plan": None, "config_id": None, "same_config": None, "checked_at": None,
+            },
+        }
     ]
 
 
@@ -513,3 +520,229 @@ def test_no_exclusions_means_empty_lists():
     assert client().get("/aois/parral/series").json()[0]["excluded"] == []
     body = timeline_client(ListSource([granule("20260617")])).get("/aois/parral/timeline").json()
     assert body["excluded"] == []
+
+
+# --- Plan de observación (T-ANT-09) ---
+
+PLAN_TITLE = "dcop_2026324_c037_d11_s1b_o7b_o2s1c_v01"
+
+
+def write_plan(directory, expected_at="2026-11-20T09:42:25Z", status="planned", series="T048A-F015-4005-DHDH-P05023"):
+    body = {
+        "schema": "observation-plan/1",
+        "aoi": "parral",
+        "checked_at": "2026-11-12T20:00:00Z",
+        "series": [{
+            "series": "T048A-F015",
+            "catalog_series": series,
+            "passes": [{
+                "expected_at": expected_at, "status": status, "plan": PLAN_TITLE,
+                "config_id": "156", "same_config": True,
+            }],
+        }],
+    }
+    directory.mkdir(parents=True, exist_ok=True)
+    (directory / "parral.json").write_text(json.dumps(body), encoding="utf-8")
+    return directory
+
+
+def next_pass(plan_dir):
+    source = ListSource([granule(d) for d in T048_DATES])
+    (estimate,) = timeline_client(source, plan_dir).get("/aois/parral/timeline").json()["next_pass_estimates"]
+    return estimate
+
+
+def test_plan_file_marks_the_next_pass_without_changing_the_estimate(tmp_path):
+    estimate = next_pass(write_plan(tmp_path))
+    assert estimate["expected_at"] == "2026-11-20T09:42:25Z" and estimate["basis"] == "12-day cycle"
+    assert estimate["observation_plan"] == {
+        "status": "planned", "plan": PLAN_TITLE, "config_id": "156", "same_config": True,
+        "checked_at": "2026-11-12T20:00:00Z",
+    }
+
+
+def test_plan_states_pass_through(tmp_path):
+    for status in ("partial", "not_planned", "no_plan"):
+        assert next_pass(write_plan(tmp_path / status, status=status))["observation_plan"]["status"] == status
+
+
+def test_plan_for_another_time_or_series_is_unknown(tmp_path):
+    late = next_pass(write_plan(tmp_path / "tarde", expected_at="2026-11-20T09:43:30Z"))
+    other = next_pass(write_plan(tmp_path / "otra", series="T171D-F075-4005-DHDH-P05023"))
+    close = next_pass(write_plan(tmp_path / "cerca", expected_at="2026-11-20T09:42:50Z"))
+    assert late["observation_plan"]["status"] == "unknown" and other["observation_plan"]["status"] == "unknown"
+    assert close["observation_plan"]["status"] == "planned"
+
+
+def test_unreadable_plan_file_is_unknown(tmp_path):
+    (tmp_path / "parral.json").write_text("{roto", encoding="utf-8")
+    assert next_pass(tmp_path)["observation_plan"]["status"] == "unknown"
+    (tmp_path / "parral.json").write_text(json.dumps({"schema": "otro/1"}), encoding="utf-8")
+    assert next_pass(tmp_path)["observation_plan"]["status"] == "unknown"
+
+
+def test_plan_field_description_warns_that_a_plan_is_not_an_acquisition():
+    schema = public_app.openapi()["components"]["schemas"]["ObservationPlan"]
+    assert "no garantiza la adquisición" in schema["properties"]["status"]["description"]
+
+
+# --- Criterios de aceptación: fallos externos en 502 y horas en UTC ---
+
+import re
+from dataclasses import replace
+
+import pytest
+from pydantic import ValidationError
+
+from catalog import cmr as cmr_module
+from catalog import opera as opera_module
+from catalog.cmr import CmrSource
+from catalog.main import NextPassEstimate, ObservationPlan
+from catalog.opera import CmrOperaSource
+from catalog.optical import EarthSearchSource
+from catalog.pairing import parse_utc
+
+UTC_STAMP = re.compile(r"\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d{1,6})?Z")
+
+
+def mock_client(handler):
+    return httpx.Client(transport=httpx.MockTransport(handler))
+
+
+def cmr_feed(titles):
+    entries = [{"title": t, "granule_size": "7000", "updated": "2026-07-09T03:32:43.193Z", "links": []} for t in titles]
+    return {"feed": {"entry": entries}}
+
+
+def second_page_fails(first_page):
+    """Primera página completa y la segunda con error, como un CMR que se cae a mitad de la lectura."""
+    def handler(request):
+        page = request.url.params.get("page_num")
+        if page == "1":
+            return httpx.Response(200, json=first_page)
+        return httpx.Response(503, text="Service Unavailable")
+    return handler
+
+
+def full_client(source=None, scenes=None, water=None):
+    return TestClient(create_app(
+        ROOT / "config" / "aois",
+        source or ListSource([granule("20260617"), granule("20260629")]),
+        lambda: NOW,
+        scenes or SceneList([]),
+        water or OperaList([]),
+    ))
+
+
+def test_parse_utc_handles_z_offsets_naive_and_short_fractions():
+    assert parse_utc("2026-07-08T17:46:43.26Z") == datetime(2026, 7, 8, 17, 46, 43, 260000, tzinfo=timezone.utc)
+    assert parse_utc("2026-07-09T03:32:43") == datetime(2026, 7, 9, 3, 32, 43, tzinfo=timezone.utc)
+    converted = parse_utc("2026-07-08T11:46:43-06:00")
+    assert converted == datetime(2026, 7, 8, 17, 46, 43, tzinfo=timezone.utc) and converted.utcoffset().total_seconds() == 0
+
+
+def test_api_models_convert_offsets_to_utc_and_reject_naive_times():
+    local = datetime.fromisoformat("2026-11-20T03:42:25-06:00")
+    checked = datetime.fromisoformat("2026-11-12T14:00:00-06:00")
+    plan = ObservationPlan(status="planned", plan=PLAN_TITLE, config_id="156", same_config=True, checked_at=checked)
+    estimate = NextPassEstimate(series="T048", expected_at=local, basis="12-day cycle", observation_plan=plan)
+    dumped = estimate.model_dump(mode="json")
+    assert dumped["expected_at"] == "2026-11-20T09:42:25Z"
+    assert dumped["observation_plan"]["checked_at"] == "2026-11-12T20:00:00Z"
+    with pytest.raises(ValidationError):
+        NextPassEstimate(
+            series="T048", expected_at=datetime(2026, 11, 20, 9, 42, 25), basis="12-day cycle", observation_plan=plan
+        )
+    with pytest.raises(ValidationError):
+        ObservationPlan(status="unknown", plan=None, config_id=None, same_config=None,
+                        checked_at=datetime(2026, 11, 12, 20, 0, 0))
+
+
+def test_every_api_time_is_utc_iso8601():
+    """Recorre todas las rutas GET con datos en todas sus listas y comprueba cada hora que devuelven."""
+    known = published("20260617", when=datetime(2026, 7, 9, 3, 32, 43, tzinfo=timezone.utc))
+    source = ListSource([known, granule("20260629"), t171("20260720"), t171("20260813"), t171("20260825")])
+    # Una escena con hora local de Chihuahua debe salir convertida a UTC.
+    utc = scene("13RCK", "20260626", 5.0)
+    local = replace(utc, acquired_at=utc.acquired_at.astimezone(datetime.fromisoformat("2026-06-26T00:00:00-06:00").tzinfo))
+    scenes = SceneList([local] + [scene(t, "20260626", 5.0) for t in ("13RDK", "13RCL", "13RDL")])
+    app = full_client(source, scenes, OperaList(JUNE))
+    urls = {
+        "/health": "/health",
+        "/aois": "/aois",
+        "/aois/{aoi_id}/series": "/aois/parral/series",
+        "/aois/{aoi_id}/timeline": "/aois/parral/timeline",
+        "/aois/{aoi_id}/references/optical": "/aois/parral/references/optical?date=2026-06-29",
+        "/aois/{aoi_id}/references/opera": "/aois/parral/references/opera?date=2026-06-29",
+    }
+    routes = {route.path for route in public_app.routes if "GET" in getattr(route, "methods", set())}
+    routes -= {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
+    assert routes == set(urls), "Añade la ruta nueva a esta prueba de horas UTC"
+
+    def stamps(value):
+        if isinstance(value, dict):
+            return [s for item in value.values() for s in stamps(item)]
+        if isinstance(value, list):
+            return [s for item in value for s in stamps(item)]
+        return [value] if isinstance(value, str) and re.match(r"\d{4}-\d{2}-\d{2}T", value) else []
+
+    found = {}
+    for path, url in urls.items():
+        response = app.get(url)
+        assert response.status_code == 200, url
+        found[path] = stamps(response.json())
+        assert all(UTC_STAMP.fullmatch(s) for s in found[path]), (url, found[path])
+    # Las rutas con horas devolvieron alguna, así que la prueba no pasa en vacío.
+    assert all(found[path] for path in urls if "aoi_id" in path)
+    optical = app.get(urls["/aois/{aoi_id}/references/optical"]).json()
+    assert "2026-06-26T17:46:00Z" in [t["acquired_at"] for t in optical["acquisitions"][0]["tiles"]]
+
+
+def test_series_cmr_failure_is_502():
+    response = timeline_client(BrokenSource()).get("/aois/parral/series")
+    assert response.status_code == 502 and "CMR" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("path", ["/aois/parral/series", "/aois/parral/timeline"])
+def test_cmr_failure_on_second_page_is_502_not_partial(monkeypatch, path):
+    monkeypatch.setattr(cmr_module, "PAGE_SIZE", 2)
+    first = cmr_feed([TITLE.format(d=d, c="P05023") for d in ("20260617", "20260629")])
+    source = CmrSource(mock_client(second_page_fails(first)))
+    response = timeline_client(source).get(path)
+    assert response.status_code == 502 and "CMR" in response.json()["detail"]
+
+
+@pytest.mark.parametrize("body", ["<html>Mantenimiento</html>", '{"errors": ["temporal no válido"]}'])
+def test_unreadable_cmr_answer_is_502(body):
+    source = CmrSource(mock_client(lambda request: httpx.Response(200, text=body)))
+    response = timeline_client(source).get("/aois/parral/timeline")
+    assert response.status_code == 502 and "no se pudo leer" in response.json()["detail"]
+
+
+def test_earth_search_failure_on_second_page_is_502_not_partial():
+    feature = {
+        "id": "S2C_13RCK_20260626_0_L2A",
+        "geometry": {"type": "Polygon", "coordinates": [[list(p) for p in QUADS["13RCK"]]]},
+        "properties": {"datetime": "2026-06-26T17:46:43Z", "platform": "sentinel-2c", "grid:code": "MGRS-13RCK",
+                       "eo:cloud_cover": 1.0},
+        "assets": {"visual": {"href": "https://sentinel-cogs.example/TCI.tif"}},
+    }
+    first = {"features": [feature], "links": [{"rel": "next", "body": {"next": "token"}}]}
+
+    def handler(request):
+        if b"token" in request.content:
+            return httpx.Response(500, text="Internal Server Error")
+        return httpx.Response(200, json=first)
+
+    response = full_client(scenes=EarthSearchSource(mock_client(handler))).get(
+        "/aois/parral/references/optical?date=2026-06-29"
+    )
+    assert response.status_code == 502 and "Earth Search" in response.json()["detail"]
+
+
+def test_opera_failure_on_second_page_is_502_not_partial(monkeypatch):
+    monkeypatch.setattr(opera_module, "PAGE_SIZE", 1)
+    first = {"feed": {"entry": [cmr_entry("13RDK", "20260627T130504", "20260829T195832")]}}
+    water = CmrOperaSource(mock_client(second_page_fails(first)))
+    response = full_client(water=water).get("/aois/parral/references/opera?date=2026-06-29")
+    assert response.status_code == 502 and "OPERA" in response.json()["detail"]

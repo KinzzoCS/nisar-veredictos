@@ -6,6 +6,20 @@ from collections import defaultdict
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 
+_FRACTION = re.compile(r"\.(\d+)")
+
+
+def parse_utc(raw: str) -> datetime:
+    """Lee una hora ISO 8601 de CMR o de STAC y la devuelve en UTC.
+
+    Sin zona se toma como UTC, que es la referencia que publican CMR y Earth Search. Con otra
+    zona se convierte. Python 3.10 solo acepta fracciones de 3 o 6 cifras, así que se ajustan a 6.
+    """
+    text = _FRACTION.sub(lambda m: "." + (m[1] + "000000")[:6], raw.strip().replace("Z", "+00:00"), count=1)
+    value = datetime.fromisoformat(text)
+    return value.replace(tzinfo=timezone.utc) if value.tzinfo is None else value.astimezone(timezone.utc)
+
+
 # Hueco permanente de adquisición publicado por ASF.
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 

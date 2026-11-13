@@ -26,7 +26,7 @@ def _series_median(values: list[float | None]) -> float | None:
 
 def scene_stats(scene: Scene, params: Params = Params()) -> dict:
     """Cifras de una sola fecha. Son pequeñas: se guardan sin retener la escena."""
-    valid = observable(scene, params.min_looks)
+    valid = observable(scene, params)
     return {
         "valid_fraction": float(np.count_nonzero(valid) / valid.size) if valid.size else 0.0,
         "median_hh_db": _median_db(scene.hh, valid),

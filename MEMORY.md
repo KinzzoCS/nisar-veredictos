@@ -45,6 +45,7 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-10 | Licencia GPL-3.0-only | Elección del equipo; el reto pide código abierto |
 | 2026-11-10 | La ingesta pasa a un servicio propio, `services/ingest` | Separar el trabajo de Antena del de Eco |
 | 2026-11-11 | El manifiesto añade `dates[].qa` como campo **opcional** (T-ECO-03) | Cambio aditivo: los manifiestos y las pruebas de `verdicts` sin `qa` siguen siendo válidos. `processor` siempre lo escribe |
+| 2026-11-12 | `processor` decide `low_looks` con la suma de looks en la ventana de 5 × 5 (mínimo 50) y resta a cada par el desplazamiento de toda la escena antes del umbral; lo publica en `stats.scene_shift_hh_db`/`hv_db`, campos opcionales del manifiesto (T-ECO-07) | Acordado con Balanza: el veredicto pregunta por un cambio local, y la regla por píxel dejaba fuera el 15 % aunque luego se promediaba 5 × 5 |
 | 2026-11-12 | Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC), no el 13. Hasta entonces cualquier cambio de contrato sigue el proceso de la constitución (VI.2); después solo cambios aditivos. Aprobado por las cinco personas el 2026-11-12 | El evento es el 14 y 15, y varios PR que tocan contratos (16, 22, 23 y 25) seguían en revisión |
 | 2026-11-11 | La prueba de lenguaje prohíbe la palabra aunque vaya en negación ("ni mide daños" pasa a "ni mide sus consecuencias"); excepciones solo en `ALLOWED` con motivo (T-BAL-03) | Más fácil de auditar; la lista vive en `services/verdicts/tests/test_language.py` y Faro puede reutilizarla |
 | 2026-11-12 | Eventos en horas UTC: sin hora conocida, el evento o la pasada ocupan su día entero y la duda sale como `timing_uncertain`; se mantiene el estado `observable` (T-BAL-06) | Antena detectó que con 145 h ya salía `observable`, 24 h antes de la pasada del 07-08, porque se contaba por fechas; renombrar el estado un día antes de congelar contratos no sería aditivo |
@@ -53,6 +54,9 @@ Acceso comprobado con la API de GitHub el 2026-11-10:
 | 2026-11-11 | Contraste óptico (T-BAL-04): escena Sentinel-2 a ±10 días, ≤ 30 % de nubes por tesela; si no hay, se muestra la menos nublada y se dice. Se busca también con radar sintético | Responde la pregunta abierta de Balanza sin ocultar datos; las escenas son reales y lo declaran |
 | 2026-11-12 | La prueba de humo (T-BAL-05) compara las rutas probadas con el OpenAPI de catalog y verdicts: una ruta GET nueva sin prueba en `scripts/smoke.sh` hace fallar la CI. Las rutas que dependen de CMR o Earth Search aceptan un 502 con motivo y lo avisan; `SMOKE_REQUIRE_NETWORK=1` lo vuelve fallo | Cumple RF-BAL-05 también para rutas futuras; la CI no se cae si un servicio externo falla |
 | 2026-11-12 | Contraste con OPERA DSWx-S1 (T-BAL-08): por cada fecha de radar, la pasada DSWx-S1 más cercana a ±7 días; se compara B01_WTR (clases 1 y 3 son agua) con el radar promediado a 30 m (HH < −15 dB y HV < −23 dB, umbrales de T-ECO-06). Coinciden si ninguna ve agua en el 0,1 % de lo comparable o si comparten el 50 % del agua (IoU); todo sin calibrar. Solo con radar real y con `EARTHDATA_TOKEN` en el `.env` de `verdicts`; si no, se lista el producto y se dice por qué no se comparó. Un desacuerdo se redacta como desacuerdo entre métodos, nunca como error | Cumple RF-BAL-07 sin compartir el token de Antena (cada persona usa el suyo); cambio aditivo del contrato antes del congelamiento |
+| 2026-11-12 | Mapa con **MapLibre GL JS 6.16.0** (BSD-3-Clause) y mapa base de **teselas raster de OpenStreetMap** con atribución visible (T-ATL-01) | Licencias de los paquetes comprobadas con `npm view` (MapLibre BSD-3-Clause; Vite y Vitest MIT). Las teselas de OSM son ODbL y exigen atribución visible; su política de uso (operations.osmfoundation.org/policies/tiles) no admite tráfico alto, así que valen para la demo y no para producción. Esa política no se releyó el 2026-11-12: conviene revisarla antes de la entrega. EOX cloudless se descarta por las restricciones de algunas ediciones |
+| 2026-11-12 | El mapa es una función, `crearMapa(contenedor, opciones)`, que no depende del framework y vive en `frontend/src/mapa/` dentro de la app de Faro (Vite + React + TypeScript, PR 27). Atlas solo añade esa carpeta, la dependencia `maplibre-gl` y el script `dev:mapa` | Faro monta el mapa desde React con `actualizar()` y `destruir()`. Carpeta y forma confirmadas por Faro el 2026-11-12 |
+| 2026-11-12 | El mapa pide `state` con su propia paleta: sustituye el parámetro `colormap` de la plantilla para que cada píxel lleve su código (0, 1, 10-15) en el canal rojo, y pinta en el navegador el cambio probable en color sólido y lo no observable con trama diagonal (T-ATL-03) | TiTiler no dibuja tramas, y lo no observable debe distinguirse sin depender del color (constitución IX.2). La trama va en una capa propia, siempre visible y con opacidad mínima del 70 %. Depende de dos cosas de Balanza y Eco: que la API siga aceptando `colormap` y que `state` use remuestreo `nearest`. Probado solo con teselas generadas en el navegador, no con la API |
 
 ## Datos verificados
 
@@ -137,6 +141,22 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - Probado el 2026-11-12 con T048 del 06-17 y T171 del 06-26. Las capas de `frequencyA` salen idénticas a los recortes anteriores. La incidencia a 0 m sobre la zona va de 38,0° a 41,8° en T048 y de 39,5° a 43,2° en T171.
   - `ingest` tardó 350 s y 370 s por fecha, frente a unos 130-160 s sin `radarGrid`. Falta saber si es la red o la lectura de los cubos.
 
+## Plan de observación de NISAR
+
+Comprobado el 2026-11-12 por Antena con CMR, con los XML bajados con el token y con `ingest plan --aoi parral` contra NASA (T-ANT-09).
+
+- Colección `NISAR_COP` en CMR (`C2727904608-ASF`), un plan diario desde el 2025-08-21 (481 gránulos el 2026-11-12). Se publica con unos 10 días de adelanto: ese día ya estaba el del 2026-11-22. CMR lo lista sin cuenta. El XML (~1,3 MB) está en `nisar.asf.earthdatacloud.nasa.gov/NISAR/DCOP/` y **pide token**: sin él, redirige a URS.
+- El XML (`FORMAT_VERSION` 2.4) trae `OBS` con `TYPE` (`lsar`, `ssar` o `joint`), horas `REF_START_DATETIME` y `REF_END_DATETIME` en `AAAA-DDDTHH:MM:SS.ffffff` UTC y `LSAR_CONFIG_ID`. **No trae pista, marco ni geometría.**
+- La hora de la pasada sobre Parral es muy estable: T048 a las 12:24:31-34 UTC y T171 a las 01:44:32-36 UTC entre el 06-17 y el 10-15.
+- Cruzando esa hora (de 10 s antes a 40 s después) con el plan, en las 27 fechas del ciclo de T048 y T171 entre el 2026-06-17 y el 2026-11-20:
+  - Las 19 pasadas con GCOV publicado tenían una observación `lsar` con `LSAR_CONFIG_ID` 156 que las cubría enteras.
+  - T171 del 2026-08-01 estaba planificada y no hay dato. Hay planes del 07-27 al 08-02 aunque ASF declara el hueco de adquisición: **un plan no garantiza la adquisición.**
+  - No hay planes del 08-03 al 08-09, así que T048 del 08-04 queda sin plan.
+  - Ningún dato publicado cayó en una pasada sin plan.
+  - Las pasadas siguientes están planificadas con 156: T048 el 10-27, 11-08 y 11-20, y T171 el 10-24, 11-05 y 11-17.
+- Algunos días tienen versiones posteriores del plan (`v02` del 07-24 al 07-26). Se usa siempre la mayor.
+- No sabemos qué modo corresponde a cada `LSAR_CONFIG_ID`: falta la tabla de modos (`ModeTable_v54_Final_20260506.xlsx`, citada en el XML).
+
 ## Caso de Parral
 
 - Tormenta del 1 de julio de 2026 con calles inundadas: cae entre las pasadas del 29 de junio y el 8 de julio. Es el ejemplo de `not_observable`. La noticia salió de extractos de búsqueda; hay que abrirla antes de usarla en la demo.
@@ -182,6 +202,19 @@ Fuente: JPL D-102274 Rev F, versión 1.5.0, 2026-07-08.
   - `processor run` usa `radarGrid` y el DEM de `data/dem/<zona>/` (`processor fetch-dem --aoi parral`: 2 teselas GLO-30, 77 MB, sin cuenta). Si falta alguno de los dos, no marca relieve y lo avisa en el manifiesto.
   - Criterio local por pendiente en la dirección de alcance: layover si la ladera sube más que la incidencia; sombra si baja más que 90° menos la incidencia. No incluye sombras proyectadas por crestas.
   - Coste medido con 2 fechas reales de T048, el DEM real y un `radarGrid` supuesto: +112 MB (1760 frente a 1648 MB de `ru_maxrss`) y unos 9 s más.
+- 2026-11-12, **ruido de la diferencia (T-ECO-07)**, par 06-17→06-29 de T048: la desviación robusta (1,4826 · MAD) tras restar la mediana es de 1,19 dB en HH y 0,90 dB en HV. En teoría, con unos 112 looks independientes (4,5 por píxel × 25), serían 0,58 dB; la diferencia sale de que los píxeles vecinos de GCOV no son independientes, más la textura real. Con 3 dB de umbral, el 2,2 % de los píxeles lo supera en HH y el 0,65 % en HV, así que un 2-3 % de cambio no se puede atribuir a un cambio real. (Corregido abajo: ese 2,2 % se midió con la máscara vieja de looks por píxel; con la de T-ECO-07 es 1,97 %).
+- 2026-11-12, **por qué hay pares corregidos con 0,58 % si el ruido da un 2 % (T-ECO-07)**: no lo explica `min_cluster_pixels`. Medido en los 16 pares consecutivos reales (sin el 08-13), el filtro de grupos de 4 píxeles solo quita entre el 5 % y el 10 % de lo que supera el umbral (T171 09-06→09-18: 0,64 % → 0,58 %; T048 06-17→06-29: 2,33 % → 2,11 %). Lo que cambia es el ruido de cada par: la desviación robusta de HH va de 0,76 dB (T171 07-08→07-20) a 1,59 dB (T048 08-28→09-09), y el 1,19 dB era de un par ruidoso. La fracción sobre 3 dB sigue a esa desviación: 0,58-1,1 % con HH ≤ 0,9 dB y 4-10 % con HH ≥ 1,2 dB. Tampoco es ruido gaussiano puro: con 1,18 dB, una gaussiana pasaría 3 dB en el 1,1 % y se mide el 1,97 %; con 0,90 dB, el 0,09 % frente al 0,51 %. Con estos datos no se puede separar cuánto es ruido de cola larga y cuánto cambio real repartido (humedad, vegetación). Consecuencia para el umbral de fracción del veredicto (T-BAL-09): el suelo de ruido no es fijo, va de ~0,6 % a ~5 % según el par, así que conviene leerlo junto con la dispersión del par y no como una constante. La tabla por par está en la descripción del PR 39.
+- 2026-11-12, looks sumados en 5 × 5 en T048 (06-17): p1 50, p5 80, mediana 113. Quedan por debajo de 25 el 0,14 %, de 50 el 0,98 % y de 100 el 14,4 %.
+- 2026-11-12, **calibración en `processor` (T-ECO-07)** con las series reales (T048 de 10 fechas y T171 de 8; 16 pares consecutivos y 2 ventanas completas). Cambio sobre lo observable:
+  - Con la regla nueva de looks y sin corregir: del 1,8 % al 29,3 %, siguiendo al desplazamiento de la escena. Corregido: del 0,58 % al 5,2 %, salvo T048 08-28→09-09 (9,6 %, con desplazamiento de +1,61 dB en HH). Ventanas completas: 2,7 % en T048 y 3,3 % en T171.
+  - Los pares con desplazamiento grande se desinflan: T171 09-18→09-30 pasa del 29,3 % al 2,3 % (+2,29 dB en HH) y T048 10-03→10-15 del 12,5 % al 1,6 %.
+  - `low_looks` baja del 15,2 % al 0,98 % en T048 y del 12,2 % al 1,00 % en T171.
+  - El par T048 08-28→09-09 sigue alto después de corregir: o hay cambio local, o el desplazamiento no es uniforme en la escena. Sin verificar.
+  - La fracción mínima para `change_probable` la decide Balanza (T-BAL-07) sobre estos valores corregidos.
+- 2026-11-12, **filtro multitemporal (T-ECO-08)**: Quegan y Yu (2001), ventana de 7 × 7, opcional con `processor run --multitemporal` y apagado por omisión, porque mezcla información entre fechas. Hace dos pasadas: la primera acumula la textura de la serie y la segunda filtra cada fecha al leerla, así que sigue habiendo como máximo dos escenas en memoria.
+  - Con las 10 fechas reales de T048: 345 s y 1913 MB de `ru_maxrss`. Está cerca del límite de 2 GB; sin filtro, el pico del contenedor fue de 1611 MB.
+  - Speckle: el ENL mediano en bloques de 15 × 15 (fecha 08-16) pasa de 2,14 a 3,39 en HH y de 2,15 a 3,64 en HV. Es una medida tosca, porque la textura real también cuenta como varianza.
+  - `change_probable` baja en todos los pares (por ejemplo, 06-17→06-29 de 3,50 a 1,85 % y la ventana completa de 11,03 a 6,97 %). Los pares con desplazamiento de toda la escena siguen altos (08-28→09-09 de 18,59 a 17,11 %): el filtro no resuelve T-ECO-07.
 - Hacer público el repositorio antes de la entrega.
 
 ## Investigación
