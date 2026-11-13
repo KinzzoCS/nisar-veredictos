@@ -1350,6 +1350,11 @@
             "title": "Comparable Pixels",
             "type": "integer"
           },
+          "compared_fraction": {
+            "description": "comparable_pixels entre todos los píxeles de la zona. Por debajo de min_compared_fraction no hay assessment (status partial_overlap).",
+            "title": "Compared Fraction",
+            "type": "number"
+          },
           "not_comparable_pixels": {
             "description": "Píxeles de la zona sin dato en alguna fuente o enmascarados por DSWx-S1 (HAND, layover o sombra).",
             "title": "Not Comparable Pixels",
@@ -1387,6 +1392,7 @@
         "required": [
           "comparable_pixels",
           "not_comparable_pixels",
+          "compared_fraction",
           "both_water",
           "radar_only_water",
           "reference_only_water",
@@ -1449,6 +1455,11 @@
               }
             ],
             "title": "Doi"
+          },
+          "min_compared_fraction": {
+            "description": "Fracción mínima de la zona con dato en las dos fuentes para dar acuerdo o desacuerdo. covers_aoi no basta: mira la caja de la tesela, no los píxeles válidos.",
+            "title": "Min Compared Fraction",
+            "type": "number"
           },
           "min_water_body_ha": {
             "anyOf": [
@@ -1542,6 +1553,7 @@
           "radar_rule",
           "min_water_fraction",
           "min_water_iou",
+          "min_compared_fraction",
           "before",
           "after",
           "text"
@@ -1650,7 +1662,7 @@
             "description": "Pasada DSWx-S1 elegida: la más cercana a radar_date, antes o después; primero las que cubren la zona."
           },
           "status": {
-            "description": "compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o el radar. no_overlap: sin píxeles válidos en común.",
+            "description": "compared: se comparó píxel a píxel. synthetic: el radar es sintético y no se compara. no_credentials: verdicts no tiene token de Earthdata para leer B01_WTR. none_in_window: ningún producto a search_days o menos. catalog_unavailable: catalog no respondió. read_failed: no se pudo leer el producto o el radar. no_overlap: sin píxeles válidos en común. partial_overlap: se comparó menos de min_compared_fraction de la zona; hay conteos pero no assessment.",
             "enum": [
               "compared",
               "synthetic",
@@ -1658,7 +1670,8 @@
               "none_in_window",
               "catalog_unavailable",
               "read_failed",
-              "no_overlap"
+              "no_overlap",
+              "partial_overlap"
             ],
             "title": "Status",
             "type": "string"

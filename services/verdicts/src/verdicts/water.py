@@ -50,13 +50,18 @@ WTR_NODATA = 255
 # si no, coinciden cuando comparten al menos MIN_WATER_IOU de los píxeles que alguna marca como agua.
 MIN_WATER_FRACTION = 0.001
 MIN_WATER_IOU = 0.5
+# Fracción mínima de la zona con dato en las dos fuentes para hablar de acuerdo o desacuerdo; mismo valor que
+# MIN_OBSERVED_FRACTION de las reglas. covers_aoi de catalog mira la caja de la tesela, no los píxeles: en
+# Parral, una pasada con 13RDK y 13RDL dejó el 78,9 % de la zona en WTR 255 (revisión de Antena, 2026-11-12).
+MIN_COMPARED_FRACTION = 0.5
 
 # Único host al que se envía el token de Earthdata: el archivo de PO.DAAC.
 TOKEN_HOSTS = frozenset({"archive.podaac.earthdata.nasa.gov"})
 DOWNLOAD_TIMEOUT_SECONDS = 60.0
 
 Status = Literal[
-    "compared", "synthetic", "no_credentials", "none_in_window", "catalog_unavailable", "read_failed", "no_overlap"
+    "compared", "synthetic", "no_credentials", "none_in_window", "catalog_unavailable", "read_failed", "no_overlap",
+    "partial_overlap",
 ]
 Assessment = Literal["agree", "disagree"]
 AssessmentBasis = Literal["little_water", "water_overlap"]
@@ -73,6 +78,12 @@ class Comparison:
     @property
     def comparable(self) -> int:
         return self.both_water + self.radar_only_water + self.reference_only_water + self.both_not_water
+
+    @property
+    def compared_fraction(self) -> float:
+        """Fracción de la malla de la zona con dato en las dos fuentes."""
+        total = self.comparable + self.not_comparable
+        return self.comparable / total if total else 0.0
 
     @property
     def any_water(self) -> int:
@@ -234,6 +245,9 @@ class WaterContrast:
             return found("read_failed")
         if comparison.comparable == 0:
             return found("no_overlap", comparison)
+        if comparison.compared_fraction < MIN_COMPARED_FRACTION:
+            # Se dan los conteos, pero no un acuerdo o desacuerdo que valdría solo para una parte de la zona.
+            return found("partial_overlap", comparison)
         return found("compared", comparison)
 
     def _compare(self, manifest: dict, radar_date: dt.date, acquisition: OperaAcquisition) -> Comparison | None:

@@ -331,14 +331,24 @@ WATER_NOT_COMPARED = {
         "no_credentials": "no se comparó porque el servicio no tiene acceso a sus archivos (requieren cuenta de Earthdata)",
         "read_failed": "no se pudo leer su capa de agua, así que no se compara",
         "no_overlap": "no tiene píxeles válidos en común con el radar dentro de la zona",
+        "partial_overlap": ("solo se pudo comparar el {compared} de la zona, menos del {minimum} que hace falta para "
+                            "hablar de acuerdo o desacuerdo, porque el producto no tiene datos en el resto"),
     },
     "en": {
         "synthetic": "it is not compared with synthetic radar data",
         "no_credentials": "it was not compared because the service has no access to its files (they need an Earthdata account)",
         "read_failed": "its water layer could not be read, so it is not compared",
         "no_overlap": "it shares no valid pixels with the radar inside the area",
+        "partial_overlap": ("only {compared} of the area could be compared, less than the {minimum} needed to "
+                            "speak of agreement or disagreement, because the product has no data in the rest"),
     },
 }
+
+
+def _not_compared(status: str, values: dict, lang: Lang) -> str:
+    return WATER_NOT_COMPARED[lang][status].format(
+        compared=_share(values.get("compared", 0.0), lang), minimum=_share(values.get("minimum", 0.5), lang)
+    )
 
 
 def _share(fraction: float, lang: Lang) -> str:
@@ -361,7 +371,7 @@ def _water_side(side: str, values: dict, lang: Lang, search_days: int) -> str:
             f"{_days(abs(days), lang)} {'antes' if days < 0 else 'después'} de {radar}")
         product = f"OPERA DSWx-S1 del {values['product_date']} ({offset})"
         if status != "compared":
-            return f"Hay un producto {product}, pero {WATER_NOT_COMPARED[lang][status]}."
+            return f"Hay un producto {product}, pero {_not_compared(status, values, lang)}."
         shares = f"radar {_share(values['radar'], lang)} y DSWx-S1 {_share(values['reference'], lang)} de los píxeles comparables"
         if values["basis"] == "little_water":
             return f"{product} y el radar coinciden: ninguno de los dos ve agua apreciable en la zona ({shares})."
@@ -380,7 +390,7 @@ def _water_side(side: str, values: dict, lang: Lang, search_days: int) -> str:
         f"{_days(abs(days), lang)} {'before' if days < 0 else 'after'} {radar}")
     product = f"OPERA DSWx-S1 from {values['product_date']} ({offset})"
     if status != "compared":
-        return f"There is a product, {product}, but {WATER_NOT_COMPARED[lang][status]}."
+        return f"There is a product, {product}, but {_not_compared(status, values, lang)}."
     shares = f"radar {_share(values['radar'], lang)} and DSWx-S1 {_share(values['reference'], lang)} of comparable pixels"
     if values["basis"] == "little_water":
         return f"{product} and the radar agree: neither sees noticeable water in the area ({shares})."
