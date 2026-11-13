@@ -10,6 +10,6 @@
 | T-ANT-06 | [P] `GET /aois/{id}/references/opera` con DSWx-S1 a ±N días, agrupado por pasada y sin versiones repetidas (diseño en `plan.md`) | P1 | — | hecha |
 | T-ANT-07 | Registro de ingesta por serie (`ingest.json`) | P1 | T-ANT-02 | pendiente |
 | T-ANT-08 | Ingesta de la serie T171 descendente | P1 | T-ANT-03 | hecha |
-| T-ANT-09 | Siguiente pasada desde el plan de observación de ASF | P2 | — | pendiente |
+| T-ANT-09 | Siguiente pasada con el plan de observación de NISAR (`NISAR_COP`): `ingest plan` y `observation_plan` en la línea de tiempo (diseño en `plan.md`) | P2 | — | hecha |
 | T-ANT-10 | Excluir gránulos defectuosos declarados en la zona (T171 del 2026-08-13) | P0 | — | hecha |
 | T-ANT-11 | Copiar `radarGrid` al recorte para que Eco marque layover y sombra (T-ECO-05) | P0 | — | hecha |
