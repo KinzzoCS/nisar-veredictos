@@ -91,6 +91,9 @@ function stubApi(kind: Kind = 'real', failVerdicts = false) {
 
 beforeEach(async () => {
   await i18n.changeLanguage('es')
+  localStorage.removeItem('vista')
+  localStorage.removeItem('tema')
+  delete document.documentElement.dataset.tema
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -198,11 +201,14 @@ test('el título del documento sigue al idioma', async () => {
 // T-FAR-07: axe-core sin infracciones WCAG 2.0/2.1 A y AA. jsdom no calcula colores,
 // así que el contraste se mide aparte en el navegador.
 describe.each([
-  ['es', 'real'],
-  ['en', 'synthetic'],
-] as const)('accesibilidad automática (%s, datos %s)', (lang, kind) => {
+  ['es', 'real', 'public'],
+  ['en', 'synthetic', 'public'],
+  ['es', 'synthetic', 'student'],
+  ['en', 'real', 'researcher'],
+] as const)('accesibilidad automática (%s, datos %s, vista %s)', (lang, kind, vista) => {
   test('axe no encuentra infracciones', async () => {
     await i18n.changeLanguage(lang)
+    localStorage.setItem('vista', vista)
     stubApi(kind)
     const { container } = render(<App />)
     await screen.findByRole('article')
@@ -213,4 +219,110 @@ describe.each([
     const found = results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)
     expect(found).toEqual([])
   }, 20_000) // axe recorre todo el DOM: con todas las pruebas en paralelo pasa de los 5 s por defecto.
+})
+
+// T-FAR-13: selector de vista y vista Público 80/20 (RF-INT-02 y 03; plan en specs/08-interfaz/plan.md).
+const VIEWS = ['Público', 'Estudiante', 'Investigador'] as const
+
+function pliegue(nombre: string) {
+  return screen.getByText(nombre, { selector: 'summary' }).closest('details') as HTMLDetailsElement
+}
+
+/** Espera a que la historia y los veredictos hayan pedido todo lo suyo. */
+async function settled(fetch: ReturnType<typeof stubApi>) {
+  await screen.findByRole('article', { name: /Cambio probable/ })
+  let before = -1
+  await waitFor(() => {
+    const now = fetch.mock.calls.length
+    const stable = now === before
+    before = now
+    expect(stable).toBe(true)
+  })
+}
+
+test('sin cuenta abre en vista Público, con la pregunta primero y lo avanzado plegado', async () => {
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  expect(screen.getByRole('button', { name: 'Público' })).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('heading', { level: 2, name: '¿Qué pasó en Parral?' })).toBeInTheDocument()
+  // Las siglas de la primera pantalla van explicadas.
+  expect(screen.getByText(/Estados Unidos \(NASA\) y de la India \(ISRO\)/)).toBeInTheDocument()
+  expect(pliegue('Elegir otra serie o par de fechas').open).toBe(false)
+  expect(pliegue('Consultar otra fecha').open).toBe(false)
+  expect(screen.queryByRole('button', { name: /Comparar con la imagen/ })).not.toBeInTheDocument()
+  await waitFor(() =>
+    expect(crearMapa).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ controlCapas: false })),
+  )
+})
+
+test('el selector de vista se usa con el teclado y se recuerda en el navegador', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  const { unmount } = render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  const student = screen.getByRole('button', { name: 'Estudiante' })
+  student.focus()
+  await user.keyboard('{Enter}')
+  expect(student).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: 'Público' })).toHaveAttribute('aria-pressed', 'false')
+  expect(localStorage.getItem('vista')).toBe('student')
+  expect(screen.queryByRole('heading', { name: '¿Qué pasó en Parral?' })).not.toBeInTheDocument()
+  expect(pliegue('Elegir otra serie o par de fechas').open).toBe(true)
+  expect(pliegue('Consultar otra fecha').open).toBe(true)
+  await waitFor(() =>
+    expect(crearMapa).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ controlCapas: true })),
+  )
+
+  unmount()
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  expect(screen.getByRole('button', { name: 'Estudiante' })).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('en las tres vistas están el estado, los tres textos, el distintivo y el recibo', async () => {
+  const user = userEvent.setup()
+  stubApi('synthetic')
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  for (const name of VIEWS) {
+    await user.click(screen.getByRole('button', { name }))
+    const card = screen.getByRole('article', { name: /Cambio probable/ })
+    for (const label of ['Qué detectamos', 'Qué no prueba', 'Qué falta']) {
+      expect(within(card).getByText(label), `${name}: ${label}`).toBeInTheDocument()
+    }
+    expect(within(card).getByText('Este veredicto usa datos sintéticos.')).toBeInTheDocument()
+    expect(within(card).getByText('Recibo: de dónde sale esta respuesta')).toBeInTheDocument()
+    expect(screen.getByRole('note')).toHaveTextContent('Datos sintéticos')
+  }
+})
+
+test('cambiar de vista no vuelve a pedir nada a la API ni cambia el veredicto', async () => {
+  const user = userEvent.setup()
+  const fetch = stubApi()
+  render(<App />)
+  await settled(fetch)
+  const calls = fetch.mock.calls.length
+  const text = screen.getByRole('article', { name: /Cambio probable/ }).textContent
+  for (const name of ['Estudiante', 'Investigador', 'Público']) {
+    await user.click(screen.getByRole('button', { name }))
+    expect(screen.getByRole('article', { name: /Cambio probable/ }).textContent).toBe(text)
+  }
+  await new Promise((r) => setTimeout(r, 50))
+  expect(fetch.mock.calls.length).toBe(calls)
+})
+
+test('el tema se elige con un botón, se aplica en <html> y se recuerda', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  const tema = screen.getByRole('group', { name: 'Tema' })
+  expect(within(tema).getByRole('button', { name: 'Del sistema' })).toHaveAttribute('aria-pressed', 'true')
+  await user.click(within(tema).getByRole('button', { name: 'Oscuro' }))
+  expect(document.documentElement.dataset.tema).toBe('oscuro')
+  expect(localStorage.getItem('tema')).toBe('oscuro')
+  await user.click(within(tema).getByRole('button', { name: 'Del sistema' }))
+  expect(document.documentElement.dataset.tema).toBeUndefined()
+  expect(localStorage.getItem('tema')).toBeNull()
 })

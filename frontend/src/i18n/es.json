@@ -9,6 +9,22 @@
     "es": "Español",
     "en": "English"
   },
+  "view": {
+    "label": "Vista",
+    "public": "Público",
+    "student": "Estudiante",
+    "researcher": "Investigador"
+  },
+  "theme": {
+    "label": "Tema",
+    "sistema": "Del sistema",
+    "claro": "Claro",
+    "oscuro": "Oscuro"
+  },
+  "public": {
+    "question": "¿Qué pasó en Parral?",
+    "lead": "NISAR es un satélite de radar de las agencias espaciales de Estados Unidos (NASA) y de la India (ISRO). Ve a través de las nubes y pasa sobre Parral cada 12 días. Aquí ves qué notó entre dos pasadas, qué no pudo ver y qué falta por saber."
+  },
   "series": {
     "loading": "Cargando datos…",
     "error": "No se pudo conectar con la API. Comprueba que la pila está levantada."
@@ -59,7 +75,8 @@
     "fullWindow": "ventana completa",
     "loading": "Cargando veredictos…",
     "error": "No se pudieron cargar los veredictos de esta serie. Vuelve a intentarlo en unos segundos.",
-    "empty": "Esta serie todavía no tiene veredictos."
+    "empty": "Esta serie todavía no tiene veredictos.",
+    "choose": "Elegir otra serie o par de fechas"
   },
   "verdict": {
     "state": {
@@ -135,7 +152,8 @@
     "previousPass": "Pasada anterior",
     "nextPass": "Pasada siguiente",
     "none": "ninguna",
-    "excluded": "Pasadas excluidas"
+    "excluded": "Pasadas excluidas",
+    "fold": "Consultar otra fecha"
   },
   "map": {
     "label": "Mapa",

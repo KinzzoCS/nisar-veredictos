@@ -7,6 +7,10 @@ import './i18n'
 import './tema/tokens.css'
 import './index.css'
 import App from './App.tsx'
+import { aplicarTema, temaGuardado } from './tema/tema'
+
+// El tema guardado se aplica antes del primer render, para no parpadear (T-FAR-13).
+aplicarTema(temaGuardado())
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
