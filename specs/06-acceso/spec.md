@@ -74,11 +74,11 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 - [ ] Superar la cuota de `public` en una ruta nueva no cambia la respuesta de las rutas actuales: siguen dando 200 desde la misma IP.
 - [ ] El sexto intento de `POST /api/auth/login` en un minuto desde la misma IP recibe 429 con `Retry-After`.
 - [ ] Desde el origen del frontend (`http://localhost:3000`), una petición a `/api/` con `Authorization` pasa la comprobación previa de CORS del navegador.
-- [ ] Reutilizar un token de renovación ya rotado revoca la sesión y obliga a entrar de nuevo.
+- [x] Reutilizar un token de renovación ya rotado revoca la sesión y obliga a entrar de nuevo. Prueba de `services/auth` y comprobado en Docker el 2026-11-14 (T-ANT-14).
 - [ ] Ningún servicio salvo el gateway publica un puerto en `docker-compose.yml` (hoy se cumple; la prueba lo vigila).
-- [ ] El repositorio no contiene la clave privada ni contraseñas: la clave se genera al arrancar si falta, en un volumen fuera de git, o se lee del `.env`.
+- [x] El repositorio no contiene la clave privada ni contraseñas: la clave se genera al arrancar si falta, en un volumen fuera de git, o se lee del `.env`. `AUTH_DATA_DIR` (por omisión `data/auth`, ignorado por git) guarda la clave con permisos 600 (T-ANT-14).
 - [ ] La prueba de humo cubre las rutas de `auth` y comprueba 401, 403 y 429.
-- [ ] Las dependencias nuevas tienen licencia compatible con GPL-3.0 y se anotan en MEMORY.
+- [x] Las dependencias nuevas tienen licencia compatible con GPL-3.0 y se anotan en MEMORY (PyPI, 2026-11-14).
 
 ## Interfaces
 
