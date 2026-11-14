@@ -18,12 +18,11 @@ a {
 
 /*
  * Islas claras: el mapa y la línea de tiempo de Atlas (src/mapa/) tienen colores
- * pensados para fondo claro. Hasta que usen las variables, quedan en tema claro
- * también con el tema oscuro, para no poner texto oscuro sobre fondo oscuro.
+ * pensados para fondo claro. Hasta que usen las variables, sus contenedores llevan
+ * la clase isla-clara (src/tema/tokens.css) y quedan en tema claro también con el
+ * tema oscuro, para no poner texto oscuro sobre fondo oscuro.
  */
-.atlas-map,
-.pass-timeline {
-  color-scheme: light;
+.isla-clara {
   color: var(--color-texto);
   background: var(--color-fondo);
 }
@@ -442,5 +441,8 @@ button:disabled {
 
 /* Línea de tiempo de Atlas bajo la respuesta del evento (T-FAR-19). */
 .pass-timeline {
-  margin-top: 1.5rem;
+  margin-top: var(--espacio-5);
+  /* En tema oscuro es una isla clara: el relleno y el radio la separan del texto (revisión de Atlas, PR 95). */
+  padding: var(--espacio-3) var(--espacio-4);
+  border-radius: var(--radio-m);
 }
