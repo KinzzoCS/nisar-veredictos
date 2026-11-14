@@ -63,3 +63,10 @@ Un cambio está terminado cuando:
 1. La interfaz funciona en español e inglés.
 2. Cumple WCAG 2.1 AA: contraste suficiente, uso con teclado y estados que no dependen solo del color.
 3. El lenguaje es llano: un término técnico solo aparece si se explica.
+
+## X. Perfiles y acceso
+
+1. Los perfiles (público general, estudiante e investigador) cambian la profundidad, las herramientas y las cuotas; nunca la verdad. El estado, `data_kind`, lo que el veredicto no prueba, lo que falta, la causa de lo no observable y el recibo con los gránulos son visibles para cualquier persona, con o sin cuenta.
+2. Un permiso solo puede añadir rutas, filtros, exportaciones o explicaciones. Nunca oculta ni altera un campo de una respuesta.
+3. El perfil lo declara la persona y no se verifica; ninguna pantalla lo presenta como verificado.
+4. Las contraseñas, las claves de firma y los tokens siguen la regla VIII.3: nunca entran en el repositorio.

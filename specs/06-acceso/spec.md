@@ -1,0 +1,92 @@
+# Acceso: autenticación JWT y perfiles (RBAC): especificación
+
+- **Responsables:** @KinzzoCS (servicio `auth`) y @lospapulindos2-netizen (gateway y aplicación de permisos)
+- **Consumen:** @danielsanchez-033 (inicio de sesión y perfiles en la interfaz) y @Fransomware (herramientas del mapa por perfil)
+- **Estado:** borrador, propuesto el 2026-11-14
+
+## Misión
+
+Saber quién consulta la API para ofrecer a cada perfil la profundidad y las herramientas que necesita, y proteger las capacidades costosas, **sin esconder a nadie la verdad del veredicto**.
+
+## Principio rector
+
+Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la verdad. Se propone como artículo X de la constitución (ver `specs/constitution.md`). En concreto:
+
+- Cualquier persona, con o sin cuenta, ve el estado, `data_kind`, "qué no prueba", "qué falta", la causa de lo no observable y el recibo con los gránulos.
+- Ningún permiso oculta un campo de una respuesta existente ni cambia su valor. Un perfil solo añade rutas, filtros, exportaciones o explicaciones.
+- Cumple la demo mínima del sistema ("permite ver los gránulos usados") y la constitución II.2 y II.4 para todos los perfiles.
+
+## Perfiles
+
+| Código en la API | Nombre visible | Cómo se obtiene | Para quién |
+|---|---|---|---|
+| `public` | Público general | Sin cuenta, o con cuenta sin otro perfil | Habitantes, periodistas, jurado |
+| `student` | Estudiante | Lo elige la persona al registrarse | Quien aprende teledetección y quiere entender cada número |
+| `researcher` | Investigador | Lo elige la persona al registrarse | Quien busca, filtra, compara y exporta |
+
+- El perfil es **declarado, no verificado**. Es aceptable porque ningún perfil da acceso a información que otro no pueda ver (principio rector); solo cambia herramientas y cuotas. La interfaz lo dice así y nunca muestra "investigador verificado".
+- No hay perfil de administración en la API. Las cuentas de prueba se crean con una orden del servicio, con contraseñas leídas del `.env`.
+
+## Historias de usuario
+
+- Como persona del público, quiero usar la aplicación sin crear una cuenta.
+- Como estudiante, quiero entrar con mi cuenta y que la aplicación me explique cada campo de la evidencia.
+- Como investigadora, quiero un token para consultar la búsqueda y la exportación desde mis propios scripts.
+- Como jurado, quiero comprobar que el público ve el mismo veredicto y el mismo recibo que un investigador.
+- Como responsable de la pila, quiero que una petición no pueda hacerse pasar por otro perfil ni saltarse el gateway.
+
+## Requisitos
+
+| ID | Requisito | Prioridad |
+|---|---|---|
+| RF-ACC-01 | Servicio `auth` propio, reproducible con `docker compose`: registro, inicio de sesión, renovación, cierre de sesión y JWKS público | P0 |
+| RF-ACC-02 | Tokens de acceso JWT firmados con EdDSA (Ed25519), con `iss`, `aud`, `sub`, `role`, `iat`, `exp` y `jti`; vida de 15 minutos | P0 |
+| RF-ACC-03 | Renovación con un token opaco y rotativo en cookie `HttpOnly`, `Secure` fuera de localhost y `SameSite=Strict`; se guarda solo su hash, y reutilizar uno ya rotado revoca toda la familia | P0 |
+| RF-ACC-04 | Contraseñas con Argon2id; mínimo 12 caracteres; sin requisitos de composición; respuesta idéntica para "no existe" y "contraseña incorrecta" | P0 |
+| RF-ACC-05 | El gateway valida el token en cada petición a `/api/` y pasa a los servicios `X-Auth-Role` y `X-Auth-Sub`. Borra esas cabeceras si vienen del cliente | P0 |
+| RF-ACC-06 | Sin cabecera `Authorization`, la petición es `public`. Con un token inválido, caducado o de otra audiencia, responde 401 y **no** degrada a `public` en silencio | P0 |
+| RF-ACC-07 | Ninguna ruta que exista el 2026-11-14 pide token ni cambia su respuesta según el perfil | P0 |
+| RF-ACC-08 | Las rutas nuevas declaran en su contrato el perfil mínimo; con un perfil insuficiente responden 403 con el perfil que haría falta | P0 |
+| RF-ACC-09 | Cuotas por perfil en el gateway: `public` por IP, y `student` y `researcher` por `sub`. Al pasarse, 429 con `Retry-After` | P1 |
+| RF-ACC-10 | `AUTH_ENABLED=0` deja el gateway como hoy (todo `public`, rutas nuevas con 403). Es el valor por omisión hasta que el equipo apruebe activarlo | P0 |
+| RF-ACC-11 | Tokens personales para scripts (`researcher`): se crean y revocan desde la cuenta, se muestran una sola vez y caducan como máximo a los 90 días | P2 |
+| RF-ACC-12 | Registro sin datos personales más allá de un correo y una contraseña; sin verificación de correo en esta ola, y se dice así | P1 |
+
+## Matriz de acceso
+
+| Capacidad | `public` | `student` | `researcher` |
+|---|---|---|---|
+| Veredictos, eventos, serie por píxel, teselas, catálogo y referencias (rutas actuales) | sí, sin cuenta | sí | sí |
+| Recibo completo, `data_kind` y causa de lo no observable | sí | sí | sí |
+| Búsqueda de veredictos y de pasadas (`specs/07-busqueda`) | no | sí, con filtros básicos y 50 resultados por página | sí, con todos los filtros y paginación |
+| Exportar resultados con su recibo (CSV, GeoJSON, JSON) | no | no | sí |
+| Tokens personales para scripts | no | no | sí |
+| Cuota orientativa (a calibrar en T-BAL-12) | 60 peticiones/min por IP | 120/min | 600/min |
+
+## Criterios de aceptación
+
+- [ ] Con `AUTH_ENABLED=1`, la misma petición a `/api/verdicts/aois/parral/series/T048A-F015/verdicts` devuelve un cuerpo idéntico sin token, con token de `student` y con token de `researcher` (prueba automática que compara los cuerpos).
+- [ ] Con `AUTH_ENABLED=0`, `bash scripts/smoke.sh` pasa sin cambios.
+- [ ] Una petición con `X-Auth-Role: researcher` y sin token llega a los servicios como `public`.
+- [ ] Un token caducado, con firma de otra clave o con `aud` distinto recibe 401, nunca 200 como `public`.
+- [ ] Reutilizar un token de renovación ya rotado revoca la sesión y obliga a entrar de nuevo.
+- [ ] Ningún servicio salvo el gateway publica un puerto en `docker-compose.yml` (hoy se cumple; la prueba lo vigila).
+- [ ] El repositorio no contiene la clave privada ni contraseñas: la clave se genera al arrancar si falta, en un volumen fuera de git, o se lee del `.env`.
+- [ ] La prueba de humo cubre las rutas de `auth` y comprueba 401, 403 y 429.
+- [ ] Las dependencias nuevas tienen licencia compatible con GPL-3.0 y se anotan en MEMORY.
+
+## Interfaces
+
+- **Produce:** `contracts/auth.openapi.json` (Antena), las cabeceras `X-Auth-Role` y `X-Auth-Sub` hacia los servicios (Balanza) y `securitySchemes` en los contratos de las rutas nuevas.
+- **Consume:** nada externo. No depende de Earthdata ni de ningún proveedor de identidad.
+
+## Fuera de alcance
+
+- Inicio de sesión con proveedores externos (Google, ORCID, Earthdata Login). ORCID sería la vía para verificar a investigadores en otra ola.
+- Verificación de correo, recuperación de contraseña por correo y doble factor.
+- Ocultar o recortar campos según el perfil: lo prohíbe el principio rector.
+
+## Preguntas abiertas
+
+- ¿Se activa `AUTH_ENABLED=1` en la demo del 15 de noviembre o después? Recomendación: después, para que la demo no dependa de una pieza nueva.
+- ¿Las teselas (`/tiles/cog/`) cuentan para la cuota? Propuesta: no, porque el mapa pide decenas por vista; se limitan aparte por IP.

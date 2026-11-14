@@ -12,6 +12,8 @@ Una persona sin formación en radar abre la aplicación, elige una zona y una fe
 | Gestor de agua o protección civil | Cambios en agua y suelo durante la temporada | Presa y campo durante el monzón |
 | Jurado y comunidad científica | Comprobar de dónde sale cada afirmación | Recibo con gránulos, CRID y avisos |
 
+Desde la ola 2 (`specs/06-acceso` y `specs/08-interfaz`), estas personas se agrupan en tres perfiles: **público general** (las dos primeras, sin cuenta), **estudiante** e **investigador** (la comunidad científica). El jurado usa la vista que quiera. Los perfiles cambian la profundidad, nunca la verdad (constitución X).
+
 ## Flujo de datos
 
 ```
@@ -39,6 +41,7 @@ Sentinel-2 / OPERA ────> Antena: catalog                   │          
 | Manifiesto de artefactos | Eco | Balanza | `contracts/artifact-manifest.schema.json` |
 | API de veredictos | Balanza | Atlas, Faro | `contracts/verdicts.openapi.json` |
 | Interfaz del mapa | Atlas | Faro | `specs/04-atlas/plan.md` |
+| API de acceso (propuesta, ola 2) | Antena | Balanza (gateway), Faro | `contracts/auth.openapi.json` |
 
 ## Calendario
 

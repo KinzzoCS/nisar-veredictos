@@ -1,0 +1,65 @@
+# Búsqueda para estudiantes e investigadores: especificación
+
+- **Responsables:** @lospapulindos2-netizen (búsqueda de veredictos y exportación), @KinzzoCS (búsqueda de pasadas) y @TakoKami-dev (ruido por par en el manifiesto)
+- **Consumen:** @danielsanchez-033 (pantalla de búsqueda) y @Fransomware (resultados sobre el mapa y búsqueda por área)
+- **Estado:** borrador, propuesto el 2026-11-14
+- **Depende de:** `specs/06-acceso` (perfiles `student` y `researcher`)
+
+## Misión
+
+Que una persona investigadora encuentre en segundos **todos** los veredictos y pasadas que cumplen una condición (estado, fechas, calidad, ruido, contraste con OPERA, texto) y se los lleve con su recibo, sin perder nunca la trazabilidad hasta los gránulos.
+
+## Escala honesta
+
+Hoy hay una zona, dos series y 18 veredictos reales. La búsqueda se diseña para varias zonas y cientos de pares, pero su valor hoy es **filtrar por evidencia** (ruido, desplazamiento de escena, acuerdo con OPERA), no el volumen. Ningún texto de la interfaz la presenta como un buscador de todo NISAR.
+
+## Historias de usuario
+
+- Como investigadora, quiero listar los pares `change_probable` cuyo ruido en HH sea menor de 1 dB, para separar cambio de ruido.
+- Como investigador, quiero los pares donde el radar y OPERA DSWx-S1 no coinciden sobre agua, con el porcentaje comparado.
+- Como investigadora, quiero exportar el resultado a CSV o GeoJSON con el `granule_id` de cada fecha, para citarlo en un artículo.
+- Como estudiante, quiero buscar por fecha y estado y que la interfaz me explique cada filtro.
+- Como investigador, quiero buscar pasadas por latencia de publicación, precisión de órbita o exclusión, para auditar el catálogo.
+- Como investigadora, quiero dibujar un rectángulo en el mapa y ver qué series y pares lo cubren.
+
+## Requisitos
+
+| ID | Requisito | Prioridad |
+|---|---|---|
+| RF-BUS-01 | `GET /search/verdicts` en `verdicts` con filtros estructurados: zona, serie, dirección, rango de fechas, rango de `interval_days`, estado, causa de no observable, rango de fracción de cambio, desplazamiento de escena sobre el umbral, banderas de calidad, estado del contraste con OPERA, nubosidad del óptico y `data_kind` | P0 |
+| RF-BUS-02 | Texto libre sobre los resúmenes ES/EN, hipótesis, causas y `granule_id`, con el idioma de `lang` | P1 |
+| RF-BUS-03 | Orden por fecha, intervalo, fracción de cambio o ruido; paginación por cursor; total de resultados | P0 |
+| RF-BUS-04 | Cada resultado trae `aoi`, `series_id`, `pair_id`, estado, fechas, `data_kind`, los números del filtro y el enlace al veredicto completo. Nunca un resultado sin `data_kind` | P0 |
+| RF-BUS-05 | `student`: filtros de RF-BUS-01 salvo los de calidad y ruido, y 50 resultados por página. `researcher`: todo, hasta 500 por página | P0 |
+| RF-BUS-06 | `GET /search/verdicts/export?format=csv\|geojson\|json` (`researcher`): mismas consultas, con recibo, gránulos, umbrales y la consulta usada en la cabecera o en `metadata` | P1 |
+| RF-BUS-07 | `GET /search/passes` en `catalog`: zona, serie, rango de fechas, dirección, latencia, precisión de órbita (letra del nombre del gránulo), excluida o no, con plan de observación o no | P1 |
+| RF-BUS-08 | Ruido de cada par en el manifiesto: desviación robusta (1,4826 · MAD) de la diferencia corregida en HH y HV, como campos opcionales `stats.noise_hh_db` y `stats.noise_hv_db` | P1 |
+| RF-BUS-09 | El veredicto expone ese ruido en `evidence.noise` (campo nuevo y opcional) y la búsqueda filtra y ordena por él | P1 |
+| RF-BUS-10 | Filtro espacial por `bbox` (WGS84): series cuya huella corta el rectángulo y, en P2, la fracción de cambio dentro de él leyendo el COG `state` | P1 (huella), P2 (fracción) |
+| RF-BUS-11 | Búsquedas guardadas por cuenta | P2 |
+
+## Criterios de aceptación
+
+- [ ] `state=change_probable` sobre los artefactos reales devuelve exactamente T048 08-16→08-28 y 08-28→09-09 (los dos únicos según MEMORY, 2026-11-14).
+- [ ] Un filtro sin resultados devuelve una lista vacía con el total 0 y la consulta interpretada, nunca un 404.
+- [ ] Un resultado de datos sintéticos lleva `data_kind: synthetic` y la interfaz lo marca en la fila.
+- [ ] La exportación CSV incluye, por fila, `data_kind`, los dos `granule_id`, `interval_days`, `decision_rule` y el aviso de umbral sin calibrar.
+- [ ] `student` recibe 403 con `required_role: researcher` al pedir la exportación o un filtro de ruido; `public` recibe 403 en `/search/*`.
+- [ ] Ningún resultado afirma más que el veredicto completo: los textos son los mismos campos de la API (prueba de lenguaje incluida).
+- [ ] Los manifiestos sin `stats.noise_*` siguen siendo válidos y el veredicto sale sin `evidence.noise`.
+- [ ] La prueba de humo cubre las rutas nuevas (lo exige ya T-BAL-05).
+
+## Interfaces
+
+- **Produce:** rutas nuevas en `contracts/verdicts.openapi.json` y `contracts/catalog.openapi.json`, y campos opcionales en `contracts/artifact-manifest.schema.json`. Todos son cambios **aditivos**, válidos tras el congelamiento.
+- **Consume:** los veredictos que ya calcula `verdicts`, la línea de tiempo de `catalog` y el manifiesto de Eco.
+
+## Fuera de alcance
+
+- Buscar en todo CMR o en zonas que no estén en `config/aois`. Para eso existen Vertex y Earthdata Search.
+- Procesar en el momento un par que no esté precalculado (decisión del 2026-11-09: la demo no procesa en vivo).
+- Clasificar la causa de un cambio.
+
+## Preguntas abiertas
+
+- ¿El estudiante ve el filtro de ruido con una explicación en lugar de no verlo? Propuesta de Faro a decidir con Balanza; no cambia la matriz de acceso si solo se muestra deshabilitado con su explicación.

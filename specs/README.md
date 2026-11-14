@@ -23,6 +23,16 @@ Aquí se decide **qué** se construye y **por qué** antes de escribir código. 
 | Atlas — mapa y representación web | @Fransomware | [04-atlas](04-atlas/spec.md) |
 | Faro — relato y experiencia | @danielsanchez-033 | [05-faro](05-faro/spec.md) |
 
+## Funcionalidades que cruzan roles
+
+Cada una tiene su `spec.md` y su `plan.md`; sus tareas viven en el `tasks.md` de cada rol, con su identificador de siempre.
+
+| Funcionalidad | Responsables | Especificación |
+|---|---|---|
+| Acceso: autenticación JWT y perfiles (RBAC) | Antena (`auth`) y Balanza (gateway) | [06-acceso](06-acceso/spec.md) |
+| Búsqueda para estudiantes e investigadores | Balanza, Antena y Eco | [07-busqueda](07-busqueda/spec.md) |
+| Interfaz por perfiles y mapa en 3D | Faro y Atlas | [08-interfaz](08-interfaz/spec.md) |
+
 ## Ciclo de trabajo
 
 1. **Especificar.** Si una tarea cambia lo que el sistema promete, primero se actualiza `spec.md` en un PR `spec(<rol>): ...`. Lo revisa quien consume ese trabajo.
@@ -38,3 +48,13 @@ Aquí se decide **qué** se construye y **por qué** antes de escribir código. 
 - **P2:** si sobra tiempo.
 
 `[P]` marca las tareas que no esperan a otro rol y pueden empezar ya.
+
+## Prioridades de la ola 2
+
+Las fechas de arriba ya pasaron. Para acceso, búsqueda e interfaz (propuesta del 2026-11-14):
+
+- **P0:** el mínimo que se puede enseñar: cuentas, gateway con `AUTH_ENABLED`, búsqueda básica, vistas y globo 3D con paso a 2D.
+- **P1:** la funcionalidad completa de cada especificación.
+- **P2:** si sobra tiempo.
+
+Ninguna tarea de esta ola puede romper la demo del evento: la ruta de la demo funciona sin cuenta, y `AUTH_ENABLED` sigue en 0 hasta que el equipo lo active con la prueba de humo en verde.

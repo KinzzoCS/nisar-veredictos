@@ -11,3 +11,19 @@
 | T-BAL-07 | Reflejar las banderas de calidad de Eco en textos y recibo, y avisar del desplazamiento de la escena | P1 | T-ECO-03 | hecha |
 | T-BAL-08 | Contraste con OPERA DSWx-S1 | P1 | T-ANT-06, cuenta de Earthdata | hecha; probada con radar real y token el 2026-11-12 |
 | T-BAL-09 | Calibrar reglas con datos reales | P1 | T-ECO-07 | hecha: 5 % fijado con el ruido de 16 pares reales; el resto queda como supuesto declarado |
+
+## Ola 2: acceso, búsqueda e interfaz
+
+Propuesta del 2026-11-14, pendiente de aprobación. Especificaciones en [06-acceso](../06-acceso/spec.md), [07-busqueda](../07-busqueda/spec.md) y [08-interfaz](../08-interfaz/spec.md). Prioridades de esta ola en [specs/README.md](../README.md#prioridades-de-la-ola-2).
+
+| ID | Tarea | Prioridad | Depende de | Estado |
+|---|---|---|---|---|
+| T-BAL-10 | Gateway con `auth_request`, cabeceras `X-Auth-*` de confianza, POST solo en `/api/auth/`, `AUTH_ENABLED` (0 por omisión) y servicio `auth` en el compose (RF-ACC-05 a 07 y 10) | P0 | T-ANT-14 | pendiente |
+| T-BAL-11 | [P] `GET /search/verdicts`: índice derivado de la caché, filtros, orden, cursor y permisos por perfil (RF-BUS-01, 03 a 05) | P0 | — | pendiente |
+| T-BAL-12 | Cuotas por perfil en el gateway, medidas con la pila (RF-ACC-09) | P1 | T-BAL-10 | pendiente |
+| T-BAL-13 | Exportación CSV, GeoJSON y JSON con recibo, en streaming (RF-BUS-06) | P1 | T-BAL-11 | pendiente |
+| T-BAL-14 | `evidence.noise` en el veredicto y filtro y orden por ruido (RF-BUS-09) | P1 | T-ECO-09 | pendiente |
+| T-BAL-15 | Plantilla de relieve en la API y paso de `algorithm=terrainrgb` por el gateway (RF-INT-12) | P1 | T-ECO-10 | pendiente |
+| T-BAL-16 | Prueba de humo de acceso: rutas de `auth`, 401, 403, 429, cabecera falsificada y cuerpos idénticos con los tres perfiles | P0 | T-BAL-10 | pendiente |
+| T-BAL-17 | Texto libre (FTS5) y filtro por `bbox` con la huella de la serie (RF-BUS-02 y 10) | P1 | T-BAL-11, T-ANT-17 | pendiente |
+| T-BAL-18 | Fracción de cambio dentro de un rectángulo con las celdas de Eco (RF-BUS-10) | P2 | T-ECO-12, T-BAL-17 | pendiente |

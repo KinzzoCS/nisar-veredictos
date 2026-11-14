@@ -231,6 +231,13 @@ Comprobado el 2026-11-12 por Antena con CMR, con los XML bajados con el token y 
   - `change_probable` baja en todos los pares (por ejemplo, 06-17→06-29 de 3,50 a 1,85 % y la ventana completa de 11,03 a 6,97 %). Los pares con desplazamiento de toda la escena siguen altos (08-28→09-09 de 18,59 a 17,11 %): el filtro no resuelve T-ECO-07.
 - 2026-11-12, `processor run` se salta los gránulos de `series[].exclude[]` de `config/aois/<zona>.yaml` (lista que mantiene Antena desde el PR 22). Compara con el `granuleId` de dentro del archivo, no con el nombre en disco, y lo declara en los avisos del manifiesto. Probado con la configuración del PR 22 y tres recortes reales de T171 (07-20, 08-13 y 08-25): sale un solo par, 07-20→08-25.
 - Hacer público el repositorio antes de la entrega.
+- 2026-11-14, **ola 2 propuesta, sin aprobar**: acceso con JWT y perfiles (`specs/06-acceso`), búsqueda para estudiantes e investigadores (`specs/07-busqueda`) e interfaz por perfiles con globo 3D (`specs/08-interfaz`). Tareas T-ANT-14 a 18, T-ECO-09 a 12, T-BAL-10 a 18, T-ATL-09 a 14 y T-FAR-11 a 17. Lo que más hay que aprobar:
+  - Artículo X de la constitución (las cinco personas): los perfiles cambian profundidad, herramientas y cuotas, nunca la verdad; el perfil es declarado, no verificado.
+  - Ninguna ruta actual pide token: sin cuenta se es `public`. Así todo es aditivo y vale tras el congelamiento de contratos (15 de noviembre, 06:00 UTC), y la demo no depende de iniciar sesión. El JWT protege las rutas nuevas (búsqueda, exportación, tokens personales) y las cuotas.
+  - `AUTH_ENABLED=0` por omisión hasta que el equipo lo active con la prueba de humo en verde.
+  - Vista (presentación, la elige cualquiera) separada del perfil (permisos de la API).
+  - 3D con la proyección de globo de MapLibre 6.16.0, sin biblioteca nueva. **Sin comprobar** el nombre exacto de la proyección y de la transición en esa versión: Atlas lo anota en T-ATL-09.
+  - Licencias de PyJWT, `cryptography` y argon2-cffi **sin comprobar**; se anotan al fusionar T-ANT-14.
 
 ## Investigación
 

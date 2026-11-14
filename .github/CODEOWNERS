@@ -10,10 +10,12 @@
 # Antena
 /services/catalog/                        @KinzzoCS
 /services/ingest/                         @KinzzoCS
+/services/auth/                           @KinzzoCS
 /config/aois/                             @KinzzoCS
 /specs/01-antena/                         @KinzzoCS
 /contracts/catalog.openapi.json           @KinzzoCS @lospapulindos2-netizen @Fransomware
 /contracts/gcov-subset.md                 @KinzzoCS @TakoKami-dev
+/contracts/auth.openapi.json              @KinzzoCS @lospapulindos2-netizen @danielsanchez-033
 
 # Eco
 /services/processor/                      @TakoKami-dev
@@ -33,3 +35,8 @@
 /frontend/src/mapa/                       @Fransomware
 /specs/04-atlas/                          @Fransomware
 /specs/05-faro/                           @danielsanchez-033
+
+# Funcionalidades que cruzan roles (ola 2)
+/specs/06-acceso/                         @KinzzoCS @lospapulindos2-netizen
+/specs/07-busqueda/                       @lospapulindos2-netizen @KinzzoCS @TakoKami-dev
+/specs/08-interfaz/                       @danielsanchez-033 @Fransomware
