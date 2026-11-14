@@ -52,7 +52,7 @@ export function AtlasMap({ options, canCompare, busy }: Props) {
   }, [options, swipe])
 
   return (
-    <section className="atlas-map" aria-label={t('map.label')}>
+    <section className="atlas-map isla-clara" aria-label={t('map.label')}>
       {canCompare && (
         <button type="button" aria-pressed={swipe} onClick={() => setCompare((c) => !c)}>
           {t('map.compare')}

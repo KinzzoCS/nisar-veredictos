@@ -695,3 +695,29 @@ def test_a_corrupt_granule_that_is_not_excluded_still_fails(series, tmp_path):
     corrupt.write_bytes(b"no es un HDF5")
     with pytest.raises(OSError):
         process_series([paths[0], corrupt, *paths[2:]], AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", exclude={})
+
+
+def test_pair_publishes_the_spread_of_the_difference_whatever_the_shift_correction():
+    before = scene(rng=np.random.default_rng(1))
+    after = scene(hh=np.full(SHAPE, 0.05 * SHIFT_2_DB, np.float32), hv=np.full(SHAPE, 0.01 * SHIFT_2_DB, np.float32),
+                  rng=np.random.default_rng(2))
+    corrected = compare(before, after)
+    raw = compare(before, after, Params(correct_scene_shift=False))
+    for name in ("noise_hh_db", "noise_hv_db"):
+        assert corrected.stats[name] > 0
+        # Restar una constante no cambia la MAD: el valor es el mismo con corrección o sin ella.
+        assert raw.stats[name] == pytest.approx(corrected.stats[name], abs=1e-3)
+        assert corrected.stats[name] == pytest.approx(raw.stats[name], rel=1e-3)
+    d = corrected.change_hh[np.isfinite(corrected.change_hh)]
+    assert corrected.stats["noise_hh_db"] == pytest.approx(1.4826 * np.median(np.abs(d - np.median(d))), rel=0.05)
+
+
+def test_spread_grows_with_speckle_and_is_none_without_observable_pixels():
+    calm = compare(scene(rng=np.random.default_rng(1)), scene(rng=np.random.default_rng(2)))
+    extra = np.random.default_rng(3).gamma(2, 0.5, SHAPE).astype(np.float32)  # speckle de 2 looks encima
+    noisy = compare(scene(rng=np.random.default_rng(1)), scene(hh=0.05 * extra, rng=np.random.default_rng(2)))
+    assert noisy.stats["noise_hh_db"] > 1.5 * calm.stats["noise_hh_db"]
+    assert noisy.stats["noise_hv_db"] == pytest.approx(calm.stats["noise_hv_db"], rel=0.05)
+    blind = compare(scene(mask=np.zeros(SHAPE, np.uint8), rng=np.random.default_rng(1)),
+                    scene(mask=np.zeros(SHAPE, np.uint8), rng=np.random.default_rng(2)))
+    assert blind.stats["noise_hh_db"] is None and blind.stats["noise_hv_db"] is None

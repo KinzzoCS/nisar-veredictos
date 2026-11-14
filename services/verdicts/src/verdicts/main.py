@@ -12,10 +12,11 @@ from pathlib import Path
 from typing import Callable, Literal
 from urllib.parse import quote
 
-from fastapi import FastAPI, HTTPException, Query, Request
+from fastapi import FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
-from . import narrative, optical, quality, rules, water
+from . import narrative, optical, quality, rules, search, water
 from .catalog import (
     CatalogUnavailable,
     HttpOpera,
@@ -820,6 +821,7 @@ def create_app(
     opera_source: OperaSource | None = None,
     water_contrast: water.WaterContrast | None = None,
     warm_cache: bool | None = None,
+    build_index: bool | None = None,
 ) -> FastAPI:
     root = artifact_root or Path(os.environ.get("ARTIFACT_ROOT", "/data/artifacts"))
     store = Store(root)
@@ -834,14 +836,33 @@ def create_app(
     now = clock or (lambda: dt.datetime.now(dt.timezone.utc))
     if warm_cache is None:
         warm_cache = os.environ.get("VERDICTS_WARM_CACHE") == "1"
+    if build_index is None:
+        build_index = os.environ.get("VERDICTS_SEARCH_INDEX") == "1"
+    log = logging.getLogger(__name__)
+    # Índice de búsqueda (T-BAL-11). Sin token, el contraste con OPERA no descarga nada y entra desde el
+    # principio; con token, entra cuando termina de calentarse y hasta entonces cada fila dice not_available.
+    index_state: dict = {"index": None, "water_ready": contrast.fetcher is None}
+    index_lock = threading.Lock()
+
+    def startup() -> None:
+        try:
+            if build_index:
+                rebuild_index()
+            if warm_cache and contrast.fetcher is not None:
+                warm_water()
+                index_state["water_ready"] = True
+                if build_index:
+                    rebuild_index()
+        except Exception:  # noqa: BLE001 - el arranque en segundo plano nunca debe tumbar el servicio
+            log.exception("No se pudo preparar el índice de búsqueda; se calculará con la primera consulta")
 
     @asynccontextmanager
     async def lifespan(_app: FastAPI):
-        # Calienta en segundo plano el contraste con OPERA de las series reales: sin token o sin datos
-        # reales no hace nada. La API responde desde el primer momento; una consulta que llegue antes
-        # de que termine calcula lo que falte y se encuentra hecho lo que ya esté.
-        if warm_cache and contrast.fetcher is not None:
-            threading.Thread(target=warm_water, name="warm-water", daemon=True).start()
+        # Calcula en segundo plano todos los veredictos para la búsqueda y, con token y radar real, el
+        # contraste con OPERA. La API responde desde el primer momento; una búsqueda que llegue antes de que
+        # termine el índice lo calcula ella misma.
+        if build_index or (warm_cache and contrast.fetcher is not None):
+            threading.Thread(target=startup, name="warm-up", daemon=True).start()
         yield
 
     app = FastAPI(title="NISAR verdicts", version="0.1.0", lifespan=lifespan)
@@ -922,7 +943,41 @@ def create_app(
                 try:
                     water_sides(manifest, pair_days(manifest["pairs"]))
                 except Exception:  # noqa: BLE001 - calentar nunca debe tumbar el servicio
-                    logging.getLogger(__name__).exception("No se pudo calentar el contraste de %s", aoi)
+                    log.exception("No se pudo calentar el contraste de %s", aoi)
+
+    def series_verdicts(manifest: dict, lang: narrative.Lang, include_water: bool = True) -> list[Verdict]:
+        """Todos los veredictos de una serie, como en /verdicts. Sin include_water no se mira OPERA."""
+        today, passes, excluded = now().date(), passes_for(manifest), excluded_for(manifest)
+        days = pair_days(manifest["pairs"])
+        refs = optical_for(manifest["aoi"], days)
+        if not include_water:
+            return [build_verdict(manifest, pair, lang, today, passes, refs, None, excluded) for pair in manifest["pairs"]]
+        sides, meta = water_sides(manifest, days)
+        return [
+            build_verdict(manifest, pair, lang, today, passes, refs, water_for(pair, sides, meta, lang), excluded)
+            for pair in manifest["pairs"]
+        ]
+
+    def rebuild_index() -> search.Index:
+        include_water = bool(index_state["water_ready"])
+        rows = [
+            search.row_from_verdict(verdict, include_water)
+            for aoi in store.aois()
+            for manifest in store.manifests(aoi)
+            for verdict in series_verdicts(manifest, "es", include_water)
+        ]
+        with index_lock:
+            previous = index_state["index"]
+            generation = previous.generation + 1 if previous is not None else 1
+            built = search.Index(rows=rows, water_included=include_water, built_at=now(), generation=generation)
+            index_state["index"] = built
+        log.info("Índice de búsqueda: %d veredictos, contraste con OPERA %s", len(rows),
+                 "incluido" if include_water else "pendiente")
+        return built
+
+    def current_index() -> search.Index:
+        found = index_state["index"]
+        return found if found is not None else rebuild_index()
 
     def verdict_for(manifest: dict, pair: dict, lang: narrative.Lang) -> Verdict:
         days = pair_days([pair])
@@ -968,15 +1023,7 @@ def create_app(
 
     @app.get("/aois/{aoi}/series/{series_id}/verdicts", response_model=list[Verdict])
     def verdicts(aoi: str, series_id: str, lang: narrative.Lang = "es") -> list[Verdict]:
-        manifest = manifest_or_404(aoi, series_id)
-        today, passes, excluded = now().date(), passes_for(manifest), excluded_for(manifest)
-        days = pair_days(manifest["pairs"])
-        refs = optical_for(manifest["aoi"], days)
-        sides, meta = water_sides(manifest, days)
-        return [
-            build_verdict(manifest, pair, lang, today, passes, refs, water_for(pair, sides, meta, lang), excluded)
-            for pair in manifest["pairs"]
-        ]
+        return series_verdicts(manifest_or_404(aoi, series_id), lang)
 
     @app.get("/aois/{aoi}/series/{series_id}/verdicts/{pair_id}", response_model=Verdict)
     def verdict(aoi: str, series_id: str, pair_id: str, lang: narrative.Lang = "es") -> Verdict:
@@ -1081,6 +1128,110 @@ def create_app(
         return PixelSeries(
             aoi=aoi, series=series_id, lon=lon, lat=lat, data_kind=manifest["data_kind"], values=values, changes=changes
         )
+
+    def denied(required: search.Role, why: str) -> JSONResponse:
+        return JSONResponse(status_code=403, content={"detail": why, "required_role": required})
+
+    @app.get(
+        "/search/verdicts",
+        response_model=search.SearchPage,
+        responses={
+            400: {"description": "Cursor ilegible, de otra consulta o de un índice anterior."},
+            403: {"model": search.AccessDenied, "description": "Perfil insuficiente; required_role dice cuál hace falta."},
+        },
+        openapi_extra={"security": [{"bearerAuth": []}], "x-required-role": "student"},
+        summary="Búsqueda de veredictos (student y researcher)",
+        description="Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila "
+        "copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin el filtro de calidad "
+        "y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados "
+        "devuelve una lista vacía con total 0, nunca 404.",
+    )
+    def search_verdicts(
+        x_auth_role: str | None = Header(None, include_in_schema=False),
+        aoi: str | None = Query(None, description="Zona."),
+        series_id: str | None = Query(None, description="Serie, p. ej. T048A-F015."),
+        direction: Literal["A", "D"] | None = Query(None, description="Dirección de la órbita."),
+        kind: Literal["consecutive", "full_window"] | None = Query(None),
+        date_from: dt.date | None = Query(None, description="from_date del par igual o posterior."),
+        date_to: dt.date | None = Query(None, description="to_date del par igual o anterior."),
+        interval_min: int | None = Query(None, ge=0, description="interval_days mínimo."),
+        interval_max: int | None = Query(None, ge=0, description="interval_days máximo."),
+        state: list[Literal["change_probable", "no_detectable_change", "not_observable"]] | None = Query(
+            None, description="Uno o varios estados."
+        ),
+        cause: list[str] | None = Query(None, description="Una o varias causas de not_observable."),
+        changed_min: float | None = Query(None, ge=0, le=1, description="changed_fraction mínima (0 a 1)."),
+        changed_max: float | None = Query(None, ge=0, le=1, description="changed_fraction máxima (0 a 1)."),
+        scene_shift_exceeds: bool | None = Query(
+            None, description="Desplazamiento de la escena sobre el umbral. Las filas sin desplazamiento no se evalúan."
+        ),
+        quality_flag: bool | None = Query(
+            None, description="Solo researcher. true: alguna fecha con radiometric_outlier; false: ninguna."
+        ),
+        water: search.WaterFilter | None = Query(
+            None, description="Contraste con OPERA. Las filas con water not_available quedan fuera y se cuentan en "
+            "query.not_evaluated.",
+        ),
+        max_cloud_cover: float | None = Query(
+            None, ge=0, le=100, description="Nubosidad máxima por tesela de las dos escenas ópticas, en %."
+        ),
+        data_kind: Literal["real", "synthetic"] | None = Query(None),
+        sort: search.SortKey = Query("date", description="date ordena por to_date."),
+        order: Literal["asc", "desc"] = Query("desc"),
+        limit: int = Query(search.DEFAULT_LIMIT, ge=1, le=search.PAGE_LIMIT["researcher"]),
+        cursor: str | None = Query(None, description="next_cursor de la página anterior, con la misma consulta."),
+    ):
+        role = search.role_from_header(x_auth_role)
+        if role == "public":
+            return denied("student", "La búsqueda pide una cuenta de estudiante o de investigación.")
+        filters = search.Filters(
+            aoi=aoi, series_id=series_id, direction=direction, kind=kind, date_from=date_from, date_to=date_to,
+            interval_min=interval_min, interval_max=interval_max, state=tuple(state or ()), cause=tuple(cause or ()),
+            changed_min=changed_min, changed_max=changed_max, scene_shift_exceeds=scene_shift_exceeds,
+            quality_flag=quality_flag, water=water, max_cloud_cover=max_cloud_cover, data_kind=data_kind,
+        )
+        if role != "researcher":
+            used = [name for name in search.RESEARCHER_FILTERS if getattr(filters, name) is not None]
+            if used:
+                return denied("researcher", f"Filtro solo para investigación: {', '.join(used)}.")
+            if limit > search.PAGE_LIMIT[role]:
+                return denied(
+                    "researcher", f"Más de {search.PAGE_LIMIT[role]} resultados por página es solo para investigación."
+                )
+        index = current_index()
+        matched, not_evaluated = search.apply(index.rows, filters)
+        ordered = search.order(matched, sort, order)
+        print_ = search.fingerprint(filters, sort, order)
+        try:
+            offset = search.decode_cursor(cursor, print_, index.generation) if cursor else 0
+        except search.InvalidCursor as exc:
+            raise HTTPException(400, str(exc)) from exc
+        following = offset + limit
+        return search.SearchPage(
+            total=len(ordered),
+            results=ordered[offset:following],
+            next_cursor=search.encode_cursor(following, print_, index.generation) if following < len(ordered) else None,
+            query=search.SearchQuery(
+                filters=filters.applied(), sort=sort, order=order, limit=limit, role=role,
+                not_evaluated=not_evaluated, water_contrast="included" if index.water_included else "pending",
+                indexed_at=index.built_at,
+            ),
+        )
+
+    def openapi_with_security() -> dict:
+        if app.openapi_schema is None:
+            schema = FastAPI.openapi(app)
+            schema.setdefault("components", {})["securitySchemes"] = {
+                "bearerAuth": {
+                    "type": "http", "scheme": "bearer", "bearerFormat": "JWT",
+                    "description": "Token de acceso de auth (specs/06-acceso). El gateway lo valida y pasa el perfil "
+                    "en X-Auth-Role; sin token la petición es public. Las rutas que no lo declaran no lo piden.",
+                }
+            }
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = openapi_with_security
 
     return app
 

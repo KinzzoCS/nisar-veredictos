@@ -28,8 +28,8 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 | RF-ECO-04 | Leer modo y polarización de los metadatos del producto, no del nombre del archivo | Hecho (T-ECO-04) |
 | RF-ECO-05 | Marcar layover y sombra con el DEM Copernicus GLO-30 (estado 15) | Hecho (T-ECO-05) |
 | RF-ECO-06 | Verificar la georreferencia contra un rasgo conocido y documentar el desplazamiento | Hecho (T-ECO-06) |
-| RF-ECO-07 | Calibrar umbrales con datos reales junto a Balanza | P1 |
-| RF-ECO-08 | Filtro multitemporal opcional para reducir el speckle | P2 |
+| RF-ECO-07 | Calibrar umbrales con datos reales junto a Balanza | Hecho (T-ECO-07, PR 39) |
+| RF-ECO-08 | Filtro multitemporal opcional para reducir el speckle | Hecho (T-ECO-08, PR 36) |
 
 ## Criterios de aceptación
 
