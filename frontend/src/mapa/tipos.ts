@@ -39,6 +39,12 @@ export interface OpcionesMapa
    * Si está, al seleccionar un punto el mapa pide `?lon=…&lat=…` y enseña la historia.
    */
   pixelUrl?: string;
+  /**
+   * Globo 3D (T-ATL-09). Por defecto, false: plano, como hasta ahora. Si el navegador no tiene
+   * aceleración gráfica, si el globo falla o mientras está el comparador, el mapa queda en 2D
+   * y lo dice en pantalla.
+   */
+  modo3d?: boolean;
   /** Muestra el selector de capa y la opacidad dentro del mapa. Por defecto, true. */
   controlCapas?: boolean;
   /** Se llama cuando la persona cambia de capa con el selector del mapa. */
@@ -60,6 +66,7 @@ export type CambiosMapa = Partial<
     | "pixelUrl"
     | "optical"
     | "compare"
+    | "modo3d"
   >
 >;
 
