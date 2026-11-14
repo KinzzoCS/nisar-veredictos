@@ -134,7 +134,7 @@ Cierra RF-FAR-08 en [demo.md](demo.md). El guion sigue la historia de Parral (T-
 - [x] Una ficha de una página para el jurado: qué hace, con qué datos, qué no hace, cómo comprobar una respuesta y fuentes.
 - [x] Respuestas cortas a las preguntas probables del jurado, cada una con su fuente en el repositorio.
 - [x] Una lista de comprobación antes de salir a escena y un plan por si algo falla.
-- [ ] El equipo revisa el guion antes de la demo (decisión del 2026-11-14 en `MEMORY.md`: T-FAR-09 se cierra con todo el equipo).
+- [x] El equipo revisa el guion antes de la demo (decisión del 2026-11-14 en `MEMORY.md`: T-FAR-09 se cierra con todo el equipo). Las cinco personas confirmaron a Faro el 2026-11-14 que lo leyeron y les parece bien.
 
 Fuera de esta entrega: diapositivas, vídeo grabado y la versión en inglés del guion.
 

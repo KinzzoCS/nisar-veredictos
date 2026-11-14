@@ -1,6 +1,6 @@
 # Faro — guion de demo y material para el jurado (T-FAR-09)
 
-Borrador de Faro, 2026-11-14. **Lo revisa todo el equipo antes de la demo** (decisión del 2026-11-14 en `MEMORY.md`).
+Redactado por Faro el 2026-11-14 y **revisado por todo el equipo** el mismo día: cada persona confirmó a Faro que lo leyó y le parece bien (decisión del 2026-11-14 en `MEMORY.md`).
 
 Regla del guion: **ninguna cifra ni ningún estado se dice de memoria.** Se leen en pantalla, porque los artefactos pueden reprocesarse. Donde el guion pone `[en pantalla]`, se lee lo que muestra la app en ese momento. La única cifra fija es externa y se cita con su fuente: los 22,8 mm del boletín de Protección Civil.
 
@@ -76,4 +76,4 @@ El guion vale con cualquier resultado, porque lo lee de la pantalla. Aun así, h
 | Fecha | Quién | Duración | Datos | Notas |
 |---|---|---|---|---|
 | 2026-11-14 | Faro, recorrido en la app sin decirlo en voz alta | Unos 2:20 estimados (unas 320 palabras a 140 por minuto), sin contar los clics | Pila local con artefactos reales sin la corrección de T-ECO-07 | Todo lo marcado `[en pantalla]` aparece: pasadas 2026-06-29 y 2026-07-08, estado del par de agosto, madurez PROVISIONAL, gránulos, CRID, Sentinel-2, OPERA y el recuento de la escena 3. Falta un ensayo hablado y cronometrado |
-| | Todo el equipo | | | Ensayo general: revisar el guion y tomar las capturas del plan B |
+| | Todo el equipo | | | Ensayo general hablado y cronometrado, y tomar las capturas del plan B. El guion ya está revisado (2026-11-14) |

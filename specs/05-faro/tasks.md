@@ -10,7 +10,7 @@
 | T-FAR-06 | Modo historia de Parral en tres escenas | P1 | T-FAR-02, T-FAR-03, T-FAR-05 | hecha (PR 57) |
 | T-FAR-07 | Español e inglés, y WCAG 2.1 AA | P1 | T-FAR-02 | hecha (PR 69) |
 | T-FAR-08 | Glosario y explicación del radar | P1 | — | hecha |
-| T-FAR-09 | Guion de demo y material para el jurado | P1 | T-FAR-06 | al final, con todo el equipo (decisión del 2026-11-14) |
+| T-FAR-09 | Guion de demo y material para el jurado | P1 | T-FAR-06 | hecha (PR 78); el ensayo hablado y cronometrado queda para el ensayo general |
 | T-FAR-10 | Prueba rápida con 3 a 5 personas | P2 | T-FAR-06 | pendiente |
 | T-FAR-11 | Levantar el frontend con `docker compose up --build` en `http://localhost:3000` | P1 | T-FAR-05 | hecha |
 | T-FAR-19 | Montar la línea de tiempo de Atlas bajo la respuesta de la consulta de evento: el timeline del catálogo se pide una vez por zona y la respuesta del evento se pasa tal cual; si el catálogo falla, la respuesta sale igual | P1 | T-ATL-06, T-FAR-03 | hecha |
