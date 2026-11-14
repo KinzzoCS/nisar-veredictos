@@ -56,10 +56,10 @@ El gateway hoy solo deja pasar GET y OPTIONS. Se abre POST **solo** en `location
 
 ## Dependencias propuestas
 
-| Paquete | Uso | Licencia (a comprobar con `pip show` o PyPI antes de fusionar) |
+| Paquete | Uso | Licencia (comprobada en PyPI el 2026-11-14) |
 |---|---|---|
-| PyJWT con `cryptography` | Firmar y validar EdDSA | MIT; `cryptography` Apache-2.0 o BSD |
-| argon2-cffi | Hash de contraseñas | MIT |
+| PyJWT con `cryptography` | Firmar y validar EdDSA | PyJWT MIT; `cryptography` Apache-2.0 o BSD-3-Clause |
+| argon2-cffi | Hash de contraseñas | MIT, igual que argon2-cffi-bindings; cffi MIT-0 y pycparser BSD-3-Clause |
 
 ## Pruebas
 

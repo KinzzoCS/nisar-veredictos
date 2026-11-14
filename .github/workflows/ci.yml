@@ -14,7 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        service: [catalog, ingest, processor, verdicts]
+        service: [auth, catalog, ingest, processor, verdicts]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
