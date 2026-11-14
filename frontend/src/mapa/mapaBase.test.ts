@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  ATRIBUCION_OSM,
+  ATRIBUCION_NISAR,
+  atribuciones,
+  atribucionOsm,
   bboxContinuo,
   contornoZona,
   cruzaAntimeridiano,
@@ -14,10 +16,23 @@ import type { Bbox } from "./tipos";
 const PARRAL: Bbox = [-105.95, 26.7, -105.4, 27.15];
 
 describe("mapa base", () => {
-  it("declara la atribución de OpenStreetMap con enlace", () => {
+  it("atribuye OpenStreetMap con enlace y en el idioma del mapa", () => {
+    expect(atribucionOsm("es")).toContain("colaboradores de OpenStreetMap");
+    expect(atribucionOsm("en")).toContain("OpenStreetMap contributors");
+    expect(atribucionOsm("en")).not.toContain("colaboradores");
+    for (const idioma of ["es", "en"] as const) {
+      expect(atribucionOsm(idioma)).toContain("https://www.openstreetmap.org/copyright");
+    }
+  });
+
+  it("la fuente no fija la atribución: la pone el control, en el idioma del mapa", () => {
     const fuente = estiloMapaBase().sources.osm as { attribution?: string };
-    expect(fuente.attribution).toBe(ATRIBUCION_OSM);
-    expect(ATRIBUCION_OSM).toContain("https://www.openstreetmap.org/copyright");
+    expect(fuente.attribution).toBeUndefined();
+  });
+
+  it("NISAR solo se atribuye con capas de datos reales", () => {
+    expect(atribuciones("en", false)).toEqual([atribucionOsm("en")]);
+    expect(atribuciones("es", true)).toEqual([atribucionOsm("es"), ATRIBUCION_NISAR]);
   });
 
   it("cierra el contorno de la zona", () => {

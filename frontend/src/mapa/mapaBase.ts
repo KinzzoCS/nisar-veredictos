@@ -1,13 +1,28 @@
 import type { StyleSpecification } from "maplibre-gl";
 import type { Feature, Polygon } from "geojson";
+import type { Idioma } from "./textos";
 import type { Bbox } from "./tipos";
 
 // Decisión T-ATL-01 (2026-11-12): teselas raster de OpenStreetMap.
 // Datos ODbL; la política de uso de tile.openstreetmap.org exige atribución visible
 // con enlace y prohíbe el tráfico alto. Vale para la demo, no para producción.
 // https://operations.osmfoundation.org/policies/tiles/
-export const ATRIBUCION_OSM =
-  '© <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">colaboradores de OpenStreetMap</a>';
+const ENLACE_OSM = "https://www.openstreetmap.org/copyright";
+
+/** Atribución de OpenStreetMap en el idioma del mapa. Va en el control de atribución, no en la fuente. */
+export function atribucionOsm(idioma: Idioma): string {
+  const texto = idioma === "en" ? "OpenStreetMap contributors" : "colaboradores de OpenStreetMap";
+  return `© <a href="${ENLACE_OSM}" target="_blank" rel="noopener">${texto}</a>`;
+}
+
+/** Solo se muestra con datos reales (constitución II.2 y VIII.2). Igual en los dos idiomas. */
+export const ATRIBUCION_NISAR =
+  'Radar: <a href="https://nisar.jpl.nasa.gov/" target="_blank" rel="noopener">NASA/ISRO NISAR</a> (GCOV)';
+
+/** Textos del control de atribución: OSM siempre; NISAR solo si hay capas radar con datos reales. */
+export function atribuciones(idioma: Idioma, nisar: boolean): string[] {
+  return nisar ? [atribucionOsm(idioma), ATRIBUCION_NISAR] : [atribucionOsm(idioma)];
+}
 
 export const ZOOM_MAXIMO_BASE = 19;
 
@@ -20,7 +35,7 @@ export function estiloMapaBase(): StyleSpecification {
         tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
         tileSize: 256,
         maxzoom: ZOOM_MAXIMO_BASE,
-        attribution: ATRIBUCION_OSM,
+        // Sin `attribution`: el control la pone en el idioma del mapa (ver `atribuciones`).
       },
     },
     layers: [
