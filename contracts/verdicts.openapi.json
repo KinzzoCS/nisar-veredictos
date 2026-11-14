@@ -675,6 +675,23 @@
       },
       "OpticalTileOut": {
         "properties": {
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "maxItems": 4,
+                "minItems": 4,
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Caja de los datos de la escena en WGS84, [oeste, sur, este, norte], vía catalog: la del item STAC de Earth Search o, si falta, la de su huella; no la del cuadrado MGRS completo. Sirve como bounds de la fuente en el mapa, para no pedir teselas fuera de los datos. Si oeste > este, cruza el antimeridiano. null si catalog no la da o no es válida.",
+            "title": "Bbox"
+          },
           "cloud_cover": {
             "description": "Porcentaje de nubes de la tesela completa, no de la zona.",
             "title": "Cloud Cover",
