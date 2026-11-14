@@ -42,7 +42,7 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 ## Interfaces
 
 - **Consume:** recortes GCOV (`contracts/gcov-subset.md`) y el DEM Copernicus GLO-30.
-- **Produce:** COGs, estados y manifiesto (`contracts/artifact-manifest.schema.json`).
+- **Produce:** COGs, estados y manifiesto (`contracts/artifact-manifest.schema.json`), y el DEM de cada zona como COG en `<zona>/dem.tif` para el relieve de la interfaz (campo `dem` del manifiesto, T-ECO-10).
 
 ## Fuera de alcance
 
@@ -54,6 +54,8 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 - RF-ECO-06 (2026-11-12): frente a Sentinel-2 en La Boquilla no hay un desplazamiento detectable mayor que un píxel (10 m). Método y cifras en `MEMORY.md`; se repite con `bench/georref.py`.
 - RF-ECO-07 (2026-11-12, acordado con Balanza): `low_looks` se decide con la suma de looks en la ventana de 5 × 5 (mínimo 50), no por píxel. El cambio de cada par se mide respecto al desplazamiento de toda la escena (mediana de la diferencia), que se resta antes del umbral y se publica en `stats.scene_shift_hh_db` y `scene_shift_hv_db`. El umbral de fracción del veredicto lo calibra Balanza (T-BAL-07).
 - RF-ECO-08 (2026-11-12): filtro de Quegan y Yu, opcional con `processor run --multitemporal` y apagado por omisión. Con T048 real reduce el speckle (ENL de 2,1 a 3,4 en HH) y entre un 10 % y un 50 % el cambio por par, pero no corrige el desplazamiento de toda la escena (T-ECO-07). Si se usa, el manifiesto lo declara.
+
+- T-ECO-10 (2026-11-14): el DEM GLO-30 se publica en su malla nativa (1″, EPSG:4326), recortado a la zona con 0,01° de margen y sin remuestrear a 10 m. El manifiesto lo declara en `dem` con la fuente, `vertical_datum: EGM2008` (alturas ortométricas, no elipsoidales) y el texto de atribución de Copernicus, que la interfaz debe mostrar. Se publica aunque el recorte no traiga `radarGrid`, porque el relieve de la interfaz no depende de marcar layover. En Parral: 2052 × 1692 píxeles, 14,8 MB, de 1521 a 3041 m.
 
 ## Preguntas abiertas
 
