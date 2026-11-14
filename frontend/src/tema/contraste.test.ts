@@ -37,6 +37,13 @@ describe('variables del sistema de diseño', () => {
     expect(Object.keys(colores).length).toBeGreaterThanOrEqual(10)
   })
 
+  it('declara las variables también en las islas claras, que fijan el tema claro', () => {
+    // Si solo estuvieran en :root, el build (LightningCSS traduce light-dark()) dejaría
+    // las islas con los colores oscuros aunque tengan color-scheme: light.
+    expect(css).toMatch(/:root,\s*\.isla-clara\s*\{[^}]*--color-fondo:/)
+    expect(css).toMatch(/\.isla-clara\s*\{\s*color-scheme:\s*light;\s*\}/)
+  })
+
   it('cada par declarado usa variables que existen', () => {
     const faltan = PARES.flatMap(([a, b]) => [a, b]).filter((v) => !(v in colores))
     expect(faltan).toEqual([])
