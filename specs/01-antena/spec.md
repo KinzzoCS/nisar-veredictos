@@ -41,6 +41,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 - [x] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
 - [x] Las fuentes ópticas no requieren cuenta y su licencia queda citada.
 - [x] Cada tesela Sentinel-2 de `/references/optical` trae su caja `bbox` en WGS84, `[oeste, sur, este, norte]`: la del item STAC de Earth Search, que es la de su huella de datos y no la del cuadrado MGRS; si falta o no es válida, la de la huella, y si tampoco hay huella, `null`. Como en STAC, una caja que cruza el antimeridiano trae oeste > este y se conserva así. Para `S2A_13RDK_20260812_1_L2A`, escena de borde de franja, es `[-106.00934, 26.12852, -105.70229, 27.12071]` (T-ANT-19, 2026-11-14).
+- [x] Cada serie de `/aois/{id}/series` trae `footprint`: una Feature GeoJSON con la huella del gránulo más reciente que tenga polígono en CMR (`properties.basis: \"latest_granule\"` y su `granule_id`), anillo cerrado y 5 decimales, o `null` si ninguna fecha tiene polígono. En Parral, las dos series traen una huella de 5 puntos que contiene la zona (CMR real, 2026-11-14, T-ANT-17).
 - [x] Un gránulo excluido no aparece en `granules` ni en `passes`, sí en `excluded` con su motivo, y `ingest` no lo descarga.
 
 ### Plan de observación (RF-ANT-04, T-ANT-09)

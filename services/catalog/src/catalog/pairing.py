@@ -71,6 +71,19 @@ class Series:
     def dates(self) -> list[date]:
         return [granule.start for granule in self.granules]
 
+    @property
+    def footprint_granule(self) -> Granule | None:
+        """El gránulo más reciente con huella. Todos los de una serie son del mismo marco y casi iguales."""
+        return next((granule for granule in reversed(self.granules) if len(granule.footprint) >= 3), None)
+
+
+def closed_ring(points: tuple[Point, ...], decimals: int = 5) -> list[list[float]]:
+    """Anillo GeoJSON [lon, lat] cerrado y con 5 decimales (constitución V.3)."""
+    ring = [[round(lon, decimals), round(lat, decimals)] for lon, lat in points]
+    if ring and ring[0] != ring[-1]:
+        ring.append(list(ring[0]))
+    return ring
+
 
 def parse_title(
     title: str,

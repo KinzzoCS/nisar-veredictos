@@ -134,6 +134,77 @@
         "title": "ExcludedPass",
         "type": "object"
       },
+      "FootprintGeometry": {
+        "properties": {
+          "coordinates": {
+            "description": "Un solo anillo [lon, lat] en WGS84, cerrado y con 5 decimales, tal como lo da CMR.",
+            "items": {
+              "items": {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              "type": "array"
+            },
+            "title": "Coordinates",
+            "type": "array"
+          },
+          "type": {
+            "const": "Polygon",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "coordinates"
+        ],
+        "title": "FootprintGeometry",
+        "type": "object"
+      },
+      "FootprintProperties": {
+        "properties": {
+          "basis": {
+            "const": "latest_granule",
+            "description": "La huella es la del gránulo más reciente de la serie con polígono en CMR. Todos los de una serie son del mismo marco, así que sus huellas casi coinciden.",
+            "title": "Basis",
+            "type": "string"
+          },
+          "direction": {
+            "description": "A ascendente o D descendente.",
+            "title": "Direction",
+            "type": "string"
+          },
+          "frame": {
+            "title": "Frame",
+            "type": "integer"
+          },
+          "granule_id": {
+            "description": "Gránulo del que sale la huella.",
+            "title": "Granule Id",
+            "type": "string"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          },
+          "track": {
+            "title": "Track",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "series",
+          "track",
+          "direction",
+          "frame",
+          "granule_id",
+          "basis"
+        ],
+        "title": "FootprintProperties",
+        "type": "object"
+      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -623,6 +694,28 @@
         "title": "OpticalTile",
         "type": "object"
       },
+      "SeriesFootprint": {
+        "properties": {
+          "geometry": {
+            "$ref": "#/components/schemas/FootprintGeometry"
+          },
+          "properties": {
+            "$ref": "#/components/schemas/FootprintProperties"
+          },
+          "type": {
+            "const": "Feature",
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "type",
+          "geometry",
+          "properties"
+        ],
+        "title": "SeriesFootprint",
+        "type": "object"
+      },
       "SeriesGranule": {
         "properties": {
           "date": {
@@ -673,6 +766,17 @@
             },
             "title": "Excluded",
             "type": "array"
+          },
+          "footprint": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/SeriesFootprint"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Huella de la serie como Feature GeoJSON, para situarla en el globo y filtrar por área (RF-INT-16 y RF-BUS-10). null si CMR no da polígono para ninguna de sus fechas."
           },
           "frame": {
             "title": "Frame",

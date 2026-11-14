@@ -195,6 +195,44 @@ export interface components {
             /** Series */
             series: string;
         };
+        /** FootprintGeometry */
+        FootprintGeometry: {
+            /**
+             * Coordinates
+             * @description Un solo anillo [lon, lat] en WGS84, cerrado y con 5 decimales, tal como lo da CMR.
+             */
+            coordinates: number[][][];
+            /**
+             * Type
+             * @constant
+             */
+            type: "Polygon";
+        };
+        /** FootprintProperties */
+        FootprintProperties: {
+            /**
+             * Basis
+             * @description La huella es la del gránulo más reciente de la serie con polígono en CMR. Todos los de una serie son del mismo marco, así que sus huellas casi coinciden.
+             * @constant
+             */
+            basis: "latest_granule";
+            /**
+             * Direction
+             * @description A ascendente o D descendente.
+             */
+            direction: string;
+            /** Frame */
+            frame: number;
+            /**
+             * Granule Id
+             * @description Gránulo del que sale la huella.
+             */
+            granule_id: string;
+            /** Series */
+            series: string;
+            /** Track */
+            track: number;
+        };
         /** HTTPValidationError */
         HTTPValidationError: {
             /** Detail */
@@ -460,6 +498,16 @@ export interface components {
              */
             visual_url: string;
         };
+        /** SeriesFootprint */
+        SeriesFootprint: {
+            geometry: components["schemas"]["FootprintGeometry"];
+            properties: components["schemas"]["FootprintProperties"];
+            /**
+             * Type
+             * @constant
+             */
+            type: "Feature";
+        };
         /** SeriesGranule */
         SeriesGranule: {
             /**
@@ -487,6 +535,8 @@ export interface components {
              * @description Gránulos de la serie que existen en CMR pero se declararon inservibles en la zona.
              */
             excluded: components["schemas"]["ExcludedGranule"][];
+            /** @description Huella de la serie como Feature GeoJSON, para situarla en el globo y filtrar por área (RF-INT-16 y RF-BUS-10). null si CMR no da polígono para ninguna de sus fechas. */
+            footprint?: components["schemas"]["SeriesFootprint"] | null;
             /** Frame */
             frame: number;
             /**

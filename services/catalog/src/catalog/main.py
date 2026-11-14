@@ -15,7 +15,7 @@ from pydantic import AfterValidator, BaseModel, Field
 from .cmr import CmrSource, GranuleSource
 from . import opera, plan
 from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, group_acquisitions, window
-from .pairing import Granule, build_series, series_id
+from .pairing import Granule, Series, build_series, closed_ring, series_id
 from .timeline import build_timeline
 
 T = TypeVar("T")
@@ -66,6 +66,31 @@ class ExcludedGranule(BaseModel):
     checked_on: date = Field(description="Fecha de la comprobación.")
 
 
+class FootprintGeometry(BaseModel):
+    type: Literal["Polygon"]
+    coordinates: list[list[list[float]]] = Field(
+        description="Un solo anillo [lon, lat] en WGS84, cerrado y con 5 decimales, tal como lo da CMR."
+    )
+
+
+class FootprintProperties(BaseModel):
+    series: str
+    track: int
+    direction: str = Field(description="A ascendente o D descendente.")
+    frame: int
+    granule_id: str = Field(description="Gránulo del que sale la huella.")
+    basis: Literal["latest_granule"] = Field(
+        description="La huella es la del gránulo más reciente de la serie con polígono en CMR. Todos los de una "
+        "serie son del mismo marco, así que sus huellas casi coinciden."
+    )
+
+
+class SeriesFootprint(BaseModel):
+    type: Literal["Feature"]
+    geometry: FootprintGeometry
+    properties: FootprintProperties
+
+
 class SeriesOut(BaseModel):
     id: str
     track: int
@@ -79,6 +104,11 @@ class SeriesOut(BaseModel):
     max_gap_days: int
     spans_data_gap: bool
     granules: list[SeriesGranule] = Field(description="Fechas utilizables, sin las excluidas.")
+    footprint: SeriesFootprint | None = Field(
+        default=None,
+        description="Huella de la serie como Feature GeoJSON, para situarla en el globo y filtrar por área "
+        "(RF-INT-16 y RF-BUS-10). null si CMR no da polígono para ninguna de sus fechas.",
+    )
     excluded: list[ExcludedGranule] = Field(
         description="Gránulos de la serie que existen en CMR pero se declararon inservibles en la zona."
     )
@@ -277,6 +307,24 @@ def _excluded_fields(granule: Granule, entry: dict) -> dict:
     }
 
 
+def _footprint_of(series: Series) -> SeriesFootprint | None:
+    granule = series.footprint_granule
+    if granule is None:
+        return None
+    return SeriesFootprint(
+        type="Feature",
+        geometry=FootprintGeometry(type="Polygon", coordinates=[closed_ring(granule.footprint)]),
+        properties=FootprintProperties(
+            series=series.id,
+            track=series.track,
+            direction=series.direction,
+            frame=series.frame,
+            granule_id=granule.id,
+            basis="latest_granule",
+        ),
+    )
+
+
 def create_app(
     aoi_dir: Path | None = None,
     source: GranuleSource | None = None,
@@ -336,6 +384,7 @@ def create_app(
                     SeriesGranule(id=g.id, date=g.start, size_mb=g.size_mb, download_url=g.download_url)
                     for g in item.granules
                 ],
+                footprint=_footprint_of(item),
                 excluded=[
                     ExcludedGranule(**_excluded_fields(g, entry))
                     for g, entry in excluded
