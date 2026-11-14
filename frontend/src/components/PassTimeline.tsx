@@ -31,5 +31,5 @@ export function PassTimeline({
     line.current?.actualizar({ timeline, evento: event ?? null, idioma: lang })
   }, [timeline, event, lang])
 
-  return <div className="pass-timeline" ref={container} />
+  return <div className="pass-timeline isla-clara" ref={container} />
 }

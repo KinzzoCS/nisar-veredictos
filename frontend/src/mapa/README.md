@@ -34,7 +34,7 @@ mapa.actualizar({ layers: conHost(otro.layers), dataKind: otro.receipt.data_kind
 mapa.destruir(); // al desmontar
 ```
 
-El contenedor necesita una altura (mínimo 320 px). La interfaz completa está en [`tipos.ts`](tipos.ts). Si Faro quiere su propio selector de capa, pasa `controlCapas: false` y cambia la capa con `actualizar({ activeLayer })`.
+El contenedor necesita una altura (mínimo 320 px). La interfaz completa está en [`tipos.ts`](tipos.ts); la de la ola 2, con lo que ya está y lo que llega con cada tarea (relieve, huellas y rectángulo), en [`specs/04-atlas/plan.md`](../../../specs/04-atlas/plan.md#interfaz-ampliada-ola-2-t-atl-11). Si Faro quiere su propio selector de capa, pasa `controlCapas: false` y cambia la capa con `actualizar({ activeLayer })`.
 
 ## Cómo se pinta cada capa
 

@@ -11,10 +11,19 @@
  * solo sabe leer ese formato.
  */
 
+/* Tema del sistema por omisión; data-tema en <html> lo fuerza. */
 :root {
-  /* Tema del sistema por omisión; data-tema en <html> lo fuerza. */
   color-scheme: light dark;
+}
 
+/*
+ * Las variables se declaran también en .isla-clara. Al compilar, Vite (LightningCSS)
+ * traduce light-dark() a variables --lightningcss-* que se resuelven donde se declara
+ * la variable: si solo estuvieran en :root, una isla con color-scheme: light seguiría
+ * recibiendo los colores oscuros. En desarrollo no pasa, así que solo se ve en el build.
+ */
+:root,
+.isla-clara {
   /* Texto y fondos */
   --color-texto: light-dark(#1f2328, #e6edf3);
   --color-texto-suave: light-dark(#57606a, #9198a1);
@@ -73,6 +82,11 @@
   /* Elevación */
   --elevacion-1: 0 1px 3px light-dark(rgba(31, 35, 40, 0.15), rgba(0, 0, 0, 0.5));
   --elevacion-2: 0 4px 12px light-dark(rgba(31, 35, 40, 0.18), rgba(0, 0, 0, 0.6));
+}
+
+/* Isla clara: zonas con colores propios pensados para fondo claro (mapa y línea de tiempo de Atlas). */
+.isla-clara {
+  color-scheme: light;
 }
 
 :root[data-tema='claro'] {
