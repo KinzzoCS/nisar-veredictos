@@ -386,6 +386,10 @@ class ReliefOut(BaseModel):
     encoding: Literal["mapbox"] = Field(
         "mapbox", description="Terrain-RGB: altura = -10000 + (R * 65536 + G * 256 + B) * 0,1 m."
     )
+    data_kind: Literal["real", "synthetic"] = Field(
+        description="dem.data_kind del manifiesto (T-ECO-13); real si falta. synthetic: DEM inventado de la pila "
+        "sintética, que no describe ningún relieve real; la interfaz debe decirlo y no atribuirlo a Copernicus."
+    )
     tile_size: int = Field(256, description="Píxeles por lado de cada tesela.")
     exaggeration: float = Field(
         RELIEF_EXAGGERATION, description="Exageración vertical por omisión (RF-INT-12): 1, sin exagerar. Si la "
@@ -405,6 +409,7 @@ def relief_from_manifest(manifest: dict) -> ReliefOut | None:
         return None
     return ReliefOut(
         tiles=_tile_url(dem["layer"], RELIEF_QUERY),
+        data_kind=dem.get("data_kind", "real"),
         source=dem["source"],
         crs=dem["crs"],
         vertical_datum=dem["vertical_datum"],

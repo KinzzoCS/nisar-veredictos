@@ -773,3 +773,19 @@ def test_series_with_dem_gives_a_terrainrgb_template(manifest_root):
     assert "algorithm=terrainrgb" in relief["tiles"]
     assert relief["encoding"] == "mapbox" and relief["exaggeration"] == 1.0 and relief["tile_size"] == 256
     assert relief["attribution"] == DEM["attribution"] and relief["vertical_datum"] == "EGM2008"
+    assert relief["data_kind"] == "real"
+
+
+def test_synthetic_dem_is_declared_and_keeps_its_own_attribution(manifest_root):
+    """T-ECO-13: el DEM de seed-synthetic dice synthetic y nunca hereda la atribución de Copernicus."""
+    path = manifest_root / "parral/T048A-F015/manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["dem"] = {**DEM, "data_kind": "synthetic", "source": "DEM sintético de seed-synthetic",
+                       "vertical_datum": "none", "attribution": "DEM sintético: no describe ningún relieve real."}
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    if "data_kind" in schema["properties"]["dem"]["properties"]:  # el esquema lo admite desde el PR 106
+        jsonschema.validate(manifest, schema)
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    relief = TestClient(create_app(manifest_root)).get("/aois/parral/series").json()[0]["relief"]
+    assert relief["data_kind"] == "synthetic" and relief["vertical_datum"] == "none"
+    assert "Copernicus" not in relief["attribution"]

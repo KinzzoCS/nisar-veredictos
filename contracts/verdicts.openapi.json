@@ -1207,6 +1207,15 @@
             "title": "Crs",
             "type": "string"
           },
+          "data_kind": {
+            "description": "dem.data_kind del manifiesto (T-ECO-13); real si falta. synthetic: DEM inventado de la pila sintética, que no describe ningún relieve real; la interfaz debe decirlo y no atribuirlo a Copernicus.",
+            "enum": [
+              "real",
+              "synthetic"
+            ],
+            "title": "Data Kind",
+            "type": "string"
+          },
           "encoding": {
             "const": "mapbox",
             "default": "mapbox",
@@ -1250,6 +1259,7 @@
         },
         "required": [
           "tiles",
+          "data_kind",
           "source",
           "crs",
           "vertical_datum",

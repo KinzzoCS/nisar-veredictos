@@ -318,6 +318,10 @@ for item in json.load(open(sys.argv[1], encoding="utf-8")):
         continue
     assert "algorithm=terrainrgb" in relief["tiles"] and relief["encoding"] == "mapbox", relief
     assert relief["attribution"] and relief["exaggeration"] == 1 and relief["units"] == "m", relief
+    # Un DEM sintético (T-ECO-13) lo dice y no se atribuye a Copernicus; con radar real, nunca es sintético.
+    assert relief["data_kind"] in ("real", "synthetic"), relief
+    if relief["data_kind"] == "synthetic":
+        assert "Copernicus" not in relief["attribution"] and item["data_kind"] == "synthetic", relief
     templates.add(relief["tiles"])
 assert len(templates) <= 1, "cada zona tiene un solo DEM"
 print(templates.pop() if templates else "")
