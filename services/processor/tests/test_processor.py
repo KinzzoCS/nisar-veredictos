@@ -582,6 +582,38 @@ def test_terrain_is_skipped_when_radar_grid_uses_another_projection(tmp_path):
     assert all(pair["stats"]["counts"]["terrain"] == 0 for pair in manifest["pairs"])
 
 
+def test_pipeline_publishes_the_dem_of_the_aoi_in_its_native_grid(series, tmp_path):
+    paths, _ = series  # sin radarGrid: el relieve de la interfaz no depende de poder marcar layover
+    dem = tmp_path / "dem.tif"
+    _write_dem(dem, BBOX, ridge_lon=-105.6)
+    manifest = process_series(paths[:2], AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])
+    published = manifest["dem"]
+    assert published["layer"] == "parral/dem.tif"
+    assert published["vertical_datum"] == "EGM2008" and published["units"] == "m"
+    assert "Copernicus" in published["attribution"]
+    with rasterio.open(dem) as source, rasterio.open(tmp_path / "out" / published["layer"]) as cog:
+        assert cog.crs == source.crs and published["crs"] == "EPSG:4326"
+        assert cog.res == pytest.approx(source.res)  # sin remuestrear a la malla del radar
+        west, south, east, north = cog.bounds
+        assert west < BBOX[0] - 0.009 and south < BBOX[1] - 0.009 and east > BBOX[2] + 0.009 and north > BBOX[3] + 0.009
+        assert west > BBOX[0] - 0.02 and north < BBOX[3] + 0.02  # recortado, no la tesela entera
+        assert cog.overviews(1) and cog.profile.get("tiled")
+        values = cog.read(1)
+        assert np.isfinite(values).all() and values.max() > 1500
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+
+
+def test_pipeline_omits_the_dem_when_there_is_none_or_it_does_not_cover_the_aoi(series, tmp_path):
+    paths, _ = series
+    assert "dem" not in process_series(paths[:2], AOI, "T048A-F015", tmp_path / "a", "PROVISIONAL")
+    missing = process_series(paths[:2], AOI, "T048A-F015", tmp_path / "b", "PROVISIONAL", dem_sources=[tmp_path / "nada.tif"])
+    assert "dem" not in missing
+    far = tmp_path / "lejos.tif"
+    _write_dem(far, [10.0, 10.0, 10.5, 10.5], ridge_lon=10.2)
+    assert "dem" not in process_series(paths[:2], AOI, "T048A-F015", tmp_path / "c", "PROVISIONAL", dem_sources=[far])
+
+
 SHIFT_2_DB = 10 ** (2 / 10)
 
 

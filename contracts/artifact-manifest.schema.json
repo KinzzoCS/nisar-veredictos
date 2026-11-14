@@ -109,6 +109,20 @@
           }
         }
       }
+    },
+    "dem": {
+      "type": "object",
+      "description": "Opcional (T-ECO-10). DEM de la zona publicado como COG para el relieve de la interfaz, en su malla nativa (1″ en EPSG:4326 para GLO-30) recortada con margen. Falta si el procesamiento no tuvo DEM.",
+      "required": ["layer", "source", "crs", "vertical_datum", "units", "attribution"],
+      "additionalProperties": false,
+      "properties": {
+        "layer": { "type": "string", "description": "Ruta del COG, común a todas las series de la zona: <aoi>/dem.tif." },
+        "source": { "type": "string" },
+        "crs": { "type": "string", "description": "CRS del COG, que no es el de las capas del radar." },
+        "vertical_datum": { "type": "string", "description": "Referencia de las alturas. EGM2008 significa alturas ortométricas sobre el geoide, no sobre el elipsoide." },
+        "units": { "const": "m" },
+        "attribution": { "type": "string", "description": "Texto de atribución que exige la licencia del DEM; la interfaz debe mostrarlo junto al relieve." }
+      }
     }
   }
 }
