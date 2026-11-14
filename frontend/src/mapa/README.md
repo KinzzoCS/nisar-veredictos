@@ -66,6 +66,29 @@ Con `compare: "swipe"` y `optical` con al menos un lado (`VistaOptica`, ver [`sr
 mapa.actualizar({ optical: { before, after }, compare: "swipe" }); // "off" lo quita
 ```
 
+## Línea de tiempo
+
+Pasadas de radar, huecos sin adquisiciones, pasadas excluidas, próximas pasadas estimadas y el evento consultado, en un componente aparte del mapa ([`lineaTiempo.ts`](lineaTiempo.ts)). Faro hace las peticiones y le pasa las respuestas tal cual, como con el óptico:
+
+```ts
+import { crearLineaTiempo } from "./mapa/lineaTiempo";
+
+const linea = crearLineaTiempo(document.getElementById("linea")!, {
+  timeline,          // GET /api/catalog/aois/parral/timeline; null mientras carga
+  evento,            // opcional: GET /api/verdicts/aois/parral/events?date=…
+  serie: serie.id,   // opcional: solo esa fila
+  idioma: "es",
+  onPassSelected: ({ series, granule_id, acquired_at }) => {}, // opcional: cada pasada es un botón
+});
+linea.actualizar({ evento: otro, idioma: "en" });
+linea.destruir();
+```
+
+- Cada marca tiene su forma: pasada (círculo lleno; hueco si la serie no cubre toda la zona), excluida (aspa), estimada (círculo discontinuo), hueco (trama) y evento (banda; borde discontinuo si no tiene hora).
+- A la vista, no solo en el título emergente: el supuesto del evento (`assumption.text`), cada estimación con «no es un plan de observación» y la fecha de consulta del plan (`checked_at`), cada pasada excluida con su motivo y su evidencia, los huecos y que la publicación es la fecha de actualización de CMR.
+- Debajo, la lista de todas las pasadas en texto. En pantallas estrechas la gráfica se desplaza en horizontal.
+- Los tipos del catálogo están en [`catalogo.d.ts`](catalogo.d.ts), generados de `contracts/catalog.openapi.json`; [`catalogo.test.ts`](catalogo.test.ts) falla si el contrato cambia.
+
 ## Estado
 
 | Parte | Tarea | Estado |
@@ -75,6 +98,7 @@ mapa.actualizar({ optical: { before, after }, compare: "swipe" }); // "off" lo q
 | Selección de punto y serie por píxel | T-ATL-04 | Hecho; falta probarlo con la API real |
 | Distintivo de sintético y atribución de NISAR solo con datos reales | — | Hecho |
 | Teclado: mapa (flechas, + y −, Enter, Escape), selector de capa y opacidad | — | Hecho |
+| Línea de tiempo de pasadas, huecos y eventos | T-ATL-06 | Hecho; probado con la API real de Parral. Falta que Faro la monte |
 | Comparador óptico (`optical` y `compare`) | T-ATL-07 | En curso: probado solo con teselas de prueba; falta la API con el PR 19 y comprobar La Boquilla |
 
 ## Desarrollo
@@ -84,6 +108,7 @@ Desde `frontend/`:
 ```bash
 npm install
 npm run dev:mapa   # banco de pruebas en /src/mapa/demo.html
+                   # y el de la línea de tiempo en /src/mapa/lineaTiempo.html?fecha=2026-07-01&tipo=urban_storm
 npm test
 npx tsc -b         # tipos, igual que npm run build
 ```
