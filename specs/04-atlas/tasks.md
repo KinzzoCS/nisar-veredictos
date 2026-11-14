@@ -17,8 +17,8 @@ Propuesta del 2026-11-14, pendiente de aprobación. Especificaciones en [06-acce
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-ATL-09 | [P] Globo 3D con `setProjection` y el tipo `'globe'` de MapLibre 6.16.0 (comprobado en sus tipos el 2026-11-14), transición a plano al acercarse con una expresión por zoom (probarla en el navegador y anotarla en MEMORY) y caída a 2D si no hay soporte (RF-INT-10 y 17) | P0 | — | pendiente |
-| T-ATL-10 | Botón 2D/3D, escala oculta con inclinación y aviso de perspectiva, misma selección de punto en 3D y teclado para girar e inclinar (RF-INT-11, 13 a 15) | P0 | T-ATL-09 | pendiente |
+| T-ATL-09 | [P] Globo 3D con `setProjection({ type: "globe" })` de MapLibre 6.16.0, que pasa a Mercator por dentro al acercarse (comprobado en sus tipos el 2026-11-14; verlo en el navegador y anotarlo en MEMORY), y caída a 2D si no hay soporte (RF-INT-10 y 17) | P0 | — | pendiente |
+| T-ATL-10 | Botón 2D/3D (activa girar e inclinar en 3D; al volver a 2D, norte arriba y los desactiva), escala oculta con inclinación o con el globo a zoom bajo y aviso de perspectiva, misma selección de punto en 3D (probada con `project`/`unproject`), trama y distintivo visibles en 3D, comparador óptico en 3D con la misma proyección y relieve o forzado a 2D, y teclado para girar e inclinar (RF-INT-11, 13 a 15 y 20) | P0 | T-ATL-09 | pendiente |
 | T-ATL-11 | Interfaz `crearMapa` ampliada con opciones opcionales, publicada en `plan.md` (RF-INT-19) | P0 | T-ATL-09 | pendiente |
 | T-ATL-12 | Relieve GLO-30 con exageración declarada y atribución de Copernicus DEM (RF-INT-12) | P1 | T-ATL-10, T-BAL-15 | pendiente |
 | T-ATL-13 | Caja de la zona y huellas de las series en el globo (RF-INT-16) | P1 | T-ANT-17 | pendiente |

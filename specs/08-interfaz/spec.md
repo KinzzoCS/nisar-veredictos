@@ -59,13 +59,14 @@ Las tres vistas muestran siempre, juntos, el estado, "qué detectamos", "qué no
 | RF-INT-10 | Globo 3D con la proyección de globo de MapLibre a zoom bajo, que pasa a plano al acercarse; sin biblioteca nueva | P0 |
 | RF-INT-11 | Botón 2D/3D con `aria-pressed`. 2D: plano, norte arriba, sin inclinación. 3D: globo, relieve e inclinación | P0 |
 | RF-INT-12 | Relieve con el DEM Copernicus GLO-30 de la zona, servido por TiTiler como `terrainrgb`; exageración 1× por omisión y, si se cambia, el factor visible en pantalla | P1 |
-| RF-INT-13 | Con inclinación, la barra de escala se oculta y un aviso dice que las distancias varían con la perspectiva; al volver a 2D reaparece (RF-ATL-05) | P0 |
-| RF-INT-14 | La selección de punto funciona igual en 3D y da las mismas coordenadas que en 2D, con 5 decimales | P0 |
+| RF-INT-13 | Mientras haya inclinación o la proyección efectiva no sea Mercator (el globo a zoom bajo), la barra de escala se oculta y un aviso dice que las distancias varían con la perspectiva; al volver a 2D reaparece (RF-ATL-05) | P0 |
+| RF-INT-14 | La selección de punto funciona igual en 3D: seleccionar el mismo lugar da las mismas coordenadas que en 2D, con 5 decimales | P0 |
 | RF-INT-15 | Teclado en 3D: girar, inclinar y volver al norte con teclas documentadas en la leyenda | P1 |
 | RF-INT-16 | Contexto en el globo: caja de la zona y huella de cada serie (pista y marco) con su nombre | P1 |
 | RF-INT-17 | Si el navegador no admite el globo o WebGL falla, el mapa abre en 2D y lo dice | P0 |
 | RF-INT-18 | Herramienta de rectángulo (vista Investigador) que emite `onBboxDrawn` en WGS84 con 5 decimales para la búsqueda | P1 |
 | RF-INT-19 | La interfaz `crearMapa` sigue siendo compatible: las opciones nuevas (`modo3d`, `relieve`, `huellas`) son opcionales | P0 |
+| RF-INT-20 | El comparador radar frente a óptico (RF-ATL-07) no mezcla geometrías: en 3D, copia al mapa óptico la proyección y el relieve además del centro, el zoom, la orientación y la inclinación, o fuerza 2D mientras está activo y lo dice | P0 |
 
 ## Criterios de aceptación
 
@@ -73,9 +74,11 @@ Las tres vistas muestran siempre, juntos, el estado, "qué detectamos", "qué no
 - [ ] En las tres vistas, el estado, los tres textos, el distintivo de datos sintéticos y el recibo están presentes (prueba de componentes con las tres vistas).
 - [ ] Cambiar de vista no vuelve a pedir el veredicto ni cambia ningún dato mostrado: el estado, las cifras, `data_kind` y el recibo son idénticos en las tres vistas. Una vista puede pedir datos **adicionales** que solo ella enseña (la serie por píxel en Estudiante, el comparador óptico en Investigador).
 - [ ] La auditoría automática de accesibilidad (axe) no da errores en las tres vistas, en claro y oscuro, en 2D y en 3D.
-- [ ] El mismo clic sobre Parral en 2D y en 3D sin inclinación devuelve las mismas coordenadas.
-- [ ] Con inclinación, no hay barra de escala y sí el aviso de perspectiva.
+- [ ] Seleccionar el mismo lugar en 2D y en 3D devuelve las mismas coordenadas con 5 decimales. Se prueba con `project`/`unproject` de un lon/lat fijo, no con el mismo píxel de pantalla, que en el globo no es el mismo lugar.
+- [ ] Con inclinación, o con el globo a zoom bajo, no hay barra de escala y sí el aviso de perspectiva.
 - [ ] La atribución de OpenStreetMap, Copernicus DEM, Sentinel-2 y NISAR está visible en 2D y en 3D.
+- [ ] La trama de lo no observable y el distintivo de datos sintéticos se ven en 2D y en 3D, y la trama sigue distinguiéndose de "sin cambio" con inclinación y relieve (constitución II.2 y IX.2).
+- [ ] Con el comparador activo en 3D, el radar y el óptico casan bajo el deslizador: los dos mapas tienen la misma proyección y el mismo relieve, o el mapa está en 2D y lo dice.
 - [ ] Con `prefers-reduced-motion`, el globo no vuela: aparece ya centrado en Parral.
 - [ ] Ningún texto nuevo pasa de la prueba de lenguaje de Balanza.
 
