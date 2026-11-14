@@ -41,6 +41,8 @@ export interface EstadoLeyenda {
   causa?: string;
   /** Cambio de nivel de toda la escena en este par (ver escena.ts). */
   avisoEscena?: AvisoEscena;
+  /** El mapa está en 3D: la leyenda documenta las teclas de giro e inclinación (RF-INT-15). */
+  teclas3d?: boolean;
 }
 
 interface Manejadores {
@@ -136,6 +138,7 @@ export function crearLeyenda(contenedor: HTMLElement, m: Manejadores) {
     }
     lista.append(noObs);
     panel.append(lista);
+    if (e.teclas3d) panel.append(el("p", "atlas-teclas-3d", t.teclas3d));
 
     if (foco === "radio") panel.querySelector<HTMLInputElement>("input[type=radio]:checked")?.focus();
     if (foco === "range") panel.querySelector<HTMLInputElement>("input[type=range]")?.focus();

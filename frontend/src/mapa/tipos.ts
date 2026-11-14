@@ -45,6 +45,10 @@ export interface OpcionesMapa
    * y lo dice en pantalla.
    */
   modo3d?: boolean;
+  /** Muestra el botón 2D/3D dentro del mapa (T-ATL-10). Por defecto, true. */
+  control3d?: boolean;
+  /** Se llama cuando la persona cambia entre 2D y 3D con el botón del mapa. */
+  onModo3dChanged?: (modo3d: boolean) => void;
   /** Muestra el selector de capa y la opacidad dentro del mapa. Por defecto, true. */
   controlCapas?: boolean;
   /** Se llama cuando la persona cambia de capa con el selector del mapa. */

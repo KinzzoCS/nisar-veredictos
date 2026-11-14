@@ -44,3 +44,12 @@ describe("aviso de desplazamiento de toda la escena (scene_shift, PR 37 y 42)", 
     expect(c.textContent).not.toContain(TEXTOS.es.avisoEscena);
   });
 });
+
+describe("teclas de 3D (RF-INT-15)", () => {
+  it("solo aparecen en 3D", () => {
+    expect(dibujar(BASE).querySelector(".atlas-teclas-3d")).toBeNull();
+    expect(dibujar({ ...BASE, teclas3d: true }).querySelector(".atlas-teclas-3d")?.textContent).toBe(
+      TEXTOS.es.teclas3d,
+    );
+  });
+});

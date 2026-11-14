@@ -60,6 +60,15 @@ interface Textos {
   sinMapa: string;
   /** Se pidió el 3D (`modo3d`) y el mapa está en 2D: por qué. */
   sin3d: Record<MotivoSin3d, string>;
+  // Controles en 3D (T-ATL-10)
+  /** Nombre accesible del botón; el estado lo da aria-pressed. */
+  boton3d: string;
+  boton3dPoner: string;
+  boton3dQuitar: string;
+  /** Escala oculta con inclinación o sobre el globo (RF-INT-13). */
+  sinEscala: string;
+  /** Teclas para girar, inclinar y volver al norte en 3D (RF-INT-15). */
+  teclas3d: string;
   /** Igual que CAUSES de services/verdicts/src/verdicts/narrative.py. */
   causas: Record<string, string>;
 }
@@ -150,6 +159,12 @@ export const TEXTOS: Record<Idioma, Textos> = {
       fallo_globo: "Mapa en 2D: el globo 3D falló en este navegador.",
       comparador: "Mapa en 2D mientras está el comparador, para que el radar y la imagen óptica casen.",
     },
+    boton3d: "Globo 3D",
+    boton3dPoner: "Ver el mapa como globo 3D, con giro e inclinación",
+    boton3dQuitar: "Volver al mapa plano, con el norte arriba",
+    sinEscala:
+      "Sin barra de escala: en perspectiva o sobre el globo, las distancias cambian de un punto a otro de la pantalla.",
+    teclas3d: "En 3D: Mayús + ← → gira, Mayús + ↑ ↓ inclina y N vuelve al norte.",
     causas: CAUSAS_ES,
   },
   en: {
@@ -218,6 +233,12 @@ export const TEXTOS: Record<Idioma, Textos> = {
       fallo_globo: "Map in 2D: the 3D globe failed in this browser.",
       comparador: "Map in 2D while the comparator is on, so that radar and optical imagery line up.",
     },
+    boton3d: "3D globe",
+    boton3dPoner: "Show the map as a 3D globe, with rotation and tilt",
+    boton3dQuitar: "Back to the flat map, north up",
+    sinEscala:
+      "No scale bar: in perspective or on the globe, distances change from one point of the screen to another.",
+    teclas3d: "In 3D: Shift + ← → rotates, Shift + ↑ ↓ tilts and N resets north.",
     causas: CAUSAS_EN,
   },
 };

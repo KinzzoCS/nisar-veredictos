@@ -105,7 +105,15 @@ Se queda en 2D, y lo dice en pantalla, si:
 
 MapLibre 6 solo funciona con WebGL 2, así que sin él no hay mapa ni en 2D: `crearMapa` no rompe la página, muestra la extensión de la zona en texto, el distintivo de sintético y un aviso.
 
-Todavía no (T-ATL-10): botón 2D/3D, girar e inclinar, ocultar la escala sobre el globo y el fondo oscuro del espacio.
+Controles en 3D (T-ATL-10):
+
+- **Botón 3D** bajo el zoom, con `aria-pressed`. Cambia `modo3d` y llama a `onModo3dChanged(modo3d)`. Se quita con `control3d: false` si Faro pone el suyo.
+- **Girar e inclinar solo con el globo:** arrastre con el botón derecho o Ctrl, gestos táctiles y teclado (Mayús + ← → gira, Mayús + ↑ ↓ inclina, N vuelve al norte). Aparece la brújula, que devuelve el norte. Al volver a 2D, norte arriba, sin inclinación y sin giro.
+- **Escala:** se oculta con inclinación o mientras el globo no se ve plano (hasta el zoom 12, con la vista normal de Parral incluida) y la sustituye un aviso de que las distancias cambian con la perspectiva (RF-INT-13).
+- **Ayuda:** las teclas de 3D salen en la leyenda y en la ayuda que aparece con el foco del teclado.
+- **Selección de punto:** igual que en 2D, con 5 decimales. `unproject(project(lugar))` da el mismo lon/lat en globo y en plano (MEMORY, 2026-11-14).
+
+Pendiente: el espacio alrededor del globo sale oscuro.
 
 ## Estado
 
@@ -118,6 +126,7 @@ Todavía no (T-ATL-10): botón 2D/3D, girar e inclinar, ocultar la escala sobre 
 | Teclado: mapa (flechas, + y −, Enter, Escape), selector de capa y opacidad | — | Hecho |
 | Línea de tiempo de pasadas, huecos y eventos | T-ATL-06 | Hecho; probado con la API real de Parral. Faro la monta bajo la consulta de evento (PR 76) |
 | Globo 3D (`modo3d`) con caída a 2D y aviso | T-ATL-09 | Hecho; probado en el navegador con la API local |
+| Botón 2D/3D, giro e inclinación, escala oculta y teclas en 3D | T-ATL-10 | Hecho; probado en el navegador con la API local |
 | Comparador óptico (`optical` y `compare`) | T-ATL-07 | En curso: probado solo con teselas de prueba; falta la API con el PR 19 y comprobar La Boquilla |
 
 ## Desarrollo
