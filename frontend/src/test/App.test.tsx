@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, vi } from 'vitest'
 import App from '../App'
 import i18n from '../i18n'
+import axe from 'axe-core'
 import { makeVerdict } from './fixtures'
 
 // MapLibre necesita WebGL, que jsdom no tiene: el ciclo de vida del mapa se prueba en AtlasMap.test.
@@ -167,4 +168,46 @@ test('avisa si la API no responde', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('network'))))
   render(<App />)
   expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar con la API')
+})
+
+test('el enlace para saltar al contenido es lo primero con el tabulador y lleva a main', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  await user.tab()
+  const skip = screen.getByRole('link', { name: 'Saltar al contenido principal' })
+  expect(skip).toHaveFocus()
+  expect(skip).toHaveAttribute('href', '#main')
+  expect(document.getElementById('main')?.tagName).toBe('MAIN')
+})
+
+test('el título del documento sigue al idioma', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByText('Entre A')
+  await user.click(screen.getByRole('button', { name: 'English' }))
+  expect(document.title).toBe(i18n.t('app.title', { lng: 'en' }))
+  expect(document.documentElement.lang).toBe('en')
+})
+
+// T-FAR-07: axe-core sin infracciones WCAG 2.0/2.1 A y AA. jsdom no calcula colores,
+// así que el contraste se mide aparte en el navegador.
+describe.each([
+  ['es', 'real'],
+  ['en', 'synthetic'],
+] as const)('accesibilidad automática (%s, datos %s)', (lang, kind) => {
+  test('axe no encuentra infracciones', async () => {
+    await i18n.changeLanguage(lang)
+    stubApi(kind)
+    const { container } = render(<App />)
+    await screen.findByRole('article')
+    const results = await axe.run(container, {
+      runOnly: { type: 'tag', values: ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa'] },
+      rules: { 'color-contrast': { enabled: false } },
+    })
+    const found = results.violations.map((v) => `${v.id}: ${v.nodes.map((n) => n.target.join(' ')).join(', ')}`)
+    expect(found).toEqual([])
+  }, 20_000) // axe recorre todo el DOM: con todas las pruebas en paralelo pasa de los 5 s por defecto.
 })

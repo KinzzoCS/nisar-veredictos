@@ -1,7 +1,8 @@
 {
   "app": {
     "title": "NISAR Verdicts",
-    "tagline": "What changed, what was not detected and what cannot be known, with the data behind it."
+    "tagline": "What changed, what was not detected and what cannot be known, with the data behind it.",
+    "skipToMain": "Skip to main content"
   },
   "language": {
     "label": "Language",
