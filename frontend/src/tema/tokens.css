@@ -1,0 +1,84 @@
+/*
+ * Sistema de diseño (T-FAR-12, RF-INT-01).
+ *
+ * Única fuente de las variables de la app. Cada color se declara una vez con
+ * light-dark(claro, oscuro): el tema oscuro no es una copia aparte.
+ * src/tema/contraste.test.ts lee este archivo y comprueba el contraste de cada
+ * par texto-fondo declarado allí. Si añades un color que se usa como texto,
+ * borde de control o icono, añade también su par a esa prueba.
+ *
+ * Los colores van en hexadecimal de 6 cifras dentro de light-dark(): la prueba
+ * solo sabe leer ese formato.
+ */
+
+:root {
+  /* Tema del sistema por omisión; data-tema en <html> lo fuerza. */
+  color-scheme: light dark;
+
+  /* Texto y fondos */
+  --color-texto: light-dark(#1f2328, #e6edf3);
+  --color-texto-suave: light-dark(#57606a, #9198a1);
+  --color-fondo: light-dark(#ffffff, #0d1117);
+  --color-superficie: light-dark(#f6f8fa, #161b22);
+
+  /* Bordes: decorativo (sin requisito de contraste) y de control (3:1, WCAG 1.4.11) */
+  --color-borde: light-dark(#d0d7de, #30363d);
+  --color-borde-control: light-dark(#6e7781, #8b949e);
+
+  /* Acento: foco, enlaces y "observable" en la consulta de evento */
+  --color-acento: light-dark(#0b5cad, #58a6ff);
+
+  /*
+   * Estados. Coordinados con la leyenda de Atlas: el cambio probable en color
+   * sólido, lo no observable con trama y borde discontinuo y "sin cambio"
+   * neutro. Nunca solo color (constitución IX.2): siempre con icono y texto.
+   */
+  --color-cambio: light-dark(#bc4c00, #f0883e);
+  --color-sin-cambio: light-dark(#1a7f37, #3fb950);
+  --color-no-observable: light-dark(#57606a, #9198a1);
+  --color-trama: light-dark(rgba(87, 96, 106, 0.07), rgba(145, 152, 161, 0.14));
+
+  /* Aviso (distintivo de datos sintéticos) */
+  --color-aviso-fondo: light-dark(#fff8c5, #2e2400);
+  --color-aviso-borde: light-dark(#9a6700, #d29922);
+
+  /* Velo sobre el mapa mientras llega otro veredicto */
+  --color-velo: light-dark(rgba(255, 255, 255, 0.85), rgba(13, 17, 23, 0.85));
+
+  /* Tipografía */
+  --fuente-texto: 'Atkinson Hyperlegible Next', system-ui, -apple-system, 'Segoe UI', Roboto,
+    sans-serif;
+  --fuente-codigo: ui-monospace, SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  --texto-s: 0.875rem;
+  --texto-m: 1rem;
+  --texto-l: 1.25rem;
+  --texto-xl: 1.5rem;
+  --texto-xxl: 1.75rem;
+  --interlineado: 1.5;
+  --peso-normal: 400;
+  --peso-fuerte: 700;
+
+  /* Espaciado */
+  --espacio-1: 0.25rem;
+  --espacio-2: 0.5rem;
+  --espacio-3: 0.75rem;
+  --espacio-4: 1rem;
+  --espacio-5: 1.5rem;
+  --espacio-6: 2.5rem;
+
+  /* Radios */
+  --radio-s: 0.375rem;
+  --radio-m: 0.5rem;
+
+  /* Elevación */
+  --elevacion-1: 0 1px 3px light-dark(rgba(31, 35, 40, 0.15), rgba(0, 0, 0, 0.5));
+  --elevacion-2: 0 4px 12px light-dark(rgba(31, 35, 40, 0.18), rgba(0, 0, 0, 0.6));
+}
+
+:root[data-tema='claro'] {
+  color-scheme: light;
+}
+
+:root[data-tema='oscuro'] {
+  color-scheme: dark;
+}
