@@ -198,7 +198,10 @@
   background: #1b1f3b;
   color: #fff;
   font-size: 12px;
-  white-space: nowrap;
+  /* En 3D lleva también las teclas de giro: se parte en líneas en lugar de salirse. */
+  width: max-content;
+  max-width: min(340px, calc(100% - 20px));
+  text-align: center;
   pointer-events: none;
   display: none;
 }
@@ -498,4 +501,60 @@
   background: #fff3cd;
   color: #4d3800;
   font-size: 14px;
+}
+
+/* ---- Controles en 3D (T-ATL-10) ---- */
+.atlas-plano .maplibregl-ctrl-compass {
+  display: none;
+}
+
+.atlas-boton-3d {
+  font: 700 12px/1 system-ui, sans-serif;
+  color: #1b1f3b;
+}
+
+.atlas-boton-3d[aria-pressed="true"] {
+  background: #1b1f3b;
+  color: #ffffff;
+}
+
+.atlas-boton-3d[aria-pressed="true"]:hover {
+  background: #2d3466;
+}
+
+.atlas-mapa .atlas-boton-3d:focus-visible {
+  outline: 3px solid #0b5cad;
+  outline-offset: 1px;
+}
+
+/* Ocupa el sitio de la barra de escala cuando no vale. */
+.atlas-aviso-escala {
+  position: absolute;
+  left: 10px;
+  bottom: 10px;
+  z-index: 2;
+  max-width: min(300px, calc(100% - 20px));
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.94);
+  color: #1b1f3b;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.25);
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+.atlas-aviso-escala[hidden] {
+  display: none;
+}
+
+.atlas-teclas-3d {
+  margin: 8px 0 0;
+  font-size: 12px;
+  color: #57606a;
+}
+
+/* Con el botón 3D, la columna de la derecha crece (zoom, brújula y 3D): la leyenda baja para no taparla. */
+.atlas-con-3d .atlas-panel {
+  top: 146px;
+  max-height: calc(100% - 196px);
 }

@@ -1,5 +1,11 @@
 import { describe, expect, it, vi } from "vitest";
-import { capacidadGrafica, elegirProyeccion, type EntradaProyeccion } from "./globo";
+import {
+  capacidadGrafica,
+  elegirProyeccion,
+  escalaValida,
+  transicionGlobo,
+  type EntradaProyeccion,
+} from "./globo";
 import { estiloMapaBase } from "./mapaBase";
 
 /** Lienzo falso: `acelerado` responde a failIfMajorPerformanceCaveat, `alguno` a cualquier otro. */
@@ -80,5 +86,30 @@ describe("estilo del mapa base", () => {
   it("lleva la proyección pedida; por defecto, plano", () => {
     expect(estiloMapaBase().projection).toEqual({ type: "mercator" });
     expect(estiloMapaBase("globe").projection).toEqual({ type: "globe" });
+  });
+});
+
+describe("escala (RF-INT-13)", () => {
+  it("en plano y sin inclinación, vale", () => {
+    expect(escalaValida({ tipo: "mercator", pitch: 0, transicion: 1 })).toBe(true);
+  });
+
+  it("con inclinación, no vale, ni siquiera en plano", () => {
+    expect(escalaValida({ tipo: "mercator", pitch: 30, transicion: 0 })).toBe(false);
+    expect(escalaValida({ tipo: "globe", pitch: 10, transicion: 0 })).toBe(false);
+  });
+
+  it("sobre el globo no vale; cuando ya se ve plano (zoom 12 o más), sí", () => {
+    expect(escalaValida({ tipo: "globe", pitch: 0, transicion: 1 })).toBe(false);
+    expect(escalaValida({ tipo: "globe", pitch: 0, transicion: 0.25 })).toBe(false);
+    expect(escalaValida({ tipo: "globe", pitch: 0, transicion: 0 })).toBe(true);
+  });
+
+  it("la transición se lee de MapLibre o se estima por el zoom (globo hasta 11, plano desde 12)", () => {
+    expect(transicionGlobo(9, 0.4)).toBe(0.4);
+    expect(transicionGlobo(9)).toBe(1);
+    expect(transicionGlobo(11.25)).toBe(0.75);
+    expect(transicionGlobo(12)).toBe(0);
+    expect(transicionGlobo(9, Number.NaN)).toBe(1);
   });
 });

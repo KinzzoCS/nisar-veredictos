@@ -62,3 +62,32 @@ export function elegirProyeccion(e: EntradaProyeccion): Proyeccion {
   if (e.comparadorActivo) return { tipo: "mercator", motivo: "comparador" };
   return { tipo: "globe", motivo: null };
 }
+
+/**
+ * Cuánto se ve como globo, de 0 (plano) a 1 (globo). MapLibre lo expone como
+ * `transitionState` de su proyección (interno); si no llega, se estima por el zoom:
+ * globo hasta el 11 y plano desde el 12, medido en el navegador el 2026-11-14.
+ */
+export function transicionGlobo(zoom: number, leido?: number): number {
+  if (typeof leido === "number" && Number.isFinite(leido)) return Math.min(1, Math.max(0, leido));
+  if (zoom >= 12) return 0;
+  if (zoom <= 11) return 1;
+  return 12 - zoom;
+}
+
+export interface VistaCamara {
+  tipo: Proyeccion["tipo"];
+  /** Inclinación en grados. */
+  pitch: number;
+  /** Ver `transicionGlobo`. Solo cuenta con el globo. */
+  transicion: number;
+}
+
+/**
+ * La barra de escala solo vale en plano y sin inclinación (RF-INT-13): con perspectiva o
+ * sobre el globo, la distancia de un píxel cambia de un punto a otro de la pantalla.
+ */
+export function escalaValida(v: VistaCamara): boolean {
+  if (v.pitch > 0.5) return false;
+  return v.tipo === "mercator" || v.transicion <= 0;
+}

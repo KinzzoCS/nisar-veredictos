@@ -8,7 +8,8 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "./mapa.css";
 import { crearComparador, type Comparador } from "./comparador";
 import { normalizarAvisoEscena } from "./escena";
-import { capacidadGrafica, elegirProyeccion } from "./globo";
+import { Control3d } from "./control3d";
+import { capacidadGrafica, elegirProyeccion, escalaValida, transicionGlobo } from "./globo";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { ladoDisponible } from "./optico";
 import {
@@ -89,9 +90,10 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     bounds: bboxContinuo(estado.aoi),
     fitBoundsOptions: { padding: 32 },
     attributionControl: false,
-    // Sin rotación: la escala y el contorno se leen siempre con el norte arriba.
+    // En 2D, sin giro ni inclinación: la escala y el contorno se leen con el norte arriba.
+    // En 3D se activan (T-ATL-10); ver aplicarInteraccion.
     dragRotate: false,
-    pitchWithRotate: false,
+    pitchWithRotate: true,
     touchPitch: false,
   });
   map.touchZoomRotate.disableRotation();
@@ -110,8 +112,23 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     atribucionActual = clave;
   }
   ponerAtribucion();
-  map.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 120 }), "bottom-left");
-  map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
+  const escala = new maplibregl.ScaleControl({ unit: "metric", maxWidth: 120 });
+  map.addControl(escala, "bottom-left");
+  // La brújula solo se ve en 3D (CSS con .atlas-plano): devuelve el norte y quita la inclinación.
+  map.addControl(new maplibregl.NavigationControl({ showCompass: true, visualizePitch: true }), "top-right");
+  const control3d =
+    opciones.control3d === false
+      ? null
+      : new Control3d(() => {
+          estado.modo3d = !estado.modo3d;
+          aplicarComparador();
+          redibujarLeyenda();
+          opciones.onModo3dChanged?.(estado.modo3d);
+        });
+  if (control3d) {
+    map.addControl(control3d, "top-right");
+    contenedor.classList.add("atlas-con-3d");
+  }
 
   const extension = document.createElement("div");
   extension.className = "atlas-extension";
@@ -138,7 +155,11 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   const aviso3d = document.createElement("div");
   aviso3d.className = "atlas-aviso-3d";
   aviso3d.setAttribute("role", "status");
-  contenedor.append(cruz, ayuda, anuncio, aviso3d);
+  // Sustituye a la barra de escala cuando no vale (RF-INT-13).
+  const avisoEscala = document.createElement("div");
+  avisoEscala.className = "atlas-aviso-escala";
+  avisoEscala.hidden = true;
+  contenedor.append(cruz, ayuda, anuncio, aviso3d, avisoEscala);
 
   // setProjection necesita el estilo cargado; antes, la proyección va en el propio estilo.
   let cargado = false;
@@ -155,10 +176,56 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
         map.setProjection({ type: p.tipo });
       }
       proyeccionActual = p.tipo;
+      // La ayuda del teclado y la leyenda cuentan las teclas de 3D solo con el globo.
+      redibujarTextos();
+      redibujarLeyenda();
     }
     aviso3d.textContent = p.motivo ? TEXTOS[estado.idioma].sin3d[p.motivo] : "";
     aviso3d.hidden = !p.motivo;
+    control3d?.dibujar({ pulsado: estado.modo3d, idioma: estado.idioma });
+    aplicarInteraccion();
+    actualizarEscala();
   }
+
+  const sinAnimacion = () =>
+    typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /** Giro e inclinación solo con el globo; al volver a 2D, norte arriba y sin inclinación. */
+  function aplicarInteraccion() {
+    const en3d = proyeccionActual === "globe";
+    contenedor.classList.toggle("atlas-plano", !en3d);
+    if (en3d) {
+      map.dragRotate.enable();
+      map.touchPitch.enable();
+      map.touchZoomRotate.enableRotation();
+      map.keyboard.enableRotation();
+      return;
+    }
+    map.dragRotate.disable();
+    map.touchPitch.disable();
+    map.touchZoomRotate.disableRotation();
+    map.keyboard.disableRotation();
+    if (map.getBearing() !== 0 || map.getPitch() !== 0) {
+      if (sinAnimacion()) map.jumpTo({ bearing: 0, pitch: 0 });
+      else map.easeTo({ bearing: 0, pitch: 0 });
+    }
+  }
+
+  /** `transitionState` de la proyección de MapLibre es interno: si no está, se estima por el zoom. */
+  function transicion(): number {
+    const leido = (map as unknown as { style?: { projection?: { transitionState?: number } } }).style
+      ?.projection?.transitionState;
+    return transicionGlobo(map.getZoom(), leido);
+  }
+
+  function actualizarEscala() {
+    const ok = escalaValida({ tipo: proyeccionActual, pitch: map.getPitch(), transicion: transicion() });
+    const barra = contenedor.querySelector<HTMLElement>(".maplibregl-ctrl-scale");
+    if (barra) barra.style.display = ok ? "" : "none";
+    avisoEscala.hidden = ok;
+    if (!ok) avisoEscala.textContent = TEXTOS[estado.idioma].sinEscala;
+  }
+  map.on("move", actualizarEscala);
 
   const marcador = new maplibregl.Marker({ color: "#1b1f3b" });
   const ventana = new maplibregl.Popup({ maxWidth: "300px", closeOnClick: false, focusAfterOpen: false });
@@ -210,6 +277,13 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       seleccionar(c.lng, c.lat);
     } else if (e.key === "Escape" && estado.punto) {
       quitarSeleccion();
+    } else if ((e.key === "n" || e.key === "N") && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      // Volver al norte y quitar la inclinación (RF-INT-15). En 2D ya está así.
+      if (map.getBearing() !== 0 || map.getPitch() !== 0) {
+        e.preventDefault();
+        if (sinAnimacion()) map.jumpTo({ bearing: 0, pitch: 0 });
+        else map.resetNorthPitch();
+      }
     }
   });
   // La cruz se muestra solo con foco de teclado, no al hacer clic.
@@ -237,6 +311,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       rango: estado.capa === "state" ? null : rangoReescalado(estado.layers[estado.capa]),
       causa: estado.causa,
       avisoEscena: estado.avisoEscena,
+      teclas3d: proyeccionActual === "globe",
     });
   }
 
@@ -248,7 +323,8 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     extension.querySelector("span")!.textContent = textoExtension(estado.aoi);
     sello.textContent = t.sintetico;
     sello.hidden = estado.dataKind !== "synthetic";
-    ayuda.textContent = t.ayudaTeclado;
+    ayuda.textContent =
+      proyeccionActual === "globe" ? `${t.ayudaTeclado}. ${t.teclas3d}` : t.ayudaTeclado;
   }
 
   function quitarCapasRadar() {
@@ -402,7 +478,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       comparador = null;
       map.remove();
       contenedor.replaceChildren();
-      contenedor.classList.remove("atlas-mapa");
+      contenedor.classList.remove("atlas-mapa", "atlas-con-3d", "atlas-plano");
     },
   };
 }
