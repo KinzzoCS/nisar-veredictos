@@ -4,7 +4,9 @@ import { verdictsApi, type Lang, type PixelSeries } from '../api/client'
 import { useLive, type Live } from '../api/useLive'
 import { etiquetaEstado, fechasDelPar } from '../mapa/seleccion'
 import { STORY } from '../story/data'
+import { Esqueleto } from './Esqueleto'
 import { EventAnswer } from './EventQuery'
+import { BotonIcono } from './Iconos'
 import { SyntheticNotice } from './SyntheticBadge'
 import { VerdictCard } from './VerdictCard'
 
@@ -17,7 +19,7 @@ type Scene = (typeof SCENES)[number]
 
 function Status<T>({ live, children }: { live: Live<T>; children: (data: T) => ReactNode }) {
   const { t } = useTranslation()
-  if (live.status === 'loading') return <p>{t('story.loading')}</p>
+  if (live.status === 'loading') return <Esqueleto etiqueta={t('story.loading')} variante="tarjeta" filas={4} />
   if (live.status === 'error') return <p role="alert">{t('story.error')}</p>
   return <>{children(live.data)}</>
 }
@@ -68,9 +70,12 @@ function MonsoonScene({
         {(verdict) => (
           <>
             <VerdictCard verdict={verdict} />
-            <button type="button" className="story-map-link" onClick={() => onShowPair(series, pair)}>
-              {t('story.monsoon.showOnMap')}
-            </button>
+            <BotonIcono
+              icono="mapa"
+              etiqueta={t('story.monsoon.showOnMap')}
+              className="story-map-link"
+              onClick={() => onShowPair(series, pair)}
+            />
           </>
         )}
       </Status>
@@ -167,13 +172,14 @@ export function Story({
       </div>
 
       <div className="story-pager">
-        <button type="button" disabled={index === 0} onClick={() => setScene(SCENES[index - 1])}>
-          {t('story.prev')}
-        </button>
+        <BotonIcono icono="anterior" etiqueta={t('story.prev')} disabled={index === 0} onClick={() => setScene(SCENES[index - 1])} />
         <span className="muted">{t('story.position', { n: index + 1, total: SCENES.length })}</span>
-        <button type="button" disabled={index === SCENES.length - 1} onClick={() => setScene(SCENES[index + 1])}>
-          {t('story.next')}
-        </button>
+        <BotonIcono
+          icono="siguiente"
+          etiqueta={t('story.next')}
+          disabled={index === SCENES.length - 1}
+          onClick={() => setScene(SCENES[index + 1])}
+        />
       </div>
     </section>
   )

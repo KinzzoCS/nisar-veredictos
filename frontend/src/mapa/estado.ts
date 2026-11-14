@@ -62,9 +62,12 @@ export function plantillaCodificada(plantilla: string): string {
  */
 export type ModoEstado = "cambio" | "trama";
 
-export const COLOR_CAMBIO: [number, number, number] = [0xc2, 0x41, 0x0c]; // naranja oscuro
-const TRAMA_OSCURA: [number, number, number, number] = [0x37, 0x41, 0x51, 235];
-const TRAMA_CLARA: [number, number, number, number] = [0xd1, 0xd5, 0xdb, 170];
+// Blanco y negro (diseño del 2026-11-14): el cambio probable es relleno en tinta y lo no
+// observable, trama negra sobre blanco. El mapa base va en grises (mapaBase.ts), así que
+// los dos se leen por la forma, no por el color.
+export const COLOR_CAMBIO: [number, number, number] = [0x00, 0x00, 0x00]; // tinta
+const TRAMA_OSCURA: [number, number, number, number] = [0x00, 0x00, 0x00, 235];
+const TRAMA_CLARA: [number, number, number, number] = [0xff, 0xff, 0xff, 170];
 /** Periodo de la trama en píxeles. Divide a 256, así que las rayas continúan entre teselas. */
 export const PERIODO_TRAMA = 8;
 
