@@ -461,6 +461,11 @@ export interface components {
         /** OpticalTileOut */
         OpticalTileOut: {
             /**
+             * Bbox
+             * @description Caja de los datos de la escena en WGS84, [oeste, sur, este, norte], vía catalog: la del item STAC de Earth Search o, si falta, la de su huella; no la del cuadrado MGRS completo. Sirve como bounds de la fuente en el mapa, para no pedir teselas fuera de los datos. Si oeste > este, cruza el antimeridiano. null si catalog no la da o no es válida.
+             */
+            bbox?: number[] | null;
+            /**
              * Cloud Cover
              * @description Porcentaje de nubes de la tesela completa, no de la zona.
              */
