@@ -32,6 +32,7 @@ El guion vale con cualquier resultado, porque lo lee de la pantalla. Aun así, h
 
 - Con los artefactos sin la corrección de T-ECO-07, la pila local da `change_probable` en 10 de los 16 pares consecutivos (consultado el 2026-11-14 en `/series/<serie>/verdicts`). Muchos siguen al desplazamiento de toda la escena, y la tarjeta lo avisa en "Qué no prueba" cuando pasa del umbral.
 - Con la corrección, Balanza midió 2 de 16: T048 08-16→08-28 (5,18 %) y 08-28→09-09 (9,56 %) (`MEMORY.md`, decisión del 2026-11-13). La escena 2 queda solo 0,18 puntos sobre el umbral del 5 %: si se recalibra, puede cambiar de estado, y el guion no se toca.
+- Eco lo contrastó el 2026-11-14 con sus artefactos corregidos: 2 de 16 pares con cambio probable, la escena 2 sigue en cambio probable con 5,18 % y sin aviso de desplazamiento, y la escena 3 da 9 de 9 pares sin cambio.
 - Si la escena 2 deja de salir `change_probable`, la frase de 0:55 se dice igual con el estado nuevo: el valor de la demo es que la app lo dice tal cual.
 
 ## Si algo falla en escena
@@ -50,7 +51,7 @@ El guion vale con cualquier resultado, porque lo lee de la pantalla. Aun así, h
 - **Tres estados, sin término medio escondido:** cambio probable, sin cambio detectable y no observable con su causa. "No observable" nunca se cuenta como "sin cambio".
 - **Siempre tres textos juntos:** qué detectamos, qué no prueba y qué falta. Las posibles explicaciones van rotuladas como hipótesis.
 - **Recibo en cada respuesta:** gránulos de NASA, versión de procesado (CRID), madurez, frescura, latencia de publicación, avisos de calidad y contraste con Sentinel-2 y OPERA DSWx-S1.
-- **Datos:** dos series reales de NISAR sobre Hidalgo del Parral, T048 ascendente y T171 descendente, de junio a octubre de 2026, madurez PROVISIONAL. Una fecha de T171 (2026-08-13) queda excluida por un defecto del propio producto, documentado en `MEMORY.md`.
+- **Datos:** dos series reales de NISAR sobre Hidalgo del Parral, T048 ascendente y T171 descendente, de junio a octubre de 2026, madurez PROVISIONAL. Una fecha de T171 (2026-08-13) tiene un defecto del propio producto y se excluye sola, documentado en `MEMORY.md`. El relieve (layover y sombra) se marca como no observable con el DEM de Copernicus.
 - **Qué no hace:** no identifica causas, no mide consecuencias, no procesa en vivo (los artefactos están precalculados) y no sustituye la verificación en campo.
 - **Umbral:** el 5 % de superficie cambiada se fijó con el ruido de 16 pares reales de Parral, sin verdad de campo; la API lo declara como no calibrado en cada veredicto.
 - **Cómo comprobar una respuesta:** abrir el recibo y buscar los gránulos en NASA Earthdata Search o en la API (`/api/verdicts/docs`).
@@ -65,9 +66,9 @@ El guion vale con cualquier resultado, porque lo lee de la pantalla. Aun así, h
 | ¿Por qué no vio la tormenta si NISAR ve a través de las nubes? | Porque no pasó por Parral durante el evento: ver de noche o con nubes no sirve si el satélite no está encima. La API da la pasada anterior y la siguiente. | Escena 1, `/events` |
 | ¿Cuánto supusieron que duró la tormenta? | 6 h para una tormenta urbana, un supuesto sin calibrar que la respuesta declara. Con la hora del primer incidente, el resultado no cambia hasta las 148 h. | `MEMORY.md`, Caso de Parral |
 | ¿Cómo eligieron el 5 %? | Con el ruido medido en 16 pares reales: 14 quedan entre 0,58 % y 4,64 %. Sin verdad de campo, por eso la API lo marca como no calibrado. | `MEMORY.md`, decisión del 2026-11-13 |
-| ¿Qué es el desplazamiento de toda la escena? | A veces toda la escena sube o baja de nivel entre fechas. Eco lo resta antes de medir y, si no está restado y pasa de 1,5 dB, la tarjeta avisa de que el cambio puede no ser local. | `MEMORY.md`, T-ECO-07 y T-BAL-07 |
+| ¿Qué es el desplazamiento de toda la escena? | A veces toda la escena sube o baja de nivel entre fechas. Eco mide ese desplazamiento y lo resta antes de medir el cambio local; la tarjeta lo dice cuando pasa de 1,5 dB. | `MEMORY.md`, T-ECO-07 y T-BAL-07 |
 | El radar y OPERA no coinciden en el agua. ¿Quién tiene razón? | No lo afirmamos: se presenta como desacuerdo entre métodos, con el porcentaje comparado. OPERA DSWx-S1 detecta masas de agua abiertas de más de 3 ha y 200 m de ancho. | `MEMORY.md`, T-BAL-08 |
-| ¿Funciona en otro lugar? | La zona se define en `config/aois/`. Hoy solo está Parral; añadir otra es configuración más volver a ingerir y procesar. | `specs/01-antena` |
+| ¿Funciona en otro lugar? | La zona se define en `config/aois/`. Hoy solo está Parral; añadir otra es configuración más volver a ingerir y procesar. Los umbrales se eligieron con datos de Parral y no están probados en otra zona. | `specs/01-antena` |
 | ¿Qué viene después? | Una segunda ola con cuentas y perfiles (público, estudiante e investigador), búsqueda y globo 3D. Los perfiles cambian la profundidad, nunca la verdad. | `specs/06-acceso`, `07-busqueda` y `08-interfaz` |
 
 ## Ensayo
