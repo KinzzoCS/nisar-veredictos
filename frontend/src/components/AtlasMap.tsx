@@ -10,13 +10,15 @@ interface Props {
   canCompare: boolean
   /** Llega un veredicto nuevo: se tapa el mapa para no leer las capas anteriores como actuales. */
   busy: boolean
+  /** Selector de capa y opacidad dentro del mapa. En vista Público no se enseña (RF-INT-03). */
+  layerControls?: boolean
 }
 
 /**
  * Monta el mapa de Atlas (T-FAR-05). `crearMapa` y `destruir` van en el mismo efecto, así
  * que StrictMode no deja dos mapas; los cambios posteriores pasan por `actualizar()`.
  */
-export function AtlasMap({ options, canCompare, busy }: Props) {
+export function AtlasMap({ options, canCompare, busy, layerControls = true }: Props) {
   const { t } = useTranslation()
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MapaAtlas | null>(null)
@@ -31,7 +33,7 @@ export function AtlasMap({ options, canCompare, busy }: Props) {
   useEffect(() => {
     if (!container.current) return
     const { options: o, swipe: s } = latest.current
-    const created = crearMapa(container.current, { ...o, compare: s ? 'swipe' : 'off' })
+    const created = crearMapa(container.current, { ...o, compare: s ? 'swipe' : 'off', controlCapas: layerControls })
     map.current = created
     applied.current = latest.current
     return () => {
@@ -39,7 +41,9 @@ export function AtlasMap({ options, canCompare, busy }: Props) {
       map.current = null
       applied.current = null
     }
-  }, [])
+    // `controlCapas` no está en CambiosMapa: si cambia (Público ↔ otra vista), se vuelve a crear el mapa.
+    // No pide veredictos a la API; las opciones salen de `latest`.
+  }, [layerControls])
 
   useEffect(() => {
     latest.current = { options, swipe }
