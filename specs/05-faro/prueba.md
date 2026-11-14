@@ -1,6 +1,8 @@
-# Faro — prueba rápida con personas (T-FAR-10)
+# Faro — prueba rápida con personas (T-FAR-20, antes T-FAR-10)
 
 Cierra RF-FAR-09. Propuesta de Faro, 2026-11-14.
+
+**Fuera del hackathon (decisión de Faro, 2026-11-14):** las sesiones no se hicieron antes de la demo. La prueba pasa a la ola 2 como T-FAR-20 y este protocolo sigue valiendo tal cual.
 
 ## Para qué
 
