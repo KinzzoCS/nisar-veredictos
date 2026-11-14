@@ -44,7 +44,7 @@ Hoy hay una zona, dos series y 18 veredictos reales. La búsqueda se diseña par
 - [ ] Un filtro sin resultados devuelve una lista vacía con el total 0 y la consulta interpretada, nunca un 404.
 - [ ] Un resultado de datos sintéticos lleva `data_kind: synthetic` y la interfaz lo marca en la fila.
 - [ ] La exportación CSV incluye, por fila, `data_kind`, los dos `granule_id`, `interval_days`, `decision_rule` con el umbral y `calibrated`, y la lista de supuestos declarados del veredicto.
-- [ ] Mientras el contraste con OPERA no está calculado, o si `verdicts` no tiene token, cada fila lleva `water: not_available`, no desaparece del resultado y `query` dice por qué el filtro `water` no se pudo aplicar.
+- [ ] Mientras el contraste con OPERA no está calculado, o si `verdicts` no tiene token, cada fila lleva `water: not_available`. Sin filtro `water`, la fila no desaparece del resultado; con un filtro `water` (por ejemplo, `water=disagree`), queda fuera porque no se puede evaluar, y `query` dice cuántas filas quedaron sin evaluar y por qué.
 - [ ] `student` recibe 403 con `required_role: researcher` al pedir la exportación o un filtro de ruido; `public` recibe 403 en `/search/*`.
 - [ ] Ningún resultado afirma más que el veredicto completo: los textos son los mismos campos de la API (prueba de lenguaje incluida).
 - [ ] Los manifiestos sin `stats.noise_*` siguen siendo válidos y el veredicto sale sin `evidence.noise`.
