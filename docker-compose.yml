@@ -54,6 +54,9 @@ services:
       # Con token y radar real, el contraste con OPERA se calcula al arrancar, en segundo plano, y se guarda
       # en disco: la primera carga de T048 tardaba ~63 s y el gateway cortaba a los 60 s. Sin token no hace nada.
       VERDICTS_WARM_CACHE: "1"
+      # Índice de búsqueda (T-BAL-11): calcula todos los veredictos al arrancar, en segundo plano. Sin él, la primera
+      # búsqueda lo calcula. Con token, el contraste con OPERA entra en el índice cuando termina de calentarse.
+      VERDICTS_SEARCH_INDEX: "1"
       VERDICTS_CACHE_DIR: /cache
     volumes:
       - ./data:/data:ro

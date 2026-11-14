@@ -278,6 +278,16 @@ grep -q '"values"' "$TMP/pixel.json" || fail "píxel: values"
 covered verdicts "/aois/{aoi}/series/{series_id}/pixel"
 expect_code 422 "/api/verdicts/aois/$AOI/series/$SERIES/pixel?lon=500&lat=26.93"
 
+# Búsqueda (T-BAL-11). Sin token la petición es public, con AUTH_ENABLED a 0 o a 1: 403 con el perfil que haría
+# falta, también si el cliente se inventa X-Auth-Role (el gateway la pisa). Los 200 con token los añade T-BAL-16.
+for role_header in "" "X-Auth-Role: researcher"; do
+  code=$(curl -s -o "$TMP/search.json" -w '%{http_code}' ${role_header:+-H "$role_header"} \
+    "$BASE/api/verdicts/search/verdicts?state=change_probable")
+  test "$code" = "403" || fail "búsqueda sin token respondió $code con '${role_header:-sin cabecera}'"
+  check "búsqueda: required_role" search "assert d['required_role'] == 'student', d"
+done
+covered verdicts "/search/verdicts"
+
 # --- Teselas ----------------------------------------------------------------
 
 # Tesela real con las URLs que entrega la API, a un zoom que cubre la zona.
