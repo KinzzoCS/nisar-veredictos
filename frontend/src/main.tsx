@@ -9,8 +9,14 @@ import './index.css'
 import App from './App.tsx'
 import { aplicarTema, temaGuardado } from './tema/tema'
 
-// El tema guardado se aplica antes del primer render, para no parpadear (T-FAR-13).
+// El tema guardado se aplica antes del primer render, para no parpadear; sin él, el del sistema.
 aplicarTema(temaGuardado())
+// La vista ya no se guarda: sale de la sesión (specs/08-interfaz). Se borra la que dejó el selector anterior.
+try {
+  localStorage.removeItem('vista')
+} catch {
+  // Sin almacenamiento no hay nada que borrar.
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

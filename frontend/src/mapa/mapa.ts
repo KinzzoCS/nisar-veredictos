@@ -231,7 +231,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   }
   map.on("move", actualizarEscala);
 
-  const marcador = new maplibregl.Marker({ color: "#1b1f3b" });
+  const marcador = new maplibregl.Marker({ color: "#000000" });
   const ventana = new maplibregl.Popup({ maxWidth: "300px", closeOnClick: false, focusAfterOpen: false });
   let peticion: AbortController | null = null;
 
@@ -401,7 +401,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       id: "aoi-contorno",
       type: "line",
       source: "aoi",
-      paint: { "line-color": "#1b1f3b", "line-width": 2, "line-dasharray": [3, 2] },
+      paint: { "line-color": "#000000", "line-width": 2, "line-dasharray": [3, 2] },
     });
     aplicarCapas();
     cargado = true;

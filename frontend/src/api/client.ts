@@ -26,6 +26,12 @@ export type Receipt = Schemas['Receipt']
 export type DataKind = SeriesInfo['data_kind']
 export type Lang = 'es' | 'en'
 
+/** URL de un veredicto en la API, para seguir con él en código (RF-INT-05, vista Investigador). */
+export function verdictJsonUrl(verdict: Verdict, lang: Lang): string {
+  const c = encodeURIComponent
+  return `${API_BASE}/api/verdicts/aois/${c(verdict.aoi)}/series/${c(verdict.series)}/verdicts/${c(verdict.id)}?lang=${lang}`
+}
+
 /**
  * Línea de tiempo del catálogo (GET /api/catalog/aois/{aoi}/timeline) para la línea de Atlas.
  * null si falla o si lo que llega no tiene la forma esperada: la consulta de evento sigue sin ella.
