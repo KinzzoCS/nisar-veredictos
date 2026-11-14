@@ -248,3 +248,108 @@ def test_sort_by_noise_leaves_unknown_last(noisy, direction):
 def test_noise_filters_and_sort_are_for_researchers(noisy, params):
     response = noisy.get(SEARCH, headers=STUDENT, params=params)
     assert response.status_code == 403 and response.json()["required_role"] == "researcher"
+
+
+# --- Texto libre y área (T-BAL-17, RF-BUS-02 y 10) ----------------------------------------------------------------
+
+from verdicts import search as search_module  # noqa: E402
+from verdicts.catalog import CatalogUnavailable, Footprint  # noqa: E402
+
+# Huella aproximada de T048 en CMR (5 puntos, anillo cerrado).
+T048_RING = ((-104.24576, 25.97109), (-104.87266, 28.10246), (-107.50728, 27.44489), (-106.82264, 25.33107),
+             (-104.24576, 25.97109))
+
+
+class FakeFootprints:
+    def __init__(self, items=None, fail=False):
+        self.items = items if items is not None else [Footprint(48, "A", 15, (T048_RING,))]
+        self.fail = fail
+        self.calls = 0
+
+    def footprints(self, aoi):
+        self.calls += 1
+        if self.fail:
+            raise CatalogUnavailable(aoi)
+        return self.items
+
+
+def _area_client(root, source):
+    return TestClient(create_app(root, clock=_clock, build_index=False, footprint_source=source))
+
+
+def test_free_text_searches_the_verdict_texts_in_each_language(client):
+    full = client.get("/aois/parral/series/T048A-F015/verdicts").json()
+    body = client.get(SEARCH, headers=STUDENT, params={"q": "G20260629"}).json()
+    expected = sorted(v["id"] for v in full if "G20260629" in v["receipt"]["granules"])
+    assert expected and sorted(_ids(body)) == expected
+    assert body["query"]["filters"]["q"] == "G20260629" and body["query"]["filters"]["lang"] == "es"
+    # Causa de not_observable (low_looks), en mayúsculas y sin distinguir acentos.
+    for text in ("MUESTRAS DE RADAR", "múestras"):
+        assert _ids(client.get(SEARCH, headers=STUDENT, params={"q": text}).json()) == ["20260723_20260816"]
+    # Mismo texto en inglés solo con lang=en.
+    en = client.get(SEARCH, headers=STUDENT, params={"q": "radar samples", "lang": "en"}).json()
+    assert _ids(en) == ["20260723_20260816"] and en["query"]["filters"]["lang"] == "en"
+    assert client.get(SEARCH, headers=STUDENT, params={"q": "radar samples"}).json()["total"] == 0
+    # Sin q, lang no cuenta como filtro.
+    assert "lang" not in client.get(SEARCH, headers=STUDENT, params={"lang": "en"}).json()["query"]["filters"]
+
+
+def test_free_text_is_a_prefix_and_of_every_word(client):
+    all_ids = _ids(client.get(SEARCH, headers=STUDENT).json())
+    body = client.get(SEARCH, headers=STUDENT, params={"q": "sintétic 20260711_2026"}).json()
+    assert body["total"] >= 1 and set(_ids(body)) <= set(all_ids)
+    assert all("20260711_2026" in pair for pair in _ids(body))
+    assert client.get(SEARCH, headers=STUDENT, params={"q": "palabra-que-no-existe"}).json()["total"] == 0
+
+
+@pytest.mark.parametrize("text", ['"', "NEAR(a b)", "*", "a OR", "body:x", "'; DROP TABLE docs; --", "   "])
+def test_free_text_never_breaks_on_fts_syntax(client, text):
+    response = client.get(SEARCH, headers=STUDENT, params={"q": text})
+    assert response.status_code == 200
+    assert isinstance(response.json()["total"], int)
+
+
+def test_fts_query_quotes_every_term():
+    assert search_module.fts_query('a "b" OR c*') == '"a"* AND "b"* AND "OR"* AND "c"*'
+    assert search_module.fts_query(" ,;* ") is None
+
+
+def test_bbox_keeps_series_whose_footprint_touches_it(root):
+    source = FakeFootprints()
+    client = _area_client(root, source)
+    inside = client.get(SEARCH, headers=STUDENT, params={"bbox": "-105.8,26.85,-105.6,27.0"}).json()
+    assert inside["total"] == 4 and inside["query"]["filters"]["bbox"] == [-105.8, 26.85, -105.6, 27.0]
+    # Un rectángulo que contiene toda la huella también la toca.
+    assert client.get(SEARCH, headers=STUDENT, params={"bbox": "-110,20,-100,30"}).json()["total"] == 4
+    # Lejos de la huella (Ciudad de México), nada; dentro de la caja de la huella pero fuera del polígono, nada.
+    assert client.get(SEARCH, headers=STUDENT, params={"bbox": "-99.3,19.2,-98.9,19.6"}).json()["total"] == 0
+    assert client.get(SEARCH, headers=STUDENT, params={"bbox": "-107.5,25.35,-107.3,25.5"}).json()["total"] == 0
+
+
+def test_bbox_without_footprint_is_counted_not_hidden(root):
+    for source, reason in ((FakeFootprints(fail=True), "catalog_unavailable"),
+                           (FakeFootprints([Footprint(48, "A", 15, None)]), "footprint_unavailable"),
+                           (FakeFootprints([]), "footprint_unavailable"),
+                           (None, "catalog_unavailable")):
+        body = _area_client(root, source).get(SEARCH, headers=STUDENT, params={"bbox": "-106,26,-105,27"}).json()
+        assert body["total"] == 0
+        assert body["query"]["not_evaluated"]["bbox"] == {"count": 4, "reasons": {reason: 4}}
+
+
+@pytest.mark.parametrize("value", ["1,2,3", "a,b,c,d", "-105,27,-106,28", "-105,27,-104,26", "-190,0,0,10",
+                                   "0,-91,10,0", "nan,0,1,1"])
+def test_bad_bbox_is_422(root, value):
+    response = _area_client(root, FakeFootprints()).get(SEARCH, headers=STUDENT, params={"bbox": value})
+    assert response.status_code == 422
+
+
+def test_bbox_meets_ring_cases():
+    square = ((0, 0), (10, 0), (10, 10), (0, 10), (0, 0))
+    meets = search_module.bbox_meets_ring
+    assert meets((2, 2, 3, 3), square)          # dentro
+    assert meets((-5, -5, 20, 20), square)      # contiene al polígono
+    assert meets((-5, 4, 20, 6), square)        # lo cruza sin vértices dentro de ninguno
+    assert meets((10, 10, 12, 12), square)      # se tocan en una esquina
+    assert not meets((11, 11, 12, 12), square)
+    triangle = ((0, 0), (10, 0), (0, 10), (0, 0))
+    assert not meets((8, 8, 9, 9), triangle)    # dentro de la caja del triángulo, fuera de él

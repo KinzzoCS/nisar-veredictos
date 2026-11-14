@@ -11,6 +11,10 @@ import binascii
 import datetime as dt
 import hashlib
 import json
+import math
+import re
+import sqlite3
+import threading
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -154,6 +158,9 @@ class Filters:
     noise_hh_max: float | None = None
     noise_hv_min: float | None = None
     noise_hv_max: float | None = None
+    q: str | None = None
+    lang: str | None = None
+    bbox: tuple[float, float, float, float] | None = None
 
     def applied(self) -> dict[str, object]:
         result: dict[str, object] = {}
@@ -168,6 +175,128 @@ class Filters:
         return result
 
 
+Key = tuple[str, str, str]  # zona, serie, par
+
+
+def row_key(row: SearchResult) -> Key:
+    return (row.aoi, row.series_id, row.pair_id)
+
+
+# --- Texto libre (T-BAL-17, RF-BUS-02) ---------------------------------------------------------------------------
+
+LANGS = ("es", "en")
+MAX_TERMS = 12
+_TERM = re.compile(r"[\w-]+", re.UNICODE)
+
+
+def fts_query(text: str) -> str | None:
+    """Consulta FTS5 segura: cada palabra entre comillas y con prefijo, unidas con AND. Ninguna sintaxis de FTS5
+    del usuario llega a SQLite, así que no hay consultas que fallen ni operadores inesperados."""
+    terms = [term.strip("-") for term in _TERM.findall(text)]
+    terms = [term for term in terms if term][:MAX_TERMS]
+    if not terms:
+        return None
+    return " AND ".join('"' + term.replace('"', "") + '"*' for term in terms)
+
+
+def verdict_text(verdict) -> str:
+    """Lo que se busca de un veredicto: sus textos, hipótesis, causa, gránulos y su identificador. Solo campos del
+    propio veredicto, en el idioma en que se calculó."""
+    summary = verdict.summary
+    parts = [summary.detected, summary.does_not_prove, summary.missing, *verdict.hypotheses,
+             verdict.cause or "", verdict.cause_label or "", verdict.id, verdict.series, *verdict.receipt.granules]
+    return "\n".join(part for part in parts if part)
+
+
+class TextIndex:
+    """Índice FTS5 en memoria, uno por idioma. Sin acentos (remove_diacritics) y sin distinguir mayúsculas."""
+
+    def __init__(self, docs: dict[str, dict[Key, str]]):
+        self._lock = threading.Lock()
+        self._db = sqlite3.connect(":memory:", check_same_thread=False)
+        self._db.execute(
+            "CREATE VIRTUAL TABLE docs USING fts5(aoi UNINDEXED, series UNINDEXED, pair UNINDEXED, lang UNINDEXED, "
+            "body, tokenize = 'unicode61 remove_diacritics 2')"
+        )
+        self._db.executemany(
+            "INSERT INTO docs VALUES (?, ?, ?, ?, ?)",
+            [(*key, lang, body) for lang, items in docs.items() for key, body in items.items()],
+        )
+
+    def match(self, text: str, lang: str) -> set[Key]:
+        query = fts_query(text)
+        if query is None:
+            return set()
+        with self._lock:
+            found = self._db.execute(
+                "SELECT aoi, series, pair FROM docs WHERE docs MATCH ? AND lang = ?", (f"body : ({query})", lang)
+            ).fetchall()
+        return {tuple(row) for row in found}  # type: ignore[misc]
+
+
+# --- Área (T-BAL-17, RF-BUS-10) ----------------------------------------------------------------------------------
+
+BBox = tuple[float, float, float, float]
+FOOTPRINT_UNAVAILABLE = "footprint_unavailable"
+CATALOG_UNAVAILABLE = "catalog_unavailable"
+
+
+def parse_bbox(text: str) -> BBox:
+    """'oeste,sur,este,norte' en grados WGS84. ValueError con el motivo si no vale."""
+    parts = text.split(",")
+    if len(parts) != 4:
+        raise ValueError("bbox lleva cuatro números: oeste,sur,este,norte")
+    try:
+        west, south, east, north = (float(part) for part in parts)
+    except ValueError:
+        raise ValueError("bbox lleva cuatro números: oeste,sur,este,norte") from None
+    if not all(math.isfinite(v) for v in (west, south, east, north)):
+        raise ValueError("bbox con valores no finitos")
+    if not (-180 <= west <= 180 and -180 <= east <= 180 and -90 <= south <= 90 and -90 <= north <= 90):
+        raise ValueError("bbox fuera de rango: longitud de -180 a 180 y latitud de -90 a 90")
+    if west >= east or south >= north:
+        raise ValueError("bbox con oeste >= este o sur >= norte (no se admite cruzar el antimeridiano)")
+    return (west, south, east, north)
+
+
+def _inside_ring(x: float, y: float, ring) -> bool:
+    inside = False
+    for (x1, y1), (x2, y2) in zip(ring, ring[1:]):
+        if (y1 > y) != (y2 > y) and x < x1 + (y - y1) * (x2 - x1) / (y2 - y1):
+            inside = not inside
+    return inside
+
+
+def _cross(o, a, b) -> float:
+    return (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0])
+
+
+def _on_segment(p, a, b) -> bool:
+    return min(a[0], b[0]) <= p[0] <= max(a[0], b[0]) and min(a[1], b[1]) <= p[1] <= max(a[1], b[1])
+
+
+def _segments_meet(p1, p2, q1, q2) -> bool:
+    d1, d2, d3, d4 = _cross(q1, q2, p1), _cross(q1, q2, p2), _cross(p1, p2, q1), _cross(p1, p2, q2)
+    if ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0)) and 0 not in (d1, d2, d3, d4):
+        return True
+    return any(
+        d == 0 and _on_segment(point, a, b)
+        for d, point, a, b in ((d1, p1, q1, q2), (d2, p2, q1, q2), (d3, q1, p1, p2), (d4, q2, p1, p2))
+    )
+
+
+def bbox_meets_ring(bbox: BBox, ring) -> bool:
+    """True si el rectángulo y el polígono se tocan o se cortan (también si uno contiene al otro)."""
+    west, south, east, north = bbox
+    if any(west <= x <= east and south <= y <= north for x, y in ring):
+        return True
+    corners = [(west, south), (east, south), (east, north), (west, north)]
+    if any(_inside_ring(x, y, ring) for x, y in corners):
+        return True
+    edges = list(zip(corners, corners[1:] + corners[:1]))
+    return any(_segments_meet(a, b, c, d) for a, b in zip(ring, ring[1:]) for c, d in edges)
+
+
 @dataclass
 class Index:
     rows: list[SearchResult]
@@ -175,6 +304,9 @@ class Index:
     built_at: dt.datetime
     generation: int = 0
     errors: list[str] = field(default_factory=list)
+    text: TextIndex | None = None
+    # Serie de cada fila en catalog: (track, dirección, marco), para buscar su huella.
+    series_keys: dict[tuple[str, str], tuple[int, str, int]] = field(default_factory=dict)
 
 
 def water_row(evidence, included: bool) -> WaterRow:
@@ -259,8 +391,16 @@ def _noise_ok(row: SearchResult, filters: Filters, skip) -> bool:
     return True
 
 
-def apply(rows: list[SearchResult], filters: Filters) -> tuple[list[SearchResult], dict[str, NotEvaluated]]:
-    """Filas que cumplen todos los filtros y, por filtro, las que no se pudieron evaluar."""
+def apply(
+    rows: list[SearchResult],
+    filters: Filters,
+    text_hits: set[Key] | None = None,
+    footprints: dict[tuple[str, str], tuple | str] | None = None,
+) -> tuple[list[SearchResult], dict[str, NotEvaluated]]:
+    """Filas que cumplen todos los filtros y, por filtro, las que no se pudieron evaluar.
+
+    text_hits: claves que casan con el texto libre (None si no hay q). footprints: por (zona, serie), sus polígonos
+    o el motivo por el que no hay huella; solo se mira con bbox."""
     kept: list[SearchResult] = []
     skipped: dict[str, NotEvaluated] = {}
 
@@ -310,6 +450,15 @@ def apply(rows: list[SearchResult], filters: Filters) -> tuple[list[SearchResult
                 continue
         if not _noise_ok(row, filters, skip):
             continue
+        if text_hits is not None and row_key(row) not in text_hits:
+            continue
+        if filters.bbox is not None:
+            found = (footprints or {}).get((row.aoi, row.series_id), FOOTPRINT_UNAVAILABLE)
+            if isinstance(found, str):
+                skip("bbox", found)
+                continue
+            if not any(bbox_meets_ring(filters.bbox, ring) for ring in found):
+                continue
         if filters.water is not None:
             if row.water.summary == "not_available":
                 skip("water", *(row.water.reasons or ["not_compared"]))

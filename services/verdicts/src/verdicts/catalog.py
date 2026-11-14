@@ -341,3 +341,80 @@ class HttpOpera:
             raise CatalogUnavailable(aoi) from exc
         self._cache[key] = (now + CACHE_SECONDS, result)
         return result
+
+
+# --- T-BAL-17: huella de cada serie (T-ANT-17) -------------------------------------------
+
+Ring = tuple[tuple[float, float], ...]
+
+
+@dataclass(frozen=True)
+class Footprint:
+    """Huella de una serie de catalog: polígonos con su anillo exterior (lon, lat). None si CMR no da polígono."""
+
+    track: int
+    direction: str
+    frame: int
+    polygons: tuple[Ring, ...] | None
+
+
+class FootprintSource(Protocol):
+    def footprints(self, aoi: str) -> list[Footprint]:
+        """Huellas de las series de la zona. Lanza CatalogUnavailable si no hay respuesta."""
+
+
+def _ring(points) -> Ring:
+    ring = tuple((float(lon), float(lat)) for lon, lat, *_ in points)
+    if len(ring) < 4 or not all(math.isfinite(v) for point in ring for v in point):
+        raise ValueError("anillo no válido")
+    return ring
+
+
+def _polygons(feature) -> tuple[Ring, ...] | None:
+    """Anillos exteriores de un Polygon o MultiPolygon. Los huecos se ignoran: la huella queda por exceso."""
+    if not feature:
+        return None
+    geometry = feature["geometry"]
+    if geometry["type"] == "Polygon":
+        return (_ring(geometry["coordinates"][0]),)
+    if geometry["type"] == "MultiPolygon":
+        return tuple(_ring(polygon[0]) for polygon in geometry["coordinates"])
+    raise ValueError(f"geometría no admitida: {geometry['type']}")
+
+
+def _parse_footprints(body) -> list[Footprint]:
+    return [
+        Footprint(
+            track=int(item["track"]), direction=item["direction"], frame=int(item["frame"]),
+            polygons=_polygons(item.get("footprint")),
+        )
+        for item in body
+    ]
+
+
+class HttpFootprints:
+    """Lee GET {base}/aois/{aoi}/series y guarda las huellas unos minutos."""
+
+    def __init__(self, base_url: str, client: httpx.Client | None = None, monotonic: Callable[[], float] = time.monotonic):
+        self.base_url = base_url.rstrip("/")
+        # /series consulta CMR en catalog: más margen que la línea de tiempo.
+        self.client = client or httpx.Client(timeout=OPTICAL_TIMEOUT_SECONDS)
+        self.monotonic = monotonic
+        self._cache: dict[str, tuple[float, list[Footprint] | None]] = {}
+
+    def footprints(self, aoi: str) -> list[Footprint]:
+        now = self.monotonic()
+        cached = self._cache.get(aoi)
+        if cached and cached[0] > now:
+            if cached[1] is None:
+                raise CatalogUnavailable(aoi)
+            return cached[1]
+        try:
+            response = self.client.get(f"{self.base_url}/aois/{aoi}/series")
+            response.raise_for_status()
+            result = _parse_footprints(response.json())
+        except (httpx.HTTPError, ValueError, KeyError, TypeError, IndexError) as exc:
+            self._cache[aoi] = (now + FAILURE_CACHE_SECONDS, None)
+            raise CatalogUnavailable(aoi) from exc
+        self._cache[aoi] = (now + CACHE_SECONDS, result)
+        return result
