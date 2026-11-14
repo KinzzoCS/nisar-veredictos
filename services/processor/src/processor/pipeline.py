@@ -11,6 +11,7 @@ import numpy as np
 import rasterio
 import rasterio.shutil
 
+from .cells import cell_features
 from .change import STATE_CODES, STATE_NODATA, Params, compare, smooth, observable, to_db
 from .gcov import GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from .qa import finalize_qa, scene_stats
@@ -108,6 +109,12 @@ def _write_pair(
     _write_cog(artifact_root / layers["state"], result.state, before, STATE_NODATA, "nearest")
     _write_cog(artifact_root / layers["change_hh"], result.change_hh, before, float("nan"), "average")
     _write_cog(artifact_root / layers["change_hv"], result.change_hv, before, float("nan"), "average")
+    # Fuera de `layers`, que son COGs: las celdas son un GeoJSON para buscar, no una capa del mapa.
+    cells = cell_features(result.state, before.transform, before.crs)
+    cells_path = None
+    if cells is not None:
+        cells_path = f"{prefix}/pairs/{pair_id}/cells.geojson"
+        (artifact_root / cells_path).write_text(json.dumps(cells, ensure_ascii=False), encoding="utf-8")
     return {
         "id": pair_id,
         "from": before.meta.date,
@@ -117,6 +124,7 @@ def _write_pair(
         "granules": [before.meta.granule_id, after.meta.granule_id],
         "layers": layers,
         "stats": result.stats,
+        **({"cells": cells_path} if cells_path else {}),
     }
 
 
