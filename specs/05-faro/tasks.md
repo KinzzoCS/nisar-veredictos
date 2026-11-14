@@ -12,6 +12,7 @@
 | T-FAR-08 | Glosario y explicación del radar | P1 | — | hecha |
 | T-FAR-09 | Guion de demo y material para el jurado | P1 | T-FAR-06 | pendiente |
 | T-FAR-10 | Prueba rápida con 3 a 5 personas | P2 | T-FAR-06 | pendiente |
+| T-FAR-11 | Levantar el frontend con `docker compose up --build` en `http://localhost:3000` | P1 | T-FAR-05 | hecha |
 
 ## Ola 2: acceso, búsqueda e interfaz
 
@@ -19,10 +20,10 @@ Propuesta del 2026-11-14, pendiente de aprobación. Especificaciones en [06-acce
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-FAR-11 | [P] Sistema de diseño: variables, tema claro y oscuro, tipografía con licencia compatible y prueba de contraste (RF-INT-01) | P0 | — | pendiente |
-| T-FAR-12 | Selector de vista y vista Público 80/20, con movimiento reducido (RF-INT-02, 03 y 09) | P0 | T-FAR-11 | pendiente |
-| T-FAR-13 | Vista Estudiante con la explicación de cada campo de la evidencia, revisada por Eco (RF-INT-04) | P1 | T-FAR-12 | pendiente |
-| T-FAR-14 | Vista Investigador: panel denso de evidencia, atajos y enlace al JSON (RF-INT-05) | P1 | T-FAR-12 | pendiente |
-| T-FAR-15 | Inicio de sesión, registro, renovación silenciosa y cierre de sesión (RF-INT-06) | P1 | T-ANT-14, T-BAL-10 | pendiente |
-| T-FAR-16 | Pantalla de búsqueda con `data_kind` por fila, exportación y explicación de los 403 (RF-INT-07) | P1 | T-BAL-11, T-FAR-15 | pendiente |
-| T-FAR-17 | Medir el presupuesto de rendimiento y la auditoría axe en las tres vistas, en 2D y 3D (RF-INT-08) | P1 | T-FAR-12, T-ATL-10 | pendiente |
+| T-FAR-12 | [P] Sistema de diseño: variables, tema claro y oscuro, tipografía con licencia compatible y prueba de contraste (RF-INT-01) | P0 | — | pendiente |
+| T-FAR-13 | Selector de vista y vista Público 80/20, con movimiento reducido (RF-INT-02, 03 y 09) | P0 | T-FAR-12 | pendiente |
+| T-FAR-14 | Vista Estudiante con la explicación de cada campo de la evidencia, revisada por Eco (RF-INT-04) | P1 | T-FAR-13 | pendiente |
+| T-FAR-15 | Vista Investigador: panel denso de evidencia, atajos y enlace al JSON (RF-INT-05) | P1 | T-FAR-13 | pendiente |
+| T-FAR-16 | Inicio de sesión, registro, renovación silenciosa y cierre de sesión (RF-INT-06) | P1 | T-ANT-14, T-BAL-10 | pendiente |
+| T-FAR-17 | Pantalla de búsqueda con `data_kind` por fila, exportación y explicación de los 403 (RF-INT-07) | P1 | T-BAL-11, T-FAR-16 | pendiente |
+| T-FAR-18 | Medir el presupuesto de rendimiento y la auditoría axe en las tres vistas, en 2D y 3D (RF-INT-08) | P1 | T-FAR-13, T-ATL-10 | pendiente |

@@ -5,6 +5,7 @@
 - Faro elige el framework con Atlas. Debe tener licencia compatible con GPL-3.0 y generar un sitio estático, para poder publicarlo sin servidor propio.
 - Frontera con Atlas: el mapa entra como un componente con la interfaz de `specs/04-atlas/plan.md`. Faro no toca su carpeta y Atlas no toca el resto.
 - Los tipos de datos se generan a partir de `contracts/verdicts.openapi.json`, nunca se escriben a mano.
+- `docker compose up --build` levanta también el frontend: el servicio `frontend` compila el sitio estático y lo sirve con nginx en `http://localhost:3000`. El navegador llama a la API en `http://localhost:8080` (`VITE_API_BASE`, fijado al compilar). `npm run dev` sigue siendo el camino para desarrollar.
 
 ## Jerarquía de la tarjeta de veredicto
 

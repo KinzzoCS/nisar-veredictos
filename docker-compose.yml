@@ -83,3 +83,14 @@ services:
       - catalog
       - verdicts
       - tiles
+
+  # Sitio estático de Faro y Atlas en http://localhost:3000. El navegador llama al gateway en :8080.
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE: http://localhost:8080
+    ports:
+      - "3000:80"
+    depends_on:
+      - gateway
