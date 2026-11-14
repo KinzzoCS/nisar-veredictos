@@ -110,6 +110,19 @@ Tres escenas al principio de la página, una visible cada vez. Cada escena trae 
 
 Fuera de esta entrega: animaciones, centrar el mapa en el punto de la escena 3 (el mapa de Atlas no ofrece seleccionar un punto desde fuera) y coordenadas verificadas de los jales.
 
+### Español e inglés, y WCAG 2.1 AA (T-FAR-07)
+
+Cierra RF-FAR-05 y RF-FAR-06 sobre lo que ya hay. Los textos del veredicto llegan de la API con `lang`; Faro se ocupa de los suyos.
+
+- [x] Todos los textos de interfaz viven en `src/i18n/es.json` y `src/i18n/en.json`, con las mismas claves. Ningún componente de Faro escribe a mano un texto visible ni un atributo accesible (`aria-label`, `title`, `alt`).
+- [x] El `lang` del documento y su título (`document.title`) siguen al idioma elegido.
+- [x] Un enlace "Saltar al contenido principal" es lo primero que recibe el foco con el tabulador y lleva a `main`.
+- [x] Una prueba automática pasa axe-core por la app en español y en inglés, con datos reales y sintéticos, y falla con cualquier infracción de WCAG 2.0/2.1 A o AA. jsdom no calcula colores, así que esa prueba no mide el contraste.
+- [x] El contraste se mide con axe en el navegador sobre la pila, en las dos lenguas, sin infracciones de AA en la parte de Faro. Comprobado el 2026-11-14 con la pila local y el par y la consulta de ejemplo abiertos; dentro de las cajas con trama de "No observable", el peor contraste es 14,3:1. Los bordes de botones y campos pasan a `#6e7781` (4,3:1 sobre el gris de la historia, WCAG 1.4.11).
+- [x] La demo completa (historia, selector de par, tarjeta, recibo, botones del mapa y consulta de evento) se recorre solo con teclado, con el foco siempre visible.
+
+Fuera de esta entrega: el módulo de mapa (`src/mapa/`, de Atlas), que tiene sus propios textos ES/EN; lo que salga de la auditoría ahí se avisa a Atlas. Tampoco se prueba con un lector de pantalla real (NVDA o VoiceOver).
+
 ## Interfaces
 
 - **Consume:** API de veredictos y la interfaz del mapa de Atlas.

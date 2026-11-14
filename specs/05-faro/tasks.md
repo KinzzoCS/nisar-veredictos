@@ -8,7 +8,7 @@
 | T-FAR-04 | [P] Distintivo de datos sintéticos | P0 | T-FAR-01 | hecha (PR 50) |
 | T-FAR-05 | Integrar el mapa de Atlas | P0 | T-ATL-05 | hecha (PR 52) |
 | T-FAR-06 | Modo historia de Parral en tres escenas | P1 | T-FAR-02, T-FAR-03, T-FAR-05 | en revisión |
-| T-FAR-07 | Español e inglés, y WCAG 2.1 AA | P1 | T-FAR-02 | pendiente |
+| T-FAR-07 | Español e inglés, y WCAG 2.1 AA | P1 | T-FAR-02 | en revisión |
 | T-FAR-08 | Glosario y explicación del radar | P1 | — | hecha |
 | T-FAR-09 | Guion de demo y material para el jurado | P1 | T-FAR-06 | pendiente |
 | T-FAR-10 | Prueba rápida con 3 a 5 personas | P2 | T-FAR-06 | pendiente |

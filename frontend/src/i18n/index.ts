@@ -19,10 +19,11 @@ void i18n.use(initReactI18next).init({
   interpolation: { escapeValue: false },
 })
 
-// El idioma del documento sigue al de la interfaz (lectores de pantalla y separación de sílabas).
+// El idioma y el título del documento siguen al de la interfaz (lectores de pantalla y separación de sílabas).
 function syncDocument(lang: string) {
   if (typeof document === 'undefined') return
   document.documentElement.lang = lang
+  document.title = i18n.t('app.title', { lng: lang })
   localStorage.setItem('lang', lang)
 }
 syncDocument(i18n.language)
