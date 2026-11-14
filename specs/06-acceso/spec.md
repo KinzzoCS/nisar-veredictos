@@ -51,6 +51,11 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 | RF-ACC-10 | `AUTH_ENABLED=0` deja el gateway como hoy (todo `public`, rutas nuevas con 403). Es el valor por omisión hasta que el equipo apruebe activarlo | P0 |
 | RF-ACC-11 | Tokens personales para scripts (`researcher`): se crean y revocan desde la cuenta, se muestran una sola vez y caducan como máximo a los 90 días | P2 |
 | RF-ACC-12 | Registro sin datos personales más allá de un correo y una contraseña; sin verificación de correo en esta ola, y se dice así | P1 |
+| RF-ACC-13 | Historias de la comunidad, guardadas en `auth` (`/api/auth/stories`): zona, serie, rango de fechas, pares elegidos, título y notas de quien la escribe. **No guardan textos de veredictos**: la interfaz los vuelve a pedir a la API al mostrar o descargar la historia, así que una historia nunca congela ni cambia lo que dice un veredicto | P2 |
+| RF-ACC-14 | Leer y listar historias no pide cuenta. Crearlas, borrar las propias, valorarlas y descargarlas pide sesión (o token personal) de `student` o `researcher`; sin ella, 401 | P2 |
+| RF-ACC-15 | Valoración con estrellas de 1 a 5: una por cuenta e historia (valorar otra vez la cambia), sin valorar la propia. Cada historia da el promedio general y el desglose por perfil declarado (`student` y `researcher`) | P2 |
+| RF-ACC-16 | Las notas de la persona se muestran y se descargan separadas de los textos de la API y rotuladas como suyas (constitución II). La autoría se muestra con el perfil declarado, nunca con el correo | P2 |
+| RF-ACC-17 | Cada historia cabe en los 4 KB que el gateway admite en `/api/auth/`: título de 3 a 120 caracteres, notas hasta 800, de 1 a 24 pares e identificadores de zona y serie de hasta 32 caracteres. Ninguna ruta nueva usa `PUT`, que el gateway no deja pasar | P2 |
 
 ## Matriz de acceso
 
@@ -61,6 +66,8 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 | Búsqueda de veredictos y de pasadas (`specs/07-busqueda`) | no | sí, con filtros básicos y 50 resultados por página | sí, con todos los filtros y paginación |
 | Exportar resultados con su recibo (CSV, GeoJSON, JSON) | no | no | sí |
 | Tokens personales para scripts | no | no | sí |
+| Leer historias de la comunidad y sus estrellas | sí, sin cuenta | sí | sí |
+| Guardar, valorar con estrellas y descargar historias | no | sí | sí |
 | Cuota orientativa en las rutas nuevas (a calibrar en T-BAL-12) | 60 peticiones/min por IP | 120/min | 600/min |
 | Cuota en las rutas actuales y las teselas | ninguna | ninguna | ninguna |
 | Cuota de `login` y `register` (a calibrar en T-BAL-12) | 5 intentos/min por IP, para todos | | |
@@ -90,6 +97,8 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 - Inicio de sesión con proveedores externos (Google, ORCID, Earthdata Login). ORCID sería la vía para verificar a investigadores en otra ola.
 - Verificación de correo, recuperación de contraseña por correo y doble factor.
 - Ocultar o recortar campos según el perfil: lo prohíbe el principio rector.
+- En las historias (RF-ACC-13): moderación, comentarios y edición. Para cambiar una historia se borra y se guarda otra.
+- Impedir de verdad que alguien sin sesión arme la descarga: los datos de una historia son públicos (constitución II.4). La descarga con sesión es una función de la comunidad, que además cuenta las descargas, no una barrera de seguridad.
 
 ## Preguntas abiertas
 
