@@ -23,22 +23,22 @@ Que cualquier persona entienda en menos de un minuto qué pasó, qué no sabemos
 
 | ID | Requisito | Prioridad |
 |---|---|---|
-| RF-FAR-01 | Tarjeta de veredicto: estado, "qué detectamos", "qué no prueba", "qué falta", hipótesis y recibo desplegable | P0 |
-| RF-FAR-02 | Consulta de evento: fecha y tipo de evento, con la respuesta y sus supuestos | P0 |
-| RF-FAR-03 | Distintivo permanente cuando los datos son sintéticos | P0 |
-| RF-FAR-04 | Modo historia de Parral en tres escenas: tormenta no observable, cambio en el monzón y estabilidad de los jales | P1 |
-| RF-FAR-05 | Español e inglés en toda la interfaz | P1 |
-| RF-FAR-06 | WCAG 2.1 AA: contraste, teclado, foco visible y estados no solo por color | P1 |
-| RF-FAR-07 | Glosario y explicación breve de cómo ve el radar | P1 |
+| RF-FAR-01 | Tarjeta de veredicto: estado, "qué detectamos", "qué no prueba", "qué falta", hipótesis y recibo desplegable | Hecho (T-FAR-02, PR 50) |
+| RF-FAR-02 | Consulta de evento: fecha y tipo de evento, con la respuesta y sus supuestos | Hecho (T-FAR-03, PR 56) |
+| RF-FAR-03 | Distintivo permanente cuando los datos son sintéticos | Hecho (T-FAR-04, PR 50) |
+| RF-FAR-04 | Modo historia de Parral en tres escenas: tormenta no observable, cambio en el monzón y estabilidad de los jales | Hecho (T-FAR-06, PR 57) |
+| RF-FAR-05 | Español e inglés en toda la interfaz | Hecho (T-FAR-07, PR 69) |
+| RF-FAR-06 | WCAG 2.1 AA: contraste, teclado, foco visible y estados no solo por color | Hecho (T-FAR-07, PR 69) |
+| RF-FAR-07 | Glosario y explicación breve de cómo ve el radar | Hecho (T-FAR-08) |
 | RF-FAR-08 | Guion de demo de 3 minutos y material para el jurado | P1 |
 | RF-FAR-09 | Prueba rápida con 3 a 5 personas y ajustes resultantes | P2 |
 
 ## Criterios de aceptación
 
-- [ ] La tarjeta muestra siempre los tres textos juntos, nunca solo "qué detectamos".
-- [ ] `not_observable` tiene su propio estilo y texto, distinto de "sin cambio".
-- [ ] Ningún texto de interfaz afirma más que la API.
-- [ ] La demo completa funciona solo con teclado.
+- [x] La tarjeta muestra siempre los tres textos juntos, nunca solo "qué detectamos" (T-FAR-02).
+- [x] `not_observable` tiene su propio estilo y texto, distinto de "sin cambio" (T-FAR-02).
+- [x] Ningún texto de interfaz afirma más que la API: los textos del veredicto llegan tal cual y una prueba pasa la de lenguaje de Balanza por `src/i18n/` (T-FAR-02).
+- [x] La demo completa funciona solo con teclado (T-FAR-07).
 
 ### Tarjeta de veredicto (T-FAR-02) y distintivo de datos sintéticos (T-FAR-04)
 
