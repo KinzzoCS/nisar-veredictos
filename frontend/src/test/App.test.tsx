@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, vi } from 'vitest'
 import App from '../App'
@@ -103,9 +103,12 @@ test('abre con el primer par consecutivo de la primera serie', async () => {
   expect(screen.getByLabelText('Serie')).toHaveValue('T048A-F015')
   expect(screen.getByLabelText('Par de fechas')).toHaveValue('20260617_20260629')
   expect(screen.getByRole('region', { name: 'Mapa' })).toBeInTheDocument()
-  expect(crearMapa).toHaveBeenLastCalledWith(
-    expect.any(HTMLElement),
-    expect.objectContaining({ dataKind: 'real', idioma: 'es', compare: 'off' }),
+  // El mapa se monta en un efecto: con la suite cargada puede llegar después del título.
+  await waitFor(() =>
+    expect(crearMapa).toHaveBeenLastCalledWith(
+      expect.any(HTMLElement),
+      expect.objectContaining({ dataKind: 'real', idioma: 'es', compare: 'off' }),
+    ),
   )
 })
 

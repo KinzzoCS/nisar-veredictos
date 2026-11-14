@@ -12,3 +12,10 @@ test("crearMapa devuelve un objeto con actualizar y destruir", () => {
   expectTypeOf<MapaAtlas["actualizar"]>().toBeFunction();
   expectTypeOf<MapaAtlas["destruir"]>().toBeFunction();
 });
+
+test("las opciones de la ola 2 son opcionales: basta con la zona y el tipo de dato (RF-INT-19)", () => {
+  expectTypeOf<{ aoi: [number, number, number, number]; dataKind: "real" }>().toExtend<OpcionesMapa>();
+  expectTypeOf<OpcionesMapa["modo3d"]>().toEqualTypeOf<boolean | undefined>();
+  expectTypeOf<OpcionesMapa["control3d"]>().toEqualTypeOf<boolean | undefined>();
+  expectTypeOf<OpcionesMapa["onModo3dChanged"]>().toEqualTypeOf<((modo3d: boolean) => void) | undefined>();
+});
