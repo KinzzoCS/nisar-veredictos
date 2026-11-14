@@ -13,6 +13,8 @@ npm test           # pruebas (Vitest)
 npm run build      # sitio estático en dist/
 ```
 
+Sin instalar Node: `docker compose up --build` en la raíz levanta también el sitio compilado en `http://localhost:3000` (servicio `frontend`, nginx). Para desarrollar con recarga en caliente, sigue usando `npm run dev`.
+
 Otro origen para la API: copia `.env.example` a `.env.local` y cambia `VITE_API_BASE`.
 
 | Carpeta | Dueño | Qué hay |

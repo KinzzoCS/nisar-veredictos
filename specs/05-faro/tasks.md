@@ -12,3 +12,4 @@
 | T-FAR-08 | Glosario y explicación del radar | P1 | — | hecha |
 | T-FAR-09 | Guion de demo y material para el jurado | P1 | T-FAR-06 | pendiente |
 | T-FAR-10 | Prueba rápida con 3 a 5 personas | P2 | T-FAR-06 | pendiente |
+| T-FAR-11 | Levantar el frontend con `docker compose up --build` en `http://localhost:3000` | P1 | T-FAR-05 | hecha |
