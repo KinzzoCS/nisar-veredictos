@@ -2,7 +2,7 @@
 
 - **Responsables:** @lospapulindos2-netizen (búsqueda de veredictos y exportación), @KinzzoCS (búsqueda de pasadas) y @TakoKami-dev (ruido por par en el manifiesto)
 - **Consumen:** @danielsanchez-033 (pantalla de búsqueda) y @Fransomware (resultados sobre el mapa y búsqueda por área)
-- **Estado:** borrador, propuesto el 2026-11-14
+- **Estado:** aprobada el 2026-11-14 por las cinco personas (PR 66)
 - **Depende de:** `specs/06-acceso` (perfiles `student` y `researcher`)
 
 ## Misión
@@ -52,7 +52,7 @@ Hoy hay una zona, dos series y 18 veredictos reales. La búsqueda se diseña par
 
 ## Interfaces
 
-- **Produce:** rutas nuevas en `contracts/verdicts.openapi.json` y `contracts/catalog.openapi.json`, y campos opcionales en `contracts/artifact-manifest.schema.json`. Todos son cambios **aditivos**, válidos tras el congelamiento.
+- **Produce:** rutas nuevas en `contracts/verdicts.openapi.json` y `contracts/catalog.openapi.json`, y campos opcionales en `contracts/artifact-manifest.schema.json`. Todos son cambios **aditivos**.
 - **Consume:** los veredictos que ya calcula `verdicts`, la línea de tiempo de `catalog` y el manifiesto de Eco.
 
 ## Fuera de alcance

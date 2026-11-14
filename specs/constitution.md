@@ -38,7 +38,7 @@ Convertimos datos radar NISAR en **veredictos auditables** por zona y par de fec
 
 1. Los servicios no importan código entre sí. Se comunican por HTTP o por los artefactos de `contracts/`.
 2. Cambiar un contrato requiere avisar a quien lo consume, actualizarlo en el mismo PR y conseguir la aprobación de los dueños indicados en `CODEOWNERS`.
-3. Los contratos se congelan al terminar el sábado 14 de noviembre (hora de Parral, UTC-6; es decir, el 15 de noviembre a las 06:00 UTC). Hasta entonces se admite cualquier cambio con el proceso del punto 2. Después solo se admiten cambios aditivos.
+3. Los contratos no se congelan. El proyecto sigue creciendo durante el evento (14 y 15 de noviembre), incluso con cambios radicales si hacen falta. Cualquier cambio de contrato, aditivo o no, sigue el proceso del punto 2. Lo que está listo (con sus aprobaciones y la CI en verde) se fusiona sin esperar a la demo. Decisión del 2026-11-14, que sustituye al congelamiento acordado el 2026-11-12.
 4. Cada rol trabaja en sus carpetas. Tocar las de otro rol requiere su aprobación.
 
 ## VII. Calidad: definición de terminado
