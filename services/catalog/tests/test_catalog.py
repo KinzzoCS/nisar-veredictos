@@ -80,6 +80,35 @@ def test_api_lists_series():
     assert body[0]["maturity"] == "PROVISIONAL" and body[0]["contains_aoi"]
 
 
+def test_each_series_has_its_footprint_as_a_geojson_feature():
+    # Cada fecha con su huella: la serie usa la del gránulo más reciente (T-ANT-17).
+    old = parse_title(TITLE.format(d="20260617", c="P05023"), 7000.0, BIG)
+    new = parse_title(TITLE.format(d="20260629", c="P05023"), 7000.0, ((-107.123456789, 26.0), (-104.0, 26.0), (-104.0, 28.0)))
+    body = TestClient(create_app(ROOT / "config" / "aois", ListSource([old, new]))).get("/aois/parral/series").json()
+    footprint = body[0]["footprint"]
+    assert footprint["type"] == "Feature" and footprint["geometry"]["type"] == "Polygon"
+    ring = footprint["geometry"]["coordinates"][0]
+    assert ring[0] == ring[-1] == [-107.12346, 26.0], "anillo cerrado y con 5 decimales"
+    assert len(ring) == 4
+    assert footprint["properties"] == {
+        "series": "T048A-F015-4005-DHDH-P05023", "track": 48, "direction": "A", "frame": 15,
+        "granule_id": new.id, "basis": "latest_granule",
+    }
+
+
+def test_series_without_any_polygon_has_null_footprint():
+    without = [parse_title(TITLE.format(d=d, c="P05023"), 7000.0, ()) for d in ("20260617", "20260629")]
+    body = TestClient(create_app(ROOT / "config" / "aois", ListSource(without))).get("/aois/parral/series?min_dates=2").json()
+    assert body[0]["footprint"] is None
+
+
+def test_footprint_skips_dates_without_polygon():
+    with_polygon = parse_title(TITLE.format(d="20260617", c="P05023"), 7000.0, BIG)
+    latest_without = parse_title(TITLE.format(d="20260629", c="P05023"), 7000.0, ())
+    body = TestClient(create_app(ROOT / "config" / "aois", ListSource([with_polygon, latest_without]))).get("/aois/parral/series").json()
+    assert body[0]["footprint"]["properties"]["granule_id"] == with_polygon.id
+
+
 def test_unknown_aoi_is_404():
     assert client().get("/aois/nope/series").status_code == 404
 
