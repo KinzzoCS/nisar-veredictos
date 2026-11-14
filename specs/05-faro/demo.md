@@ -76,4 +76,4 @@ El guion vale con cualquier resultado, porque lo lee de la pantalla. Aun así, h
 | Fecha | Quién | Duración | Datos | Notas |
 |---|---|---|---|---|
 | 2026-11-14 | Faro, recorrido en la app sin decirlo en voz alta | Unos 2:20 estimados (unas 320 palabras a 140 por minuto), sin contar los clics | Pila local con artefactos reales sin la corrección de T-ECO-07 | Todo lo marcado `[en pantalla]` aparece: pasadas 2026-06-29 y 2026-07-08, estado del par de agosto, madurez PROVISIONAL, gránulos, CRID, Sentinel-2, OPERA y el recuento de la escena 3. Falta un ensayo hablado y cronometrado |
-| | Todo el equipo | | | Ensayo general hablado y cronometrado, y tomar las capturas del plan B. El guion ya está revisado (2026-11-14) |
+| 2026-11-14 | Todo el equipo, en persona | Dentro de los 3 minutos (no se anotó el tiempo exacto) | | Ensayo hablado y cronometrado. El guion ya estaba revisado. Faltan las capturas del plan B |

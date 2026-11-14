@@ -127,7 +127,7 @@ Fuera de esta entrega: el módulo de mapa (`src/mapa/`, de Atlas), que tiene sus
 
 Cierra RF-FAR-08 en [demo.md](demo.md). El guion sigue la historia de Parral (T-FAR-06) y termina en el recibo, para que el jurado vea en tres pasos el valor del producto y pueda abrir la procedencia de cualquier afirmación.
 
-- [ ] Un guion hablado de 3 minutos como máximo, con lo que se dice y lo que se hace en pantalla en cada tramo, cronometrado al ensayarlo en la app.
+- [x] Un guion hablado de 3 minutos como máximo, con lo que se dice y lo que se hace en pantalla en cada tramo, cronometrado al ensayarlo en la app. El equipo lo ensayó en persona el 2026-11-14 y cupo en los 3 minutos.
 - [x] El guion no fija ninguna cifra ni ningún estado de un par: se leen en pantalla, porque los artefactos pueden reprocesarse (constitución II.6). Solo cita cifras externas con su fuente, como los 22,8 mm del boletín de Protección Civil.
 - [x] Cada afirmación del guion y de la ficha sale de la API, de una especificación o de `MEMORY.md`. Nada presenta una hipótesis como causa ni lo sintético como real.
 - [x] Los textos pasan la misma prueba de lenguaje que `src/i18n/` (palabras que prohíbe `services/verdicts/tests/test_language.py`).
