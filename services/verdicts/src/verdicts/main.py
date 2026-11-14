@@ -19,6 +19,8 @@ from pydantic import BaseModel, Field
 from . import narrative, optical, quality, rules, search, water
 from .catalog import (
     CatalogUnavailable,
+    FootprintSource,
+    HttpFootprints,
     HttpOpera,
     HttpOptical,
     HttpTimeline,
@@ -832,6 +834,7 @@ def create_app(
     water_contrast: water.WaterContrast | None = None,
     warm_cache: bool | None = None,
     build_index: bool | None = None,
+    footprint_source: FootprintSource | None = None,
 ) -> FastAPI:
     root = artifact_root or Path(os.environ.get("ARTIFACT_ROOT", "/data/artifacts"))
     store = Store(root)
@@ -841,6 +844,8 @@ def create_app(
         optical_source = HttpOptical(os.environ["CATALOG_URL"])
     if opera_source is None and os.environ.get("CATALOG_URL"):
         opera_source = HttpOpera(os.environ["CATALOG_URL"])
+    if footprint_source is None and os.environ.get("CATALOG_URL"):
+        footprint_source = HttpFootprints(os.environ["CATALOG_URL"])
     # Con EARTHDATA_TOKEN, verdicts lee B01_WTR de PO.DAAC y compara; sin él, lista y lo declara.
     contrast = water_contrast or water.contrast_from_env(root, os.environ.get)
     now = clock or (lambda: dt.datetime.now(dt.timezone.utc))
@@ -970,16 +975,26 @@ def create_app(
 
     def rebuild_index() -> search.Index:
         include_water = bool(index_state["water_ready"])
-        rows = [
-            search.row_from_verdict(verdict, include_water)
-            for aoi in store.aois()
-            for manifest in store.manifests(aoi)
-            for verdict in series_verdicts(manifest, "es", include_water)
-        ]
+        rows: list[search.SearchResult] = []
+        docs: dict[str, dict[search.Key, str]] = {lang: {} for lang in search.LANGS}
+        series_keys: dict[tuple[str, str], tuple[int, str, int]] = {}
+        for aoi in store.aois():
+            for manifest in store.manifests(aoi):
+                info = manifest["series"]
+                series_keys[(manifest["aoi"], info["id"])] = (int(info["track"]), info["direction"], int(info["frame"]))
+                for lang in search.LANGS:
+                    for verdict in series_verdicts(manifest, lang, include_water):
+                        if lang == "es":
+                            rows.append(search.row_from_verdict(verdict, include_water))
+                        docs[lang][(verdict.aoi, verdict.series, verdict.id)] = search.verdict_text(verdict)
+        text = search.TextIndex(docs)
         with index_lock:
             previous = index_state["index"]
             generation = previous.generation + 1 if previous is not None else 1
-            built = search.Index(rows=rows, water_included=include_water, built_at=now(), generation=generation)
+            built = search.Index(
+                rows=rows, water_included=include_water, built_at=now(), generation=generation, text=text,
+                series_keys=series_keys,
+            )
             index_state["index"] = built
         log.info("Índice de búsqueda: %d veredictos, contraste con OPERA %s", len(rows),
                  "incluido" if include_water else "pendiente")
@@ -1139,6 +1154,25 @@ def create_app(
             aoi=aoi, series=series_id, lon=lon, lat=lat, data_kind=manifest["data_kind"], values=values, changes=changes
         )
 
+    def footprints_for(index: search.Index) -> dict[tuple[str, str], tuple | str]:
+        """Por (zona, serie) de cada fila: los polígonos de su huella en catalog, o el motivo de que no haya."""
+        result: dict[tuple[str, str], tuple | str] = {}
+        for aoi in sorted({row.aoi for row in index.rows}):
+            try:
+                found = {
+                    (item.track, item.direction, item.frame): item.polygons
+                    for item in (footprint_source.footprints(aoi) if footprint_source else [])
+                }
+                failed = None if footprint_source else search.CATALOG_UNAVAILABLE
+            except CatalogUnavailable:
+                found, failed = {}, search.CATALOG_UNAVAILABLE
+            for (row_aoi, series_id), key in index.series_keys.items():
+                if row_aoi != aoi:
+                    continue
+                polygons = found.get(key)
+                result[(aoi, series_id)] = failed or (polygons if polygons else search.FOOTPRINT_UNAVAILABLE)
+        return result
+
     def denied(required: search.Role, why: str) -> JSONResponse:
         return JSONResponse(status_code=403, content={"detail": why, "required_role": required})
 
@@ -1147,6 +1181,7 @@ def create_app(
         response_model=search.SearchPage,
         responses={
             400: {"description": "Cursor ilegible, de otra consulta o de un índice anterior."},
+            422: {"description": "Parámetro no válido, p. ej. un bbox mal formado."},
             403: {"model": search.AccessDenied, "description": "Perfil insuficiente; required_role dice cuál hace falta."},
         },
         openapi_extra={"security": [{"bearerAuth": []}], "x-required-role": "student"},
@@ -1186,6 +1221,19 @@ def create_app(
             None, ge=0, le=100, description="Nubosidad máxima por tesela de las dos escenas ópticas, en %."
         ),
         data_kind: Literal["real", "synthetic"] | None = Query(None),
+        q: str | None = Query(
+            None, max_length=200, description="Texto libre sobre los textos del veredicto (summary, hipótesis, causa), "
+            "su identificador y los granule_id, en el idioma de lang (RF-BUS-02). Cada palabra cuenta como prefijo, "
+            "todas deben aparecer, sin distinguir mayúsculas ni acentos. Sin palabras, no hay resultados.",
+        ),
+        lang: narrative.Lang = Query("es", description="Idioma de los textos en los que busca q."),
+        bbox: str | None = Query(
+            None, description="Rectángulo WGS84 'oeste,sur,este,norte' (RF-BUS-10): series cuya huella de catalog "
+            "(T-ANT-17) toca el rectángulo. Si no hay huella, la fila no se evalúa y se cuenta en "
+            "query.not_evaluated. Dice qué series cubren el área, no que el veredicto hable de ella: el veredicto "
+            "sigue siendo de toda la zona.",
+            examples=["-105.8,26.85,-105.6,27.0"],
+        ),
         sort: search.SortKey = Query("date", description="date ordena por to_date."),
         order: Literal["asc", "desc"] = Query("desc"),
         limit: int = Query(search.DEFAULT_LIMIT, ge=1, le=search.PAGE_LIMIT["researcher"]),
@@ -1194,11 +1242,16 @@ def create_app(
         role = search.role_from_header(x_auth_role)
         if role == "public":
             return denied("student", "La búsqueda pide una cuenta de estudiante o de investigación.")
+        try:
+            area = search.parse_bbox(bbox) if bbox is not None else None
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
         filters = search.Filters(
             aoi=aoi, series_id=series_id, direction=direction, kind=kind, date_from=date_from, date_to=date_to,
             interval_min=interval_min, interval_max=interval_max, state=tuple(state or ()), cause=tuple(cause or ()),
             changed_min=changed_min, changed_max=changed_max, scene_shift_exceeds=scene_shift_exceeds,
             quality_flag=quality_flag, water=water, max_cloud_cover=max_cloud_cover, data_kind=data_kind,
+            q=q, lang=lang if q is not None else None, bbox=area,
         )
         if role != "researcher":
             used = [name for name in search.RESEARCHER_FILTERS if getattr(filters, name) is not None]
@@ -1209,7 +1262,12 @@ def create_app(
                     "researcher", f"Más de {search.PAGE_LIMIT[role]} resultados por página es solo para investigación."
                 )
         index = current_index()
-        matched, not_evaluated = search.apply(index.rows, filters)
+        text_hits = None
+        if q is not None:
+            text_hits = index.text.match(q, lang) if index.text is not None else set()
+        matched, not_evaluated = search.apply(
+            index.rows, filters, text_hits, footprints_for(index) if area is not None else None
+        )
         ordered = search.order(matched, sort, order)
         print_ = search.fingerprint(filters, sort, order)
         try:
