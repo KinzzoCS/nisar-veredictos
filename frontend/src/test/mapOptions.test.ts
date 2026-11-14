@@ -1,5 +1,5 @@
 import { API_BASE } from '../api/client'
-import { hasOpticalScene, mapOptionsFor, sceneShiftWarning } from '../api/mapOptions'
+import { hasOpticalScene, mapOptionsFor } from '../api/mapOptions'
 import { makeVerdict } from './fixtures'
 
 const series = {
@@ -79,12 +79,16 @@ test('pasa la causa solo si el veredicto es no observable', () => {
   expect(mapOptionsFor('parral', series, { ...no, state: 'change_probable' }, 'es')!.causaNoObservable).toBeUndefined()
 })
 
-test('no avisa de cambio no local si Eco ya descontó el desplazamiento', () => {
+test('pasa el aviso de desplazamiento de escena de Atlas: sin corregir, corregido o ninguno', () => {
+  const base = withOptical(false, false)
   const shift = { basis: 'qa', hh_db: 1.8, hv_db: 1.6, same_direction: true, threshold_db: 1.5 }
-  expect(sceneShiftWarning(null)).toBe(false)
-  expect(sceneShiftWarning({ ...shift, exceeds_threshold: false, corrected: false } as never)).toBe(false)
-  expect(sceneShiftWarning({ ...shift, exceeds_threshold: true, corrected: false } as never)).toBe(true)
-  expect(sceneShiftWarning({ ...shift, exceeds_threshold: true, corrected: true } as never)).toBe(false)
+  const con = (s: object | null) =>
+    mapOptionsFor('parral', series, { ...base, evidence: { ...base.evidence, scene_shift: s } } as never, 'es')!
+      .desplazamientoEscena
+  expect(con(null)).toBe('ninguno')
+  expect(con({ ...shift, exceeds_threshold: false, corrected: false })).toBe('ninguno')
+  expect(con({ ...shift, exceeds_threshold: true, corrected: false })).toBe('sin_corregir')
+  expect(con({ ...shift, exceeds_threshold: true, corrected: true })).toBe('corregido')
 })
 
 test('sin una caja de cuatro números no hay mapa', () => {

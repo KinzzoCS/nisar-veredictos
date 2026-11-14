@@ -1,5 +1,6 @@
 import createClient from 'openapi-fetch'
 import type { components, paths } from './verdicts'
+import type { LineaTiempoApi } from '../mapa/lineaTiempo'
 
 /** Origen del gateway: todo (API y teselas) se sirve desde aquí. */
 export const API_BASE = (import.meta.env.VITE_API_BASE ?? 'http://localhost:8080').replace(/\/$/, '')
@@ -24,3 +25,18 @@ export type PixelSeries = Schemas['PixelSeries']
 export type Receipt = Schemas['Receipt']
 export type DataKind = SeriesInfo['data_kind']
 export type Lang = 'es' | 'en'
+
+/**
+ * Línea de tiempo del catálogo (GET /api/catalog/aois/{aoi}/timeline) para la línea de Atlas.
+ * null si falla o si lo que llega no tiene la forma esperada: la consulta de evento sigue sin ella.
+ */
+export async function fetchTimeline(aoi: string): Promise<LineaTiempoApi | null> {
+  try {
+    const r = await globalThis.fetch(`${API_BASE}/api/catalog/aois/${encodeURIComponent(aoi)}/timeline`)
+    if (!r.ok) return null
+    const data = (await r.json()) as LineaTiempoApi
+    return Array.isArray(data?.passes) ? data : null
+  } catch {
+    return null
+  }
+}
