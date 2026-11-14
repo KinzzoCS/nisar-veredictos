@@ -1,7 +1,9 @@
 import { useEffect, useId, useRef, useState, type FormEvent, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
-import { verdictsApi, type EventVerdict, type Lang } from '../api/client'
+import { fetchTimeline, verdictsApi, type EventVerdict, type Lang } from '../api/client'
+import type { LineaTiempoApi } from '../mapa/lineaTiempo'
 import { EVENT_TYPES, EXAMPLE, type Query } from '../story/data'
+import { PassTimeline } from './PassTimeline'
 import { SyntheticNotice } from './SyntheticBadge'
 
 type Result =
@@ -122,6 +124,19 @@ export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
 
   const shown = result && result.key === requestKey ? result : undefined
   const loading = query !== undefined && !shown
+  const answered = shown?.status === 'ready'
+
+  // La línea de tiempo no depende del idioma ni de la consulta: se pide una vez, con la primera respuesta.
+  const [timeline, setTimeline] = useState<{ aoi: string; data: LineaTiempoApi | null }>()
+  useEffect(() => {
+    if (!answered || timeline?.aoi === aoi) return
+    let current = true
+    fetchTimeline(aoi).then((data) => current && setTimeline({ aoi, data }))
+    return () => {
+      current = false
+    }
+  }, [answered, aoi, timeline])
+  const timelineData = timeline?.aoi === aoi ? timeline.data : null
 
   useEffect(() => {
     if (shown?.status === 'ready' && focusOnArrival.current) {
@@ -205,7 +220,12 @@ export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
 
       {loading && <p>{t('event.loading')}</p>}
       {shown?.status === 'error' && <p role="alert">{t('event.error')}</p>}
-      {shown?.status === 'ready' && <EventAnswer event={shown.event} headingRef={heading} />}
+      {shown?.status === 'ready' && (
+        <>
+          <EventAnswer event={shown.event} headingRef={heading} />
+          {timeline?.data !== null && <PassTimeline timeline={timelineData} event={shown.event} lang={lang} />}
+        </>
+      )}
     </section>
   )
 }

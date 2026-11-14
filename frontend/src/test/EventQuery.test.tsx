@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, vi } from 'vitest'
 import type { EventVerdict } from '../api/client'
@@ -141,7 +141,8 @@ test('repite la última consulta en inglés al cambiar de idioma', async () => {
   await i18n.changeLanguage('en')
   rerender(<EventQuery aoi="parral" lang="en" />)
   expect(await screen.findByText('Reason: no pass occurred')).toBeInTheDocument()
-  expect(fetch).toHaveBeenCalledTimes(2)
+  const events = fetch.mock.calls.filter(([r]) => (typeof r === 'string' ? r : r.url).includes('/events?'))
+  expect(events).toHaveLength(2)
 })
 
 test('si la API rechaza la consulta, avisa y no muestra respuesta', async () => {
@@ -159,4 +160,46 @@ test('sin fecha no consulta', async () => {
   render(<EventQuery aoi="parral" lang="es" />)
   await user.click(screen.getByRole('button', { name: 'Consultar' }))
   expect(fetch).not.toHaveBeenCalled()
+})
+
+const TIMELINE = {
+  aoi: 'parral',
+  published_at_basis: 'cmr_updated',
+  passes: [
+    {
+      series: 'T048A-F015-4005-DHDH-P05023',
+      granule_id: 'G1',
+      acquired_at: '2026-06-29T12:24:34Z',
+      published_at: '2026-07-20T00:00:00Z',
+      latency_hours: 515.6,
+      contains_aoi: true,
+    },
+  ],
+  excluded: [],
+  gaps: [],
+  next_pass_estimates: [],
+}
+
+test('con la respuesta, monta la línea de tiempo con el evento y su supuesto', async () => {
+  const user = userEvent.setup()
+  const fetch = stub((url) => (url.pathname.endsWith('/timeline') ? json(TIMELINE) : json(makeEvent())))
+  render(<EventQuery aoi="parral" lang="es" />)
+  await user.click(screen.getByRole('button', { name: /Probar con la tormenta/ }))
+
+  // La gráfica sale cuando llega el catálogo; antes solo está el título.
+  expect(await screen.findByRole('group', { name: /1 pasada/ })).toBeInTheDocument()
+  expect(document.querySelector('.atlas-linea-evento')).not.toBeNull()
+  expect(document.querySelector('.atlas-linea-supuesto')?.textContent).toContain('Supuesto: el evento dura 24 h')
+  const urls = fetch.mock.calls.map(([r]) => (typeof r === 'string' ? r : (r as Request).url))
+  expect(urls.filter((u) => u.endsWith('/api/catalog/aois/parral/timeline'))).toHaveLength(1)
+})
+
+test('si el catálogo falla, la respuesta del evento sale igual y sin línea de tiempo', async () => {
+  const user = userEvent.setup()
+  stub((url) => (url.pathname.endsWith('/timeline') ? json({ detail: 'down' }, 503) : json(makeEvent())))
+  render(<EventQuery aoi="parral" lang="es" />)
+  await user.click(screen.getByRole('button', { name: /Probar con la tormenta/ }))
+
+  expect(await screen.findByRole('article')).toBeInTheDocument()
+  await waitFor(() => expect(document.querySelector('.atlas-linea')).toBeNull())
 })
