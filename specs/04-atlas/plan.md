@@ -44,6 +44,41 @@ Los campos con `?` faltan cuando `scene` es `null`. Faro hace la conversión des
 | `onPointSelected` | `{ lon, lat }` con 5 decimales | Clic o tecla Enter sobre el mapa |
 | `onViewChanged` | `{ bbox, zoom }` | Al terminar un desplazamiento o zoom |
 
+## Interfaz ampliada (ola 2, T-ATL-11)
+
+Todas las opciones nuevas son **opcionales** (RF-INT-19): un `crearMapa` que solo pase las entradas de arriba funciona igual que en la ola 1, en 2D y sin botones nuevos salvo el de 3D. Las ya disponibles están en [`src/mapa/tipos.ts`](../../frontend/src/mapa/tipos.ts); las que llegan con otra tarea se publican aquí para que Faro programe contra ellas, y entran en `tipos.ts` con su tarea, no antes, para que ningún tipo prometa algo que el mapa aún no hace.
+
+### Entradas
+
+| Opción | Tipo | Por omisión | Estado | Descripción |
+|---|---|---|---|---|
+| `nombreZona` | `string` | «la zona de estudio» | Disponible | Etiqueta de la extensión y nombre accesible del mapa |
+| `causaNoObservable` | `string` | — | Disponible | `verdict.cause_label` si el veredicto es no observable; sale en la leyenda |
+| `desplazamientoEscena` | `"ninguno" \| "sin_corregir" \| "corregido"` | `"ninguno"` | Disponible | `avisoEscena(verdict.evidence.scene_shift)` de `escena.ts` (PR 49). `true` equivale a `"sin_corregir"` |
+| `idioma` | `"es" \| "en"` | `"es"` | Disponible | Textos, leyenda y atribución |
+| `pixelUrl` | `string` | — | Disponible | Ruta de la serie por píxel de la serie activa, con el host delante |
+| `controlCapas` | `boolean` | `true` | Disponible | Selector de capa y opacidad dentro del mapa |
+| `modo3d` | `boolean` | `false` | Disponible (T-ATL-09) | Globo de MapLibre, que pasa a plano desde el zoom 12. Queda en 2D, y lo dice, sin aceleración gráfica, si el globo falla o con el comparador activo |
+| `control3d` | `boolean` | `true` | Disponible (T-ATL-10) | Botón 3D con `aria-pressed` bajo el zoom. `false` si Faro pone el suyo y cambia con `actualizar({ modo3d })` |
+| `relieve` | `{ plantilla: string; exageracion?: number; atribucion: string }` | — | Llega con T-ATL-12 (necesita T-BAL-15) | Plantilla `terrainrgb` del DEM GLO-30 tal como la da la API, con el host delante. `exageracion` por omisión 1; si es otra, el factor se ve en pantalla (RF-INT-12). Solo se aplica en 3D. `atribucion` va al control de atribución |
+| `huellas` | `GeoJSON.FeatureCollection<Polygon, { series: string; track?: number; frame?: number; direction?: "A" \| "D" }>` | — | Llega con T-ATL-13 (necesita T-ANT-17, PR 93) | Una Feature por serie, la de `footprint` de `GET /api/catalog/aois/{aoi}/series` sin tocar. El mapa las pinta en el globo con su nombre (pista y marco). Sin huellas, solo la caja de la zona |
+| `herramientaRectangulo` | `boolean` | `false` | Llega con T-ATL-14 | Herramienta para dibujar un rectángulo de búsqueda (vista Investigador, RF-INT-18) |
+
+### Eventos
+
+| Evento | Carga | Estado | Cuándo |
+|---|---|---|---|
+| `onLayerChanged` | `"state" \| "change_hh" \| "change_hv"` | Disponible | La persona cambia de capa con el selector del mapa |
+| `onModo3dChanged` | `boolean` | Disponible (T-ATL-10) | La persona pulsa el botón 3D del mapa. No salta con `actualizar({ modo3d })` |
+| `onBboxDrawn` | `[oeste, sur, este, norte]` en WGS84 con 5 decimales | Llega con T-ATL-14 | Al terminar de dibujar el rectángulo. Si cruza el antimeridiano, oeste > este, igual que `aoi` |
+
+### Decisiones
+
+- **El mapa abre en 2D por omisión.** Así lo que ya monta Faro no cambia (RF-INT-19). Cada vista decide pasando `modo3d`; 08-interfaz pide que la vista pública abra en globo, y eso lo hace Faro en su vista (T-FAR-18), no el mapa.
+- **Comparador en 3D: fuerza 2D mientras está activo y lo dice** (RF-INT-20, T-ATL-10). Es la opción más simple que no mezcla geometrías. Copiar al mapa óptico la proyección y el relieve queda para cuando haya relieve (T-ATL-12).
+- **Huellas y relieve se pasan tal como los da la API.** Faro solo pone el host del gateway delante de la plantilla de relieve, igual que hace hoy con `layers` (`absoluteTileUrl`); las huellas van sin tocar.
+- **Caja de cada tesela óptica.** Desde el PR 88 de Balanza, `OpticalTileOut` traerá `bbox`. Para usarla como `bounds` de cada fuente en el comparador, `VistaOptica` (`src/types/map.ts`, de Faro) necesita un campo opcional `tileBboxes?: Bbox[]`, en el mismo orden que `tiles`. Lo propongo a Faro; sin él, el comparador sigue acotado a la caja de la zona (T-ATL-08).
+
 ## Leyenda de estados
 
 | Código | Estado | Representación |
