@@ -70,14 +70,17 @@ def _footprint(geometry: dict | None) -> tuple[Point, ...]:
 
 
 def _bbox(feature: dict, footprint: tuple[Point, ...]) -> tuple[float, float, float, float] | None:
-    """La `bbox` del item STAC (la de su huella de datos); si falta, la de la huella. Nunca el cuadrado MGRS entero."""
+    """La `bbox` del item STAC (la de su huella de datos); si falta, la de la huella. Nunca el cuadrado MGRS entero.
+
+    Como en STAC, una caja con oeste > este cruza el antimeridiano y es válida; el mapa la desenrolla.
+    """
     raw = feature.get("bbox")
     if isinstance(raw, list) and len(raw) == 4:
         try:
             west, south, east, north = (float(value) for value in raw)
         except (TypeError, ValueError):
             west = None
-        if west is not None and west <= east and south <= north:
+        if west is not None and south <= north and all(-180 <= lon <= 180 for lon in (west, east)):
             return (west, south, east, north)
     if footprint:
         lons = [lon for lon, _ in footprint]

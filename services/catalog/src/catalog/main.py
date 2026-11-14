@@ -166,8 +166,9 @@ class OpticalTile(BaseModel):
         max_length=4,
         description="Caja de los datos de la escena en WGS84, [oeste, sur, este, norte], tomada del item STAC de "
         "Earth Search: la de su huella de datos, no la del cuadrado MGRS completo, así que una escena de borde de "
-        "franja tiene una caja menor. Sirve como bounds de la fuente en el mapa, para no pedir teselas fuera de "
-        "los datos. null si Earth Search no la da.",
+        "franja tiene una caja menor. Como en STAC, si cruza el antimeridiano el oeste es mayor que el este. Sirve "
+        "como bounds de la fuente en el mapa, para no pedir teselas fuera de los datos. null si Earth Search no "
+        "la da.",
     )
 
 

@@ -285,11 +285,17 @@ def test_parse_feature_keeps_the_stac_bbox_of_the_data_not_the_mgrs_square():
 
 
 def test_parse_feature_falls_back_to_the_footprint_bbox():
-    for broken in (None, [1, 2, 3], ["a", "b", "c", "d"], [-105.0, 26.0, -106.0, 27.0]):
+    for broken in (None, [1, 2, 3], ["a", "b", "c", "d"], [-106.0, 27.0, -105.0, 26.0], [-190.0, 26.0, -105.0, 27.0]):
         item = dict(EARTH_SEARCH_ITEM, bbox=broken)
         assert parse_feature(item).bbox == (-106.00934, 26.12852, -105.70229, 27.1207)
     no_geometry = {key: value for key, value in EARTH_SEARCH_ITEM.items() if key not in ("bbox", "geometry")}
     assert parse_feature(no_geometry).bbox is None
+
+
+def test_bbox_across_the_antimeridian_is_kept_as_stac_gives_it():
+    # Revisión de Atlas en el PR 85: oeste > este es una caja que cruza el antimeridiano, no un error.
+    item = dict(EARTH_SEARCH_ITEM, bbox=[179.5, -17.0, -179.6, -16.0])
+    assert parse_feature(item).bbox == (179.5, -17.0, -179.6, -16.0)
 
 
 def test_optical_api_gives_each_tile_its_bbox_or_null():
