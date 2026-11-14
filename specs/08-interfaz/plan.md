@@ -13,6 +13,16 @@
 - Colores de estado coordinados con la leyenda de Atlas: cambio probable en color sólido; no observable con trama y borde discontinuo; sin cambio, neutro. Nunca solo color (constitución IX.2).
 - Tipografía y escala tipográfica fijas en pocas medidas; la decisión de fuente se anota en MEMORY con su licencia.
 
+### Decisiones de T-FAR-12 (Faro, 2026-11-14)
+
+- **Una sola fuente de verdad:** `frontend/src/tema/tokens.css`. Cada color se declara una vez con `light-dark(claro, oscuro)`, así que el tema oscuro no es una copia que se pueda desincronizar.
+- **Qué tema se usa:** el del sistema (`prefers-color-scheme`), con `color-scheme: light dark` en `:root`. `<html data-tema="claro">` u `"oscuro"` lo fuerza; el botón para elegirlo llega con el selector de vista (T-FAR-13) y la auditoría axe en los dos temas con T-FAR-18.
+- **Islas claras para el mapa:** el mapa y la línea de tiempo de Atlas (`src/mapa/`) tienen colores propios pensados para fondo claro. Hasta que Atlas los pase a variables, su contenedor fija `color-scheme: light` y fondo claro, para que en tema oscuro no quede texto oscuro sobre fondo oscuro. Faro no toca `src/mapa/`.
+- **Colores de estado:** cambio probable `--color-cambio` (naranja quemado), sin cambio `--color-sin-cambio` (verde), no observable `--color-no-observable` (gris) con trama y borde discontinuo, observable (consulta de evento) `--color-acento`. El estado siempre lleva icono y texto.
+- **Tipografía:** Atkinson Hyperlegible Next (Braille Institute, SIL OFL 1.1), diseñada para legibilidad con baja visión, servida desde el propio frontend con `@fontsource/atkinson-hyperlegible-next` (subconjunto latino, pesos 400 y 700). Código en la monoespaciada del sistema. Escala de cinco medidas: `--texto-s` 0,875 rem, `--texto-m` 1 rem, `--texto-l` 1,25 rem, `--texto-xl` 1,5 rem y `--texto-xxl` 1,75 rem.
+- **Espaciado, radios y elevación:** escala de espaciado `--espacio-1` a `--espacio-6` (0,25 a 2,5 rem), radios `--radio-s` y `--radio-m`, y dos sombras `--elevacion-1` y `--elevacion-2`.
+- **Prueba de contraste** (`src/tema/contraste.test.ts`): lee `tokens.css`, resuelve cada variable en claro y en oscuro y comprueba una lista declarada de pares: 4,5:1 en texto, 3:1 en bordes de control, foco e iconos (WCAG 1.4.3 y 1.4.11). Una variable nueva sin par declarado no falla, pero un par que usa una variable inexistente sí.
+
 ## Globo y relieve (Atlas)
 
 - **Proyección.** MapLibre GL JS 6.16.0 admite la proyección de globo sin biblioteca nueva. Comprobado el 2026-11-14 en los tipos de `frontend/node_modules` (observación de Faro en el PR 66): `map.setProjection(projection: ProjectionSpecification)`, cuyo `type` acepta el texto `'globe'` (también `'mercator'` y `'vertical-perspective'`), un estado de transición o una expresión; la librería trae además `GlobeControl`. Se usa `map.setProjection({ type: "globe" })`: `globe` ya pasa a Mercator por dentro al acercarse, así que no hay que escribir la transición (`vertical-perspective` es el globo que no cambia). Corregido el 2026-11-14 por Atlas en el PR 66; los tipos lo dicen («globe projection to fall back to mercator projection in an animated way»). Visto en el navegador por Atlas el 2026-11-14: globo hasta el zoom 11, transición en 11,5 y Mercator desde 12 (detalle en MEMORY).

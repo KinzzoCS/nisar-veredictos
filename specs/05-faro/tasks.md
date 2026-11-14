@@ -21,7 +21,7 @@ Aprobada el 2026-11-14 por las cinco personas (PR 66). Especificaciones en [06-a
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-FAR-12 | [P] Sistema de diseño: variables, tema claro y oscuro, tipografía con licencia compatible y prueba de contraste (RF-INT-01) | P0 | — | pendiente |
+| T-FAR-12 | [P] Sistema de diseño: variables, tema claro y oscuro, tipografía con licencia compatible y prueba de contraste (RF-INT-01) | P0 | — | hecha |
 | T-FAR-13 | Selector de vista y vista Público 80/20, con movimiento reducido (RF-INT-02, 03 y 09) | P0 | T-FAR-12 | pendiente |
 | T-FAR-14 | Vista Estudiante con la explicación de cada campo de la evidencia, revisada por Eco (RF-INT-04) | P1 | T-FAR-13 | pendiente |
 | T-FAR-15 | Vista Investigador: panel denso de evidencia, atajos y enlace al JSON (RF-INT-05) | P1 | T-FAR-13 | pendiente |
