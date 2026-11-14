@@ -31,7 +31,7 @@ Que cualquier persona entienda en menos de un minuto qué pasó, qué no sabemos
 | RF-FAR-06 | WCAG 2.1 AA: contraste, teclado, foco visible y estados no solo por color | P1 |
 | RF-FAR-07 | Glosario y explicación breve de cómo ve el radar | P1 |
 | RF-FAR-08 | Guion de demo de 3 minutos y material para el jurado | P1 |
-| RF-FAR-09 | Prueba rápida con 3 a 5 personas y ajustes resultantes | P2 |
+| RF-FAR-09 | Prueba rápida con 3 a 5 personas y ajustes resultantes ([prueba.md](prueba.md)) | P2 |
 
 ## Criterios de aceptación
 
