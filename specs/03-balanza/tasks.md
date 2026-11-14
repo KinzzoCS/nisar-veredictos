@@ -18,7 +18,7 @@ Aprobada el 2026-11-14 por las cinco personas (PR 66). Especificaciones en [06-a
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-BAL-10 | Gateway con `auth_request`, cabeceras `X-Auth-*` de confianza, POST solo en `/api/auth/` (la comprobación del método pasa del `server` a cada `location`), CORS con `Authorization` nombrada, `AUTH_ENABLED` (0 por omisión) con `auth-on.conf`/`auth-off.conf` en plantilla, y servicio `auth` en el compose (RF-ACC-05 a 07 y 10) | P0 | T-ANT-14 | pendiente |
+| T-BAL-10 | Gateway con `auth_request`, cabeceras `X-Auth-*` de confianza, POST solo en `/api/auth/` (la comprobación del método pasa del `server` a cada `location`), CORS con `Authorization` nombrada, `AUTH_ENABLED` (0 por omisión) con `auth-on.conf`/`auth-off.conf` en plantilla, y servicio `auth` en el compose (RF-ACC-05 a 07 y 10) | P0 | T-ANT-14 | hecha (2026-11-14): `gateway/default.conf.template`, `gateway/auth/`, `gateway/snippets/` y `gateway/15-auth-mode.envsh`; `scripts/smoke.sh` pasa con `AUTH_ENABLED=0` y con `1`. Depende del PR 90 (T-ANT-14) |
 | T-BAL-11 | [P] `GET /search/verdicts`: índice que calcula todos los veredictos al arrancar (hoy no se calculan), `water: not_available` mientras falte el contraste con OPERA, filtros, orden, cursor y permisos por perfil (RF-BUS-01, 03 a 05) | P0 | — | pendiente |
 | T-BAL-12 | Cuotas por perfil en el gateway solo en las rutas nuevas, y cuota estricta por IP en `login` y `register`, medidas con la pila (RF-ACC-09) | P1 | T-BAL-10 | pendiente |
 | T-BAL-13 | Exportación CSV, GeoJSON y JSON con recibo, en streaming (RF-BUS-06) | P1 | T-BAL-11 | pendiente |
