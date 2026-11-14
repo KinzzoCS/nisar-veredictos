@@ -15,6 +15,7 @@
 | T-ANT-11 | Copiar `radarGrid` al recorte para que Eco marque layover y sombra (T-ECO-05) | P0 | — | hecha |
 | T-ANT-12 | Cerrar los criterios de horas UTC en ISO 8601 y de 502 ante fallos externos | P1 | — | hecha |
 | T-ANT-13 | Sacar la caja de cada tesela OPERA (`bbox`) en `/references/opera`, para que Atlas sitúe `browse_url` en el mapa | P1 | T-ANT-06 | hecha |
+| T-ANT-19 | Sacar la caja de los datos de cada tesela Sentinel-2 (`bbox`) en `/references/optical`, para que Atlas la use como `bounds` y no pida teselas fuera de su huella (T-ATL-08); Balanza la pasa a `OpticalTileOut` | P2 | T-ANT-05 | hecha |
 
 ## Ola 2: acceso, búsqueda e interfaz
 

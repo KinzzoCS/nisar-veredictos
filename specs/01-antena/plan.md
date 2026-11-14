@@ -13,7 +13,7 @@
 | Ruta | Respuesta |
 |---|---|
 | `GET /aois/{id}/timeline` | `passes[]` con `series`, `granule_id`, `acquired_at` (UTC), `published_at`, `latency_hours` y `contains_aoi`; `intervals[]` por serie con `days` y `crosses_gap`; `gaps[]`; `next_pass_estimates[]`, una por serie, con `basis: "12-day cycle"`; `published_at_basis: "cmr_updated"` |
-| `GET /aois/{id}/references/optical?date=&days=&max_cloud=` | `acquisitions[]` de Sentinel-2 L2A agrupadas por satélite y día, con `acquired_at`, `days_from_date`, `covers_aoi`, `max_cloud_cover` y `tiles[]` (`id`, `tile`, `cloud_cover`, `visual_url` del COG TCI); además `license`, `license_url`, `attribution` y `cloud_cover_basis: "tile"`. Por defecto `days=7` (máx. 30) y `max_cloud=30`, valor inicial sin calibrar |
+| `GET /aois/{id}/references/optical?date=&days=&max_cloud=` | `acquisitions[]` de Sentinel-2 L2A agrupadas por satélite y día, con `acquired_at`, `days_from_date`, `covers_aoi`, `max_cloud_cover` y `tiles[]` (`id`, `tile`, `cloud_cover`, `visual_url` del COG TCI y `bbox` de los datos de la escena, para usarla como `bounds` en el mapa); además `license`, `license_url`, `attribution` y `cloud_cover_basis: "tile"`. Por defecto `days=7` (máx. 30) y `max_cloud=30`, valor inicial sin calibrar |
 | `GET /aois/{id}/references/opera?date=&days=` | `acquisitions[]` de DSWx-S1 agrupadas por pasada de Sentinel-1. Detalle en "Referencias OPERA DSWx-S1" |
 
 Son cambios aditivos de `contracts/catalog.openapi.json`. Hay que avisar a Balanza y a Atlas en el PR.

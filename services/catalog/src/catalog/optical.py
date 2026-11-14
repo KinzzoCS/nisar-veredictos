@@ -29,6 +29,8 @@ class Scene:
     cloud_cover: float
     visual_url: str
     footprint: tuple[Point, ...] = ()
+    # Caja de los datos de la escena en WGS84, [oeste, sur, este, norte]; None si Earth Search no la da.
+    bbox: tuple[float, float, float, float] | None = None
 
     @property
     def base_id(self) -> str:
@@ -67,11 +69,32 @@ def _footprint(geometry: dict | None) -> tuple[Point, ...]:
     return tuple((float(lon), float(lat)) for lon, lat in geometry["coordinates"][0])
 
 
+def _bbox(feature: dict, footprint: tuple[Point, ...]) -> tuple[float, float, float, float] | None:
+    """La `bbox` del item STAC (la de su huella de datos); si falta, la de la huella. Nunca el cuadrado MGRS entero.
+
+    Como en STAC, una caja con oeste > este cruza el antimeridiano y es válida; el mapa la desenrolla.
+    """
+    raw = feature.get("bbox")
+    if isinstance(raw, list) and len(raw) == 4:
+        try:
+            west, south, east, north = (float(value) for value in raw)
+        except (TypeError, ValueError):
+            west = None
+        if west is not None and south <= north and all(-180 <= lon <= 180 for lon in (west, east)):
+            return (west, south, east, north)
+    if footprint:
+        lons = [lon for lon, _ in footprint]
+        lats = [lat for _, lat in footprint]
+        return (min(lons), min(lats), max(lons), max(lats))
+    return None
+
+
 def parse_feature(feature: dict) -> Scene | None:
     visual = feature.get("assets", {}).get("visual", {}).get("href", "")
     props = feature.get("properties", {})
     if not visual.startswith("https://") or "datetime" not in props:
         return None
+    footprint = _footprint(feature.get("geometry"))
     return Scene(
         id=feature["id"],
         platform=props.get("platform", ""),
@@ -79,7 +102,8 @@ def parse_feature(feature: dict) -> Scene | None:
         acquired_at=_parse_time(props["datetime"]),
         cloud_cover=float(props.get("eo:cloud_cover", 100.0)),
         visual_url=visual,
-        footprint=_footprint(feature.get("geometry")),
+        footprint=footprint,
+        bbox=_bbox(feature, footprint),
     )
 
 

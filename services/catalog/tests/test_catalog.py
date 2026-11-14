@@ -267,6 +267,48 @@ def test_parse_feature_reads_earth_search_item():
     assert parse_feature({"id": "x", "properties": {}, "assets": {}}) is None
 
 
+EARTH_SEARCH_ITEM = {
+    # S2A_13RDK_20260812_1_L2A de Earth Search (2026-11-14): escena de borde de franja, con datos solo en el oeste.
+    "id": "S2A_13RDK_20260812_1_L2A",
+    "bbox": [-106.00934, 26.12852, -105.70229, 27.12071],
+    "geometry": {"type": "Polygon", "coordinates": [[[-106.00934, 26.12852], [-105.70229, 26.12852],
+                                                     [-105.70229, 27.1207], [-106.00934, 27.1207],
+                                                     [-106.00934, 26.12852]]]},
+    "properties": {"datetime": "2026-08-12T17:56:00Z", "platform": "sentinel-2a",
+                   "grid:code": "MGRS-13RDK", "eo:cloud_cover": 7.6},
+    "assets": {"visual": {"href": "https://sentinel-cogs.s3.us-west-2.amazonaws.com/x/TCI.tif"}},
+}
+
+
+def test_parse_feature_keeps_the_stac_bbox_of_the_data_not_the_mgrs_square():
+    assert parse_feature(EARTH_SEARCH_ITEM).bbox == (-106.00934, 26.12852, -105.70229, 27.12071)
+
+
+def test_parse_feature_falls_back_to_the_footprint_bbox():
+    for broken in (None, [1, 2, 3], ["a", "b", "c", "d"], [-106.0, 27.0, -105.0, 26.0], [-190.0, 26.0, -105.0, 27.0]):
+        item = dict(EARTH_SEARCH_ITEM, bbox=broken)
+        assert parse_feature(item).bbox == (-106.00934, 26.12852, -105.70229, 27.1207)
+    no_geometry = {key: value for key, value in EARTH_SEARCH_ITEM.items() if key not in ("bbox", "geometry")}
+    assert parse_feature(no_geometry).bbox is None
+
+
+def test_bbox_across_the_antimeridian_is_kept_as_stac_gives_it():
+    # Revisión de Atlas en el PR 85: oeste > este es una caja que cruza el antimeridiano, no un error.
+    item = dict(EARTH_SEARCH_ITEM, bbox=[179.5, -17.0, -179.6, -16.0])
+    assert parse_feature(item).bbox == (179.5, -17.0, -179.6, -16.0)
+
+
+def test_optical_api_gives_each_tile_its_bbox_or_null():
+    with_box = parse_feature(EARTH_SEARCH_ITEM)
+    without_box = scene("13RCK", "20260812", 3.0, "sentinel-2a")
+    body = optical_client(SceneList([with_box, without_box])).get(
+        "/aois/parral/references/optical?date=2026-08-12&max_cloud=100"
+    ).json()
+    tiles = {tile["tile"]: tile for acq in body["acquisitions"] for tile in acq["tiles"]}
+    assert tiles["13RDK"]["bbox"] == [-106.00934, 26.12852, -105.70229, 27.12071]
+    assert tiles["13RCK"]["bbox"] is None
+
+
 def test_window_is_whole_utc_days_both_ends_included():
     start, end = window(datetime(2026, 7, 1).date(), 7)
     assert start == datetime(2026, 6, 24, tzinfo=timezone.utc)
