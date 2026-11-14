@@ -307,6 +307,9 @@ class Index:
     text: TextIndex | None = None
     # Serie de cada fila en catalog: (track, dirección, marco), para buscar su huella.
     series_keys: dict[tuple[str, str], tuple[int, str, int]] = field(default_factory=dict)
+    # Caja de la zona de cada serie (bbox del manifiesto) y veredicto completo de cada fila, para exportar.
+    series_bbox: dict[tuple[str, str], list[float]] = field(default_factory=dict)
+    verdicts: dict = field(default_factory=dict)
 
 
 def water_row(evidence, included: bool) -> WaterRow:

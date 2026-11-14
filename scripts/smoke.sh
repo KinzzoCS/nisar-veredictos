@@ -296,6 +296,15 @@ for role_header in "" "X-Auth-Role: researcher"; do
   check "búsqueda: required_role" search "assert d['required_role'] == 'student', d"
 done
 covered verdicts "/search/verdicts"
+# Exportación (T-BAL-13): solo researcher. Sin token, 403 con required_role researcher, también con la cabecera
+# falsificada. Con token de researcher, en "Acceso" si está T-BAL-16.
+for role_header in "" "X-Auth-Role: researcher"; do
+  code=$(curl -s -o "$TMP/export.json" -w '%{http_code}' ${role_header:+-H "$role_header"} \
+    "$BASE/api/verdicts/search/verdicts/export?format=csv")
+  test "$code" = "403" || fail "exportación sin token respondió $code con '${role_header:-sin cabecera}'"
+  check "exportación: required_role" export "assert d['required_role'] == 'researcher', d"
+done
+covered verdicts "/search/verdicts/export"
 
 # --- Teselas ----------------------------------------------------------------
 

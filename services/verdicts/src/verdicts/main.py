@@ -7,16 +7,17 @@ import os
 import threading
 import datetime as dt
 from contextlib import asynccontextmanager
+from dataclasses import dataclass
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from typing import Callable, Literal
 from urllib.parse import quote
 
-from fastapi import FastAPI, Header, HTTPException, Query, Request
-from fastapi.responses import JSONResponse
+from fastapi import Depends, FastAPI, Header, HTTPException, Query, Request
+from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
-from . import narrative, optical, quality, rules, search, water
+from . import export, narrative, optical, quality, rules, search, water
 from .catalog import (
     CatalogUnavailable,
     FootprintSource,
@@ -1017,14 +1018,18 @@ def create_app(
         rows: list[search.SearchResult] = []
         docs: dict[str, dict[search.Key, str]] = {lang: {} for lang in search.LANGS}
         series_keys: dict[tuple[str, str], tuple[int, str, int]] = {}
+        series_bbox: dict[tuple[str, str], list[float]] = {}
+        full: dict[search.Key, Verdict] = {}
         for aoi in store.aois():
             for manifest in store.manifests(aoi):
                 info = manifest["series"]
                 series_keys[(manifest["aoi"], info["id"])] = (int(info["track"]), info["direction"], int(info["frame"]))
+                series_bbox[(manifest["aoi"], info["id"])] = list(manifest["bbox"])
                 for lang in search.LANGS:
                     for verdict in series_verdicts(manifest, lang, include_water):
                         if lang == "es":
                             rows.append(search.row_from_verdict(verdict, include_water))
+                            full[(verdict.aoi, verdict.series, verdict.id)] = verdict
                         docs[lang][(verdict.aoi, verdict.series, verdict.id)] = search.verdict_text(verdict)
         text = search.TextIndex(docs)
         with index_lock:
@@ -1032,7 +1037,7 @@ def create_app(
             generation = previous.generation + 1 if previous is not None else 1
             built = search.Index(
                 rows=rows, water_included=include_water, built_at=now(), generation=generation, text=text,
-                series_keys=series_keys,
+                series_keys=series_keys, series_bbox=series_bbox, verdicts=full,
             )
             index_state["index"] = built
         log.info("Índice de búsqueda: %d veredictos, contraste con OPERA %s", len(rows),
@@ -1215,22 +1220,17 @@ def create_app(
     def denied(required: search.Role, why: str) -> JSONResponse:
         return JSONResponse(status_code=403, content={"detail": why, "required_role": required})
 
-    @app.get(
-        "/search/verdicts",
-        response_model=search.SearchPage,
-        responses={
-            400: {"description": "Cursor ilegible, de otra consulta o de un índice anterior."},
-            422: {"description": "Parámetro no válido, p. ej. un bbox mal formado."},
-            403: {"model": search.AccessDenied, "description": "Perfil insuficiente; required_role dice cuál hace falta."},
-        },
-        openapi_extra={"security": [{"bearerAuth": []}], "x-required-role": "student"},
-        summary="Búsqueda de veredictos (student y researcher)",
-        description="Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila "
-        "copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin los filtros de calidad "
-        "y de ruido ni el orden por ruido, y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados "
-        "devuelve una lista vacía con total 0, nunca 404.",
-    )
-    def search_verdicts(
+    @dataclass
+    class SearchRequest:
+        """Consulta común a la búsqueda y a la exportación, ya interpretada. denied: 403 que hay que devolver."""
+
+        role: search.Role
+        filters: search.Filters
+        sort: str
+        order: str
+        denied: JSONResponse | None = None
+
+    def search_request(
         x_auth_role: str | None = Header(None, include_in_schema=False),
         aoi: str | None = Query(None, description="Zona."),
         series_id: str | None = Query(None, description="Serie, p. ej. T048A-F015."),
@@ -1285,12 +1285,12 @@ def create_app(
             "sin ruido van al final en los dos sentidos.",
         ),
         order: Literal["asc", "desc"] = Query("desc"),
-        limit: int = Query(search.DEFAULT_LIMIT, ge=1, le=search.PAGE_LIMIT["researcher"]),
-        cursor: str | None = Query(None, description="next_cursor de la página anterior, con la misma consulta."),
-    ):
+    ) -> SearchRequest:
         role = search.role_from_header(x_auth_role)
+        empty = search.Filters()
         if role == "public":
-            return denied("student", "La búsqueda pide una cuenta de estudiante o de investigación.")
+            return SearchRequest(role, empty, sort, order,
+                                 denied("student", "La búsqueda pide una cuenta de estudiante o de investigación."))
         try:
             area = search.parse_bbox(bbox) if bbox is not None else None
         except ValueError as exc:
@@ -1307,21 +1307,53 @@ def create_app(
         if role != "researcher":
             used = [name for name in search.RESEARCHER_FILTERS if getattr(filters, name) is not None]
             if used:
-                return denied("researcher", f"Filtro solo para investigación: {', '.join(used)}.")
+                return SearchRequest(role, filters, sort, order,
+                                     denied("researcher", f"Filtro solo para investigación: {', '.join(used)}."))
             if sort in search.RESEARCHER_SORTS:
-                return denied("researcher", f"Ordenar por {sort} es solo para investigación.")
-            if limit > search.PAGE_LIMIT[role]:
-                return denied(
-                    "researcher", f"Más de {search.PAGE_LIMIT[role]} resultados por página es solo para investigación."
-                )
+                return SearchRequest(role, filters, sort, order,
+                                     denied("researcher", f"Ordenar por {sort} es solo para investigación."))
+        return SearchRequest(role, filters, sort, order)
+
+    def run_search(request: SearchRequest) -> tuple[search.Index, list[search.SearchResult], dict]:
+        """Filas que cumplen la consulta, ya ordenadas, y las que no se pudieron evaluar."""
         index = current_index()
+        filters = request.filters
         text_hits = None
-        if q is not None:
-            text_hits = index.text.match(q, lang) if index.text is not None else set()
+        if filters.q is not None:
+            text_hits = index.text.match(filters.q, filters.lang or "es") if index.text is not None else set()
         matched, not_evaluated = search.apply(
-            index.rows, filters, text_hits, footprints_for(index) if area is not None else None
+            index.rows, filters, text_hits, footprints_for(index) if filters.bbox is not None else None
         )
-        ordered = search.order(matched, sort, order)
+        return index, search.order(matched, request.sort, request.order), not_evaluated
+
+    @app.get(
+        "/search/verdicts",
+        response_model=search.SearchPage,
+        responses={
+            400: {"description": "Cursor ilegible, de otra consulta o de un índice anterior."},
+            422: {"description": "Parámetro no válido, p. ej. un bbox mal formado."},
+            403: {"model": search.AccessDenied, "description": "Perfil insuficiente; required_role dice cuál hace falta."},
+        },
+        openapi_extra={"security": [{"bearerAuth": []}], "x-required-role": "student"},
+        summary="Búsqueda de veredictos (student y researcher)",
+        description="Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila "
+        "copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin los filtros de calidad "
+        "y de ruido ni el orden por ruido, y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados "
+        "devuelve una lista vacía con total 0, nunca 404.",
+    )
+    def search_verdicts(
+        request: SearchRequest = Depends(search_request),
+        limit: int = Query(search.DEFAULT_LIMIT, ge=1, le=search.PAGE_LIMIT["researcher"]),
+        cursor: str | None = Query(None, description="next_cursor de la página anterior, con la misma consulta."),
+    ):
+        if request.denied is not None:
+            return request.denied
+        role, filters, sort, order = request.role, request.filters, request.sort, request.order
+        if role != "researcher" and limit > search.PAGE_LIMIT[role]:
+            return denied(
+                "researcher", f"Más de {search.PAGE_LIMIT[role]} resultados por página es solo para investigación."
+            )
+        index, ordered, not_evaluated = run_search(request)
         print_ = search.fingerprint(filters, sort, order)
         try:
             offset = search.decode_cursor(cursor, print_, index.generation) if cursor else 0
@@ -1337,6 +1369,70 @@ def create_app(
                 not_evaluated=not_evaluated, water_contrast="included" if index.water_included else "pending",
                 indexed_at=index.built_at,
             ),
+        )
+
+    @app.get(
+        "/search/verdicts/export",
+        responses={
+            200: {
+                "description": "Archivo en streaming. CSV: una fila por veredicto, la consulta en las cabeceras "
+                "X-Export-*. JSON: {metadata, results}. GeoJSON: FeatureCollection con metadata y la caja de la "
+                "zona como geometría de cada Feature.",
+                "content": {"text/csv": {}, "application/json": {}, "application/geo+json": {}},
+            },
+            403: {"model": search.AccessDenied, "description": "Solo researcher; required_role dice cuál hace falta."},
+            422: {"description": "Parámetro no válido, p. ej. un bbox mal formado."},
+        },
+        openapi_extra={"security": [{"bearerAuth": []}], "x-required-role": "researcher"},
+        summary="Exportación de la búsqueda de veredictos (researcher)",
+        description="Los mismos filtros y orden que /search/verdicts, sin paginar (RF-BUS-06). Cada fila copia el "
+        "veredicto completo: data_kind, los dos granule_id, interval_days, la regla de decisión con sus umbrales y "
+        "calibrated, y los supuestos declarados (assumptions, todos sin calibrar salvo que digan lo contrario). La "
+        "consulta, el perfil, la hora y el total van en metadata (JSON y GeoJSON) y en las cabeceras X-Export-*.",
+    )
+    def export_verdicts(
+        format: export.Format = Query(..., description="csv, geojson o json."),
+        request: SearchRequest = Depends(search_request),
+    ):
+        if request.role != "researcher":
+            return denied("researcher", "La exportación es solo para investigación.")
+        if request.denied is not None:
+            return request.denied
+        index, ordered, not_evaluated = run_search(request)
+        generated = now()
+        metadata = {
+            "export_version": export.EXPORT_VERSION,
+            "generated_at": generated.isoformat().replace("+00:00", "Z"),
+            "indexed_at": index.built_at.isoformat().replace("+00:00", "Z"),
+            "total": len(ordered),
+            "data_kinds": sorted({row.data_kind for row in ordered}),
+            "query": {"filters": request.filters.applied(), "sort": request.sort, "order": request.order,
+                      "role": request.role},
+            "not_evaluated": {name: item.model_dump() for name, item in not_evaluated.items()},
+            "water_contrast": "included" if index.water_included else "pending",
+            "source": "/search/verdicts/export de verdicts (nisar-veredictos, GPL-3.0-only)",
+            "notice": "Cada fila copia un veredicto completo, que es la referencia: verdict_path lleva a él. Los "
+            "umbrales no se han contrastado con verdad de campo (decision_calibrated y assumptions). Las filas con "
+            "data_kind synthetic son datos sintéticos, no observaciones.",
+        }
+
+        def records():
+            for row in ordered:
+                key = search.row_key(row)
+                yield export.record(row, index.verdicts[key]), export.bbox_polygon(
+                    index.series_bbox.get((row.aoi, row.series_id))
+                )
+
+        if format == "csv":
+            body = export.stream_csv(item for item, _ in records())
+        elif format == "json":
+            body = export.stream_json(metadata, (item for item, _ in records()))
+        else:
+            body = export.stream_geojson(metadata, records())
+        return StreamingResponse(
+            (chunk.encode("utf-8") for chunk in body),
+            media_type=export.MEDIA_TYPES[format],
+            headers=export.headers(format, metadata, generated),
         )
 
     def openapi_with_security() -> dict:
