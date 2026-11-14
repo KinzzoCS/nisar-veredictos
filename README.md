@@ -2,7 +2,7 @@
 
 Convierte datos radar NISAR en respuestas claras sobre cambios en la superficie: qué cambió, qué no se detectó y qué no se puede saber.
 
-> Los datos actuales son **sintéticos**. Prueban el sistema y no describen ningún lugar real.
+> **Datos reales y sintéticos.** Los datos no se suben al repositorio. Una copia recién clonada genera datos **sintéticos**, que prueban el sistema y no describen ningún lugar real. La demo usa dos series **reales** de NISAR sobre Hidalgo del Parral, que se traen con una cuenta de Earthdata (ver [Datos reales](#datos-reales)). Cada respuesta dice cuál es en `data_kind`, y la interfaz lo muestra.
 
 ## Arranque rápido
 
@@ -12,7 +12,7 @@ Necesitas Docker con su motor en marcha.
 docker compose up --build
 ```
 
-La API queda en `http://localhost:8080`:
+La aplicación queda en `http://localhost:3000`, y la API en `http://localhost:8080`:
 
 | Ruta | Servicio |
 |---|---|
@@ -75,4 +75,13 @@ Después se generan los artefactos. Esto reemplaza los sintéticos de esa serie:
 docker compose run --rm process --aoi parral --series T048A-F015 --input /data/raw/real/parral/T048A-F015
 ```
 
-Para volver a sintéticos, borra `data/artifacts/parral/T048A-F015` y levanta la pila otra vez.
+Para la serie completa, quita `--limit 2`. La demo usa las dos series de Parral, de junio a octubre de 2026:
+
+| Serie | Órbita | Fechas |
+|---|---|---|
+| `T048A-F015` | Ascendente | 10 |
+| `T171D-F075` | Descendente | 8 |
+
+T171 tiene una novena fecha, el 2026-08-13, que `config/aois/parral.yaml` excluye por un defecto del propio producto. `fetch` no la trae y `process` la salta. Cada fecha tarda unos 6 minutos en bajar y ocupa unos 340 MB.
+
+Para volver a sintéticos, borra `data/artifacts/parral/<serie>` y levanta la pila otra vez.
