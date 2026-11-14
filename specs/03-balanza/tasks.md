@@ -11,6 +11,7 @@
 | T-BAL-07 | Reflejar las banderas de calidad de Eco en textos y recibo, y avisar del desplazamiento de la escena | P1 | T-ECO-03 | hecha |
 | T-BAL-08 | Contraste con OPERA DSWx-S1 | P1 | T-ANT-06, cuenta de Earthdata | hecha; probada con radar real y token el 2026-11-12 |
 | T-BAL-09 | Calibrar reglas con datos reales | P1 | T-ECO-07 | hecha: 5 % fijado con el ruido de 16 pares reales; el resto queda como supuesto declarado |
+| T-BAL-19 | Pasar la caja `bbox` de cada tesela Sentinel-2 de catalog a `OpticalTileOut`, para que el mapa la use como `bounds` (T-ATL-08) | P2 | T-ANT-19 | hecha |
 
 ## Ola 2: acceso, búsqueda e interfaz
 

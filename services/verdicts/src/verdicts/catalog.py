@@ -122,6 +122,8 @@ class OpticalTile:
     tile: str
     cloud_cover: float
     visual_url: str
+    # Caja de los datos de la escena (no del cuadrado MGRS), [oeste, sur, este, norte]; None si catalog no la da.
+    bbox: tuple[float, float, float, float] | None = None
 
 
 @dataclass(frozen=True)
@@ -152,7 +154,12 @@ def _parse_optical(body: dict) -> OpticalReference:
     acquisitions = []
     for item in body["acquisitions"]:
         tiles = tuple(
-            OpticalTile(tile=str(tile["tile"]), cloud_cover=float(tile["cloud_cover"]), visual_url=tile["visual_url"])
+            OpticalTile(
+                tile=str(tile["tile"]),
+                cloud_cover=float(tile["cloud_cover"]),
+                visual_url=tile["visual_url"],
+                bbox=_tile_bbox(tile.get("bbox")),
+            )
             for tile in item["tiles"]
             if str(tile["visual_url"]).startswith("https://")
         )

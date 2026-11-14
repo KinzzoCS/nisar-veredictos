@@ -544,6 +544,57 @@ def test_http_optical_asks_without_cloud_limit_parses_and_caches():
     assert len(requests) == 2
 
 
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        # S2A_13RDK_20260812_1_L2A, escena de borde de franja: caja de los datos, no del cuadrado MGRS (T-ANT-19).
+        ([-106.00934, 26.12852, -105.70229, 27.12071], (-106.00934, 26.12852, -105.70229, 27.12071)),
+        ([179.5, -17.0, -179.5, -16.0], (179.5, -17.0, -179.5, -16.0)),  # cruza el antimeridiano: no se reordena
+        (None, None),  # catalog anterior a T-ANT-19, sin el campo
+        ([1, 2, 3], None),
+        (["a", 0, 1, 2], None),
+        ([0, 10, 1, 5], None),  # sur > norte
+        ([0, 5, 1, 5], None),  # caja plana
+        ([0, 0, 200, 1], None),
+        ([float("-inf"), 26.0, -105.0, 27.0], None),
+    ],
+)
+def test_http_optical_passes_tile_bbox_through_or_drops_it(value, expected):
+    body = _optical_body()
+    tile = body["acquisitions"][0]["tiles"][0]
+    if value is None:
+        tile.pop("bbox", None)
+    else:
+        tile["bbox"] = value
+    content = json.dumps(body, allow_nan=True).encode()  # -inf no es JSON estricto, pero así se prueba el filtro
+    source = HttpOptical(
+        "http://catalog:8000/",
+        httpx.Client(transport=httpx.MockTransport(
+            lambda request: httpx.Response(200, content=content, headers={"content-type": "application/json"})
+        )),
+        lambda: 0.0,
+    )
+    assert source.scenes("parral", JUNE_29, 10).acquisitions[0].tiles[0].bbox == expected
+
+
+def test_verdict_gives_each_optical_tile_its_bbox_or_null(manifest_root):
+    box = (-106.00934, 26.12852, -105.70229, 27.12071)
+    day = date(2026, 7, 13)
+    with_box = OpticalAcquisition(
+        platform="sentinel-2a", acquired_at=datetime(2026, 7, 13, 17, 56, tzinfo=timezone.utc), covers_aoi=True,
+        max_cloud_cover=4.0,
+        tiles=(
+            OpticalTile("13RCK", 4.0, f"{S2}/{day.year}/{day.month}/S2A_13RCK_20260713_0_L2A/TCI.tif"),
+            OpticalTile("13RDK", 3.0, f"{S2}/{day.year}/{day.month}/S2A_13RDK_20260713_0_L2A/TCI.tif", box),
+        ),
+    )
+    source = FakeOptical((_acq(date(2026, 6, 28), 5), with_box))
+    body = TestClient(create_app(manifest_root, clock=_clock, optical_source=source)).get(VERDICT).json()
+    tiles = {tile["tile"]: tile for tile in body["evidence"]["optical"]["after"]["scene"]["tiles"]}
+    assert tiles["13RDK"]["bbox"] == list(box)
+    assert tiles["13RCK"]["bbox"] is None
+
+
 def test_http_optical_failure_is_cached_briefly():
     calls = []
 

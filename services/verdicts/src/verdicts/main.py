@@ -131,6 +131,15 @@ class OpticalTileOut(BaseModel):
     cloud_cover: float = Field(description="Porcentaje de nubes de la tesela completa, no de la zona.")
     visual_url: str = Field(description="COG en color verdadero (TCI) en el bucket público de Sentinel-2.")
     tile_url: str = Field(description="Plantilla XYZ por el gateway: TiTiler lee visual_url.")
+    bbox: list[float] | None = Field(
+        default=None,
+        min_length=4,
+        max_length=4,
+        description="Caja de los datos de la escena en WGS84, [oeste, sur, este, norte], vía catalog: la del item STAC "
+        "de Earth Search o, si falta, la de su huella; no la del cuadrado MGRS completo. Sirve como bounds de la "
+        "fuente en el mapa, para no pedir teselas fuera de los datos. Si oeste > este, cruza el antimeridiano. "
+        "null si catalog no la da o no es válida.",
+    )
 
 
 class OpticalScene(BaseModel):
@@ -469,6 +478,7 @@ def _optical_side(
                     cloud_cover=tile.cloud_cover,
                     visual_url=tile.visual_url,
                     tile_url=_optical_tile_url(tile.visual_url),
+                    bbox=list(tile.bbox) if tile.bbox else None,
                 )
                 for tile in acq.tiles
             ],
