@@ -10,7 +10,14 @@ import { crearComparador, type Comparador } from "./comparador";
 import { normalizarAvisoEscena } from "./escena";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { ladoDisponible } from "./optico";
-import { bboxContinuo, contornoZona, estiloMapaBase, textoExtension, validarBbox } from "./mapaBase";
+import {
+  atribuciones,
+  bboxContinuo,
+  contornoZona,
+  estiloMapaBase,
+  textoExtension,
+  validarBbox,
+} from "./mapaBase";
 import { OPACIDAD_MINIMA_TRAMA } from "./estado";
 import { plantillaEstado } from "./protocolo";
 import {
@@ -26,8 +33,6 @@ import type { Bbox, CambiosMapa, CapaRadar, MapaAtlas, OpcionesMapa } from "./ti
 
 maplibregl.setWorkerUrl(workerUrl);
 
-const ATRIBUCION_NISAR =
-  'Radar: <a href="https://nisar.jpl.nasa.gov/" target="_blank" rel="noopener">NASA/ISRO NISAR</a> (GCOV)';
 const CAPA_ENCIMA = "aoi-contorno-halo";
 const IDS_RADAR = ["radar-state", "radar-change_hh", "radar-change_hv", "radar-trama"] as const;
 
@@ -75,7 +80,19 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   map.touchZoomRotate.disableRotation();
   map.keyboard.disableRotation();
 
-  map.addControl(new maplibregl.AttributionControl({ compact: false }), "bottom-right");
+  // La atribución se monta con textos propios para que siga al idioma y al tipo de dato.
+  let atribucion: maplibregl.AttributionControl | null = null;
+  let atribucionActual = "";
+  function ponerAtribucion() {
+    const textos = atribuciones(estado.idioma, Boolean(estado.layers) && estado.dataKind === "real");
+    const clave = textos.join("|");
+    if (atribucion && clave === atribucionActual) return;
+    if (atribucion) map.removeControl(atribucion);
+    atribucion = new maplibregl.AttributionControl({ compact: false, customAttribution: textos });
+    map.addControl(atribucion, "bottom-right");
+    atribucionActual = clave;
+  }
+  ponerAtribucion();
   map.addControl(new maplibregl.ScaleControl({ unit: "metric", maxWidth: 120 }), "bottom-left");
   map.addControl(new maplibregl.NavigationControl({ showCompass: false }), "top-right");
 
@@ -203,8 +220,6 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   function aplicarCapas() {
     quitarCapasRadar();
     if (!estado.layers) return;
-    // Solo se atribuye NISAR cuando el dato es real (constitución II.2 y VIII.2).
-    const attribution = estado.dataKind === "real" ? ATRIBUCION_NISAR : undefined;
     const fuentes: Record<(typeof IDS_RADAR)[number], string> = {
       "radar-state": plantillaEstado(estado.layers.state, "cambio"),
       "radar-change_hh": estado.layers.change_hh,
@@ -212,7 +227,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       "radar-trama": plantillaEstado(estado.layers.state, "trama"),
     };
     for (const id of IDS_RADAR) {
-      map.addSource(id, { type: "raster", tiles: [fuentes[id]], tileSize: 256, attribution });
+      map.addSource(id, { type: "raster", tiles: [fuentes[id]], tileSize: 256 });
       const categorica = id === "radar-state" || id === "radar-trama";
       map.addLayer(
         {
@@ -316,6 +331,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       const recargar = "layers" in c || (c.dataKind && c.dataKind !== estado.dataKind);
       if ("layers" in c) estado.layers = c.layers;
       if (c.dataKind) estado.dataKind = c.dataKind;
+      if (c.idioma || "layers" in c || c.dataKind) ponerAtribucion();
       // La fuente "aoi" existe desde el evento load; antes, load ya aplicará las capas.
       if (recargar && map.getSource("aoi")) aplicarCapas();
       else aplicarVisibilidad();
