@@ -11,7 +11,7 @@
 | T-FAR-07 | Español e inglés, y WCAG 2.1 AA | P1 | T-FAR-02 | hecha (PR 69) |
 | T-FAR-08 | Glosario y explicación del radar | P1 | — | hecha |
 | T-FAR-09 | Guion de demo y material para el jurado | P1 | T-FAR-06 | hecha (PR 78) |
-| T-FAR-10 | Prueba rápida con 3 a 5 personas | P2 | T-FAR-06 | pendiente |
+| T-FAR-10 | Prueba rápida con 3 a 5 personas | P2 | T-FAR-06 | fuera del hackathon: pasa a la ola 2 como T-FAR-20 (decisión de Faro, 2026-11-14) |
 | T-FAR-11 | Levantar el frontend con `docker compose up --build` en `http://localhost:3000` | P1 | T-FAR-05 | hecha |
 | T-FAR-19 | Montar la línea de tiempo de Atlas bajo la respuesta de la consulta de evento: el timeline del catálogo se pide una vez por zona y la respuesta del evento se pasa tal cual; si el catálogo falla, la respuesta sale igual | P1 | T-ATL-06, T-FAR-03 | hecha |
 
@@ -28,3 +28,4 @@ Aprobada el 2026-11-14 por las cinco personas (PR 66). Especificaciones en [06-a
 | T-FAR-16 | Inicio de sesión, registro, renovación silenciosa y cierre de sesión (RF-INT-06) | P1 | T-ANT-14, T-BAL-10 | pendiente |
 | T-FAR-17 | Pantalla de búsqueda con `data_kind` por fila, exportación y explicación de los 403 (RF-INT-07) | P1 | T-BAL-11, T-FAR-16 | pendiente |
 | T-FAR-18 | Medir el presupuesto de rendimiento y la auditoría axe en las tres vistas, en 2D y 3D (RF-INT-08) | P1 | T-FAR-13, T-ATL-10 | pendiente |
+| T-FAR-20 | Prueba rápida con 3 a 5 personas y ajustes resultantes, con el protocolo de [prueba.md](prueba.md) (antes T-FAR-10, RF-FAR-09) | P2 | T-FAR-06 | pendiente: protocolo listo (PR 79), faltan las sesiones |

@@ -31,7 +31,7 @@ Que cualquier persona entienda en menos de un minuto qué pasó, qué no sabemos
 | RF-FAR-06 | WCAG 2.1 AA: contraste, teclado, foco visible y estados no solo por color | Hecho (T-FAR-07, PR 69) |
 | RF-FAR-07 | Glosario y explicación breve de cómo ve el radar | Hecho (T-FAR-08) |
 | RF-FAR-08 | Guion de demo de 3 minutos y material para el jurado ([demo.md](demo.md)) | Hecho (T-FAR-09, PR 78) |
-| RF-FAR-09 | Prueba rápida con 3 a 5 personas y ajustes resultantes ([prueba.md](prueba.md)) | P2 |
+| RF-FAR-09 | Prueba rápida con 3 a 5 personas y ajustes resultantes ([prueba.md](prueba.md)) | Fuera del hackathon: pasa a la ola 2 como T-FAR-20 (decisión de Faro, 2026-11-14) |
 
 ## Criterios de aceptación
 
