@@ -22,10 +22,12 @@ PAGE_LIMIT: dict[str, int] = {"student": 50, "researcher": 500}
 DEFAULT_LIMIT = 50
 
 # Filtros que solo puede usar researcher (RF-BUS-05: el estudiante no tiene los de calidad ni de ruido).
-# El de ruido llegará con T-BAL-14.
-RESEARCHER_FILTERS = ("quality_flag",)
+RESEARCHER_FILTERS = ("quality_flag", "noise_hh_min", "noise_hh_max", "noise_hv_min", "noise_hv_max")
+# Ordenar por ruido es filtrar por ruido con otra forma: también solo researcher (T-BAL-14).
+RESEARCHER_SORTS = ("noise_hh", "noise_hv")
+NO_NOISE = "no_noise_stats"
 
-SortKey = Literal["date", "interval", "changed_fraction"]
+SortKey = Literal["date", "interval", "changed_fraction", "noise_hh", "noise_hv"]
 WaterFilter = Literal["agree", "disagree"]
 WaterSummary = Literal["agree", "disagree", "not_available"]
 CONTRAST_NOT_COMPUTED = "contrast_not_computed"
@@ -82,6 +84,10 @@ class SearchResult(BaseModel):
         description="Mayor max_cloud_cover de las escenas ópticas de antes y después, por tesela. null si falta "
         "alguna de las dos escenas."
     )
+    noise_hh_db: float | None = Field(
+        description="evidence.noise.hh_db. null si el veredicto no trae ruido (manifiesto anterior a T-ECO-09)."
+    )
+    noise_hv_db: float | None = Field(description="evidence.noise.hv_db.")
     water: WaterRow
     granules: list[str] = Field(description="granule_id de las dos fechas, como en receipt.granules.")
     verdict_path: str = Field(
@@ -144,6 +150,10 @@ class Filters:
     water: str | None = None
     max_cloud_cover: float | None = None
     data_kind: str | None = None
+    noise_hh_min: float | None = None
+    noise_hh_max: float | None = None
+    noise_hv_min: float | None = None
+    noise_hv_max: float | None = None
 
     def applied(self) -> dict[str, object]:
         result: dict[str, object] = {}
@@ -195,6 +205,7 @@ def row_from_verdict(verdict, water_included: bool) -> SearchResult:
     """Fila de búsqueda con los mismos valores que el veredicto completo."""
     evidence, receipt = verdict.evidence, verdict.receipt
     shift = evidence.scene_shift
+    noise = evidence.noise
     scenes = (evidence.optical.before.scene, evidence.optical.after.scene)
     clouds = None if any(scene is None for scene in scenes) else max(scene.max_cloud_cover for scene in scenes)
     flagged = [
@@ -220,6 +231,8 @@ def row_from_verdict(verdict, water_included: bool) -> SearchResult:
         scene_shift_exceeds_threshold=shift.exceeds_threshold if shift else None,
         flagged_dates=flagged,
         optical_max_cloud_cover=clouds,
+        noise_hh_db=noise.hh_db if noise else None,
+        noise_hv_db=noise.hv_db if noise else None,
         water=water_row(evidence.water, water_included),
         granules=list(receipt.granules),
         verdict_path=f"/aois/{verdict.aoi}/series/{verdict.series}/verdicts/{verdict.id}",
@@ -228,6 +241,22 @@ def row_from_verdict(verdict, water_included: bool) -> SearchResult:
 
 def _between(value, low, high) -> bool:
     return (low is None or value >= low) and (high is None or value <= high)
+
+
+def _noise_ok(row: SearchResult, filters: Filters, skip) -> bool:
+    """Filtros de ruido. Una fila sin el valor pedido no se evalúa: queda fuera y se cuenta."""
+    for name, value, low, high in (
+        ("noise_hh", row.noise_hh_db, filters.noise_hh_min, filters.noise_hh_max),
+        ("noise_hv", row.noise_hv_db, filters.noise_hv_min, filters.noise_hv_max),
+    ):
+        if low is None and high is None:
+            continue
+        if value is None:
+            skip(name, NO_NOISE)
+            return False
+        if not _between(value, low, high):
+            return False
+    return True
 
 
 def apply(rows: list[SearchResult], filters: Filters) -> tuple[list[SearchResult], dict[str, NotEvaluated]]:
@@ -279,6 +308,8 @@ def apply(rows: list[SearchResult], filters: Filters) -> tuple[list[SearchResult
                 continue
             if row.optical_max_cloud_cover > filters.max_cloud_cover:
                 continue
+        if not _noise_ok(row, filters, skip):
+            continue
         if filters.water is not None:
             if row.water.summary == "not_available":
                 skip("water", *(row.water.reasons or ["not_compared"]))
@@ -290,6 +321,10 @@ def apply(rows: list[SearchResult], filters: Filters) -> tuple[list[SearchResult
 
 
 def _sort_value(row: SearchResult, key: SortKey):
+    if key == "noise_hh":
+        return row.noise_hh_db
+    if key == "noise_hv":
+        return row.noise_hv_db
     if key == "interval":
         return row.interval_days
     if key == "changed_fraction":
@@ -300,7 +335,9 @@ def _sort_value(row: SearchResult, key: SortKey):
 def order(rows: list[SearchResult], key: SortKey, direction: str) -> list[SearchResult]:
     """Orden estable: a igual valor, por zona, serie y par, siempre ascendente, para que el cursor no salte filas."""
     tie = sorted(rows, key=lambda row: (row.aoi, row.series_id, row.from_date, row.to_date, row.pair_id))
-    return sorted(tie, key=lambda row: _sort_value(row, key), reverse=direction == "desc")
+    known = [row for row in tie if _sort_value(row, key) is not None]
+    unknown = [row for row in tie if _sort_value(row, key) is None]  # sin ruido: al final en los dos sentidos
+    return sorted(known, key=lambda row: _sort_value(row, key), reverse=direction == "desc") + unknown
 
 
 def fingerprint(filters: Filters, key: str, direction: str) -> str:
