@@ -16,8 +16,10 @@ from pathlib import Path
 import h5py
 import numpy as np
 import rasterio
+from rasterio.errors import RasterioIOError
+from rasterio.merge import merge
 from rasterio.transform import Affine
-from rasterio.warp import Resampling, reproject
+from rasterio.warp import Resampling, reproject, transform_bounds
 from scipy import ndimage
 from scipy.interpolate import RegularGridInterpolator
 
@@ -27,6 +29,17 @@ GEOMETRY_STEP = 32
 GLO30_URL = (
     "https://copernicus-dem-30m.s3.amazonaws.com/Copernicus_DSM_COG_10_{lat}_00_{lon}_00_DEM/"
     "Copernicus_DSM_COG_10_{lat}_00_{lon}_00_DEM.tif"
+)
+
+# Margen alrededor de la zona al publicar el DEM: unos 1,1 km, para que el relieve no se corte en el borde.
+DEM_MARGIN_DEG = 0.01
+DEM_SOURCE = "Copernicus DEM GLO-30"
+# GLO-30 da alturas ortométricas sobre el geoide EGM2008, no sobre el elipsoide.
+DEM_VERTICAL_DATUM = "EGM2008"
+# Texto que pide la licencia de Copernicus DEM para redistribuirlo.
+DEM_ATTRIBUTION = (
+    "Produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "
+    "provided under COPERNICUS by the European Union and ESA; all rights reserved."
 )
 
 
@@ -90,6 +103,38 @@ def dem_on_grid(sources: list[Path | str], crs: str, transform: Affine, shape: t
             )
         out = np.where(np.isnan(out), band, out)
     return out
+
+
+def dem_for_aoi(
+    sources: list[Path | str], bbox: list[float], margin: float = DEM_MARGIN_DEG
+) -> tuple[np.ndarray, Affine, str] | None:
+    """El DEM recortado a la zona con margen, en su malla y su CRS nativos (1″ en EPSG:4326 para GLO-30).
+
+    No se remuestrea a la malla de 10 m del radar: tendría unas tres veces más píxeles sin más información.
+    Devuelve None si no hay teselas legibles o si no cubren la zona.
+    """
+    west, south, east, north = bbox
+    datasets = []
+    try:
+        for source in sources:
+            try:
+                datasets.append(rasterio.open(source))
+            except RasterioIOError:
+                continue
+        if not datasets or len({dataset.crs for dataset in datasets}) != 1:
+            return None
+        crs = datasets[0].crs
+        bounds = (west - margin, south - margin, east + margin, north + margin)
+        if not crs.is_geographic:
+            bounds = transform_bounds("EPSG:4326", crs, *bounds)
+        mosaic, transform = merge(datasets, bounds=bounds, nodata=np.nan, dtype="float32")
+    finally:
+        for dataset in datasets:
+            dataset.close()
+    data = mosaic[0].astype(np.float32)
+    if not np.isfinite(data).any():
+        return None
+    return data, transform, crs.to_string()
 
 
 def _toward_sensor_sign(los_x: np.ndarray, direction: str) -> float:

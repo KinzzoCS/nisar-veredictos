@@ -10,6 +10,7 @@ import rasterio
 from rasterio.transform import Affine
 from rasterio.warp import transform_bounds
 
+from processor.cells import cell_features
 from processor.change import (
     CHANGE_PROBABLE,
     INPUT_EXCEPTION,
@@ -18,6 +19,7 @@ from processor.change import (
     NO_CHANGE,
     OUTSIDE_SCENE,
     TERRAIN,
+    STATE_NODATA,
     NO_DATA,
     Params,
     _state_for_unobservable,
@@ -294,6 +296,73 @@ def test_pipeline_finds_the_injected_wetting(series):
     assert full["stats"]["counts"]["change_probable"] > 0
 
 
+def _cell(features, state):
+    return [feature for feature in features if feature["properties"]["state"] == state]
+
+
+def test_cells_follow_the_verdict_rule_and_never_give_zero_where_nothing_was_observed():
+    # 10 m en UTM 13N, con el origen a 500 m de un múltiplo de 1 km: las celdas se alinean al km, no a la escena.
+    transform = Affine(10, 0, 440_500, 0, -10, 2_980_300)
+    state = np.full((230, 250), NO_CHANGE, np.uint8)  # 2,3 km × 2,5 km
+    cell = (slice(30, 130), slice(50, 150))  # x 441-442 km, y 2979-2980 km: una celda entera
+    block = state[cell]
+    block[:10, :] = CHANGE_PROBABLE  # 10 % de cambio
+    neighbour = (slice(30, 130), slice(150, 250))  # x 442-443 km: 60 % sin looks y 5 % de cambio en el resto
+    state[neighbour][:60, :] = LOW_LOOKS
+    state[neighbour][60:62, :] = CHANGE_PROBABLE
+    state[130:, :] = STATE_NODATA  # fuera de la escena recortada: no debe salir ninguna celda ahí
+    state[:30, :50] = TERRAIN
+
+    collection = cell_features(state, transform, "EPSG:32613")
+    features = {feature["properties"]["id"]: feature for feature in collection["features"]}
+    changed = features["441_2979"]["properties"]
+    assert changed["state"] == "change_probable" and changed["changed_fraction"] == pytest.approx(0.1)
+    assert changed["observed_fraction"] == 1.0 and changed["pixels"] == 10_000
+    blind = features["442_2979"]["properties"]
+    assert blind["state"] == "not_observable" and blind["cause"] == "low_looks"
+    assert blind["observed_fraction"] == pytest.approx(0.4)
+    assert blind["changed_fraction"] == pytest.approx(0.05)  # se publica, pero no decide: la celda no se observó
+    assert all(row >= 2979 for row in (int(key.split("_")[1]) for key in features))
+    assert sum(feature["properties"]["pixels"] for feature in features.values()) == int((state != STATE_NODATA).sum())
+    assert collection["rules"] == {"min_observed_fraction": 0.5, "min_changed_fraction": 0.05}
+    jsonschema.validate(collection, {"type": "object", "required": ["type", "features"]})
+
+    ring = features["441_2979"]["geometry"]["coordinates"][0]
+    assert ring[0] == ring[-1] and len(ring) == 5
+    assert all(-106.5 < lon < -105 and 26.5 < lat < 27.5 for lon, lat in ring)
+    # Reproyectada, no una caja en lon/lat: el borde oeste no tiene la misma longitud abajo y arriba.
+    assert ring[0][0] != ring[3][0]
+    # La celda de la esquina se recorta a la escena (x desde 440,5 km), no se promete 1 km entero.
+    corner = features["440_2980"]["geometry"]["coordinates"][0]
+    assert abs(corner[1][0] - corner[0][0]) < 0.006  # unos 500 m de ancho, no 1 km
+
+
+def test_cells_need_a_grid_in_metres():
+    state = np.zeros((10, 10), np.uint8)
+    assert cell_features(state, Affine(0.0001, 0, -105.9, 0, -0.0001, 27.1), "EPSG:4326") is None
+
+
+def test_pipeline_writes_cells_for_every_pair_and_they_add_up_to_the_state(series, tmp_path):
+    paths, _ = series
+    manifest = process_series(paths, AOI, "T048A-F015", tmp_path, "PROVISIONAL")
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+    for pair in manifest["pairs"]:
+        cells = json.loads((tmp_path / pair["cells"]).read_text(encoding="utf-8"))
+        with rasterio.open(tmp_path / pair["layers"]["state"]) as dataset:
+            state = dataset.read(1)
+        counts = pair["stats"]["counts"]
+        assert sum(feature["properties"]["pixels"] for feature in cells["features"]) == int((state != STATE_NODATA).sum())
+        changed = sum(
+            feature["properties"]["changed_fraction"] * feature["properties"]["observed_fraction"] * feature["properties"]["pixels"]
+            for feature in cells["features"]
+        )
+        assert changed == pytest.approx(counts["change_probable"], rel=0.01, abs=5)
+    full = next(pair for pair in manifest["pairs"] if pair["kind"] == "full_window")
+    cells = json.loads((tmp_path / full["cells"]).read_text(encoding="utf-8"))
+    assert _cell(cells["features"], "change_probable")  # la humectación sintética cae en alguna celda
+
+
 def test_pipeline_refuses_granules_from_another_series(series, tmp_path):
     paths, _ = series
     other = generate_series(SeriesSpec(171, "D", 75, ("20260626", "20260708")), BBOX, tmp_path)
@@ -513,6 +582,38 @@ def test_terrain_is_skipped_when_radar_grid_uses_another_projection(tmp_path):
     assert all(pair["stats"]["counts"]["terrain"] == 0 for pair in manifest["pairs"])
 
 
+def test_pipeline_publishes_the_dem_of_the_aoi_in_its_native_grid(series, tmp_path):
+    paths, _ = series  # sin radarGrid: el relieve de la interfaz no depende de poder marcar layover
+    dem = tmp_path / "dem.tif"
+    _write_dem(dem, BBOX, ridge_lon=-105.6)
+    manifest = process_series(paths[:2], AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])
+    published = manifest["dem"]
+    assert published["layer"] == "parral/dem.tif"
+    assert published["vertical_datum"] == "EGM2008" and published["units"] == "m"
+    assert "Copernicus" in published["attribution"]
+    with rasterio.open(dem) as source, rasterio.open(tmp_path / "out" / published["layer"]) as cog:
+        assert cog.crs == source.crs and published["crs"] == "EPSG:4326"
+        assert cog.res == pytest.approx(source.res)  # sin remuestrear a la malla del radar
+        west, south, east, north = cog.bounds
+        assert west < BBOX[0] - 0.009 and south < BBOX[1] - 0.009 and east > BBOX[2] + 0.009 and north > BBOX[3] + 0.009
+        assert west > BBOX[0] - 0.02 and north < BBOX[3] + 0.02  # recortado, no la tesela entera
+        assert cog.overviews(1) and cog.profile.get("tiled")
+        values = cog.read(1)
+        assert np.isfinite(values).all() and values.max() > 1500
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+
+
+def test_pipeline_omits_the_dem_when_there_is_none_or_it_does_not_cover_the_aoi(series, tmp_path):
+    paths, _ = series
+    assert "dem" not in process_series(paths[:2], AOI, "T048A-F015", tmp_path / "a", "PROVISIONAL")
+    missing = process_series(paths[:2], AOI, "T048A-F015", tmp_path / "b", "PROVISIONAL", dem_sources=[tmp_path / "nada.tif"])
+    assert "dem" not in missing
+    far = tmp_path / "lejos.tif"
+    _write_dem(far, [10.0, 10.0, 10.5, 10.5], ridge_lon=10.2)
+    assert "dem" not in process_series(paths[:2], AOI, "T048A-F015", tmp_path / "c", "PROVISIONAL", dem_sources=[far])
+
+
 SHIFT_2_DB = 10 ** (2 / 10)
 
 
@@ -663,3 +764,29 @@ def test_a_corrupt_granule_that_is_not_excluded_still_fails(series, tmp_path):
     corrupt.write_bytes(b"no es un HDF5")
     with pytest.raises(OSError):
         process_series([paths[0], corrupt, *paths[2:]], AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", exclude={})
+
+
+def test_pair_publishes_the_spread_of_the_difference_whatever_the_shift_correction():
+    before = scene(rng=np.random.default_rng(1))
+    after = scene(hh=np.full(SHAPE, 0.05 * SHIFT_2_DB, np.float32), hv=np.full(SHAPE, 0.01 * SHIFT_2_DB, np.float32),
+                  rng=np.random.default_rng(2))
+    corrected = compare(before, after)
+    raw = compare(before, after, Params(correct_scene_shift=False))
+    for name in ("noise_hh_db", "noise_hv_db"):
+        assert corrected.stats[name] > 0
+        # Restar una constante no cambia la MAD: el valor es el mismo con corrección o sin ella.
+        assert raw.stats[name] == pytest.approx(corrected.stats[name], abs=1e-3)
+        assert corrected.stats[name] == pytest.approx(raw.stats[name], rel=1e-3)
+    d = corrected.change_hh[np.isfinite(corrected.change_hh)]
+    assert corrected.stats["noise_hh_db"] == pytest.approx(1.4826 * np.median(np.abs(d - np.median(d))), rel=0.05)
+
+
+def test_spread_grows_with_speckle_and_is_none_without_observable_pixels():
+    calm = compare(scene(rng=np.random.default_rng(1)), scene(rng=np.random.default_rng(2)))
+    extra = np.random.default_rng(3).gamma(2, 0.5, SHAPE).astype(np.float32)  # speckle de 2 looks encima
+    noisy = compare(scene(rng=np.random.default_rng(1)), scene(hh=0.05 * extra, rng=np.random.default_rng(2)))
+    assert noisy.stats["noise_hh_db"] > 1.5 * calm.stats["noise_hh_db"]
+    assert noisy.stats["noise_hv_db"] == pytest.approx(calm.stats["noise_hv_db"], rel=0.05)
+    blind = compare(scene(mask=np.zeros(SHAPE, np.uint8), rng=np.random.default_rng(1)),
+                    scene(mask=np.zeros(SHAPE, np.uint8), rng=np.random.default_rng(2)))
+    assert blind.stats["noise_hh_db"] is None and blind.stats["noise_hv_db"] is None

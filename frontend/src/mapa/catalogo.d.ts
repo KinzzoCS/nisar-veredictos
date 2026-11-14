@@ -106,6 +106,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/passes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search Passes
+         * @description Pasadas de las zonas filtradas por fecha, dirección, latencia, precisión de órbita, exclusión y plan.
+         *
+         *     Perfil mínimo student (specs/06-acceso). Mientras el gateway no tenga cuentas (AUTH_ENABLED=0) todo el
+         *     mundo es public y responde 403 con el perfil necesario.
+         */
+        get: operations["search_passes_search_passes_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -498,6 +521,112 @@ export interface components {
              */
             visual_url: string;
         };
+        /** PassOut */
+        PassOut: {
+            /** Aoi */
+            aoi: string;
+            /**
+             * At
+             * Format: date-time
+             * @description Hora UTC: de adquisición, o la estimada si kind es estimated.
+             */
+            at: string;
+            /**
+             * Contains Aoi
+             * @description La huella de la serie contiene la zona; null en las excluidas.
+             */
+            contains_aoi: boolean | null;
+            /**
+             * Data Kind
+             * @description Siempre real: catalog solo lee CMR, nunca datos sintéticos.
+             * @constant
+             */
+            data_kind: "real";
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "A" | "D";
+            /**
+             * Excluded Reason
+             * @description Motivo de la exclusión; null si no está excluida.
+             */
+            excluded_reason: string | null;
+            /** Frame */
+            frame: number;
+            /**
+             * Granule Id
+             * @description Gránulo de CMR; null en las estimadas.
+             */
+            granule_id: string | null;
+            /**
+             * Kind
+             * @description acquired: pasada publicada y utilizable. excluded: publicada pero declarada inservible en la zona. estimated: siguiente pasada estimada por el ciclo de 12 días, no adquirida.
+             * @enum {string}
+             */
+            kind: "acquired" | "excluded" | "estimated";
+            /**
+             * Latency Hours
+             * @description Horas entre la adquisición y published_at.
+             */
+            latency_hours: number | null;
+            /**
+             * Observation Plan
+             * @description Estado en el plan de observación de NISAR (NISAR_COP). El resumen de `ingest plan` solo cubre las pasadas que siguen a la última adquirida, así que las adquiridas y excluidas salen unknown.
+             * @enum {string}
+             */
+            observation_plan: "planned" | "partial" | "not_planned" | "no_plan" | "unknown";
+            /**
+             * Orbit Precision
+             * @description Letra que sigue al CRID en el nombre del gránulo: P precisa, M media, N casi en tiempo real y F pronóstico, según la guía de ASF. ORBIT_TYPE de CMR no coincide con ella. null en las estimadas.
+             */
+            orbit_precision: ("P" | "M" | "N" | "F") | null;
+            /**
+             * Published At
+             * @description Fecha 'updated' de CMR, en UTC; aproxima la publicación.
+             */
+            published_at: string | null;
+            /**
+             * Series
+             * @description Id completo de la serie, como en /aois/{id}/series.
+             */
+            series: string;
+            /** Track */
+            track: number;
+        };
+        /** PassSearchOut */
+        PassSearchOut: {
+            /**
+             * Next Cursor
+             * @description Cursor opaco de la página siguiente; null en la última.
+             */
+            next_cursor: string | null;
+            /**
+             * Orbit Precision Basis
+             * @default granule_name
+             * @constant
+             */
+            orbit_precision_basis: "granule_name";
+            /**
+             * Query
+             * @description La consulta tal como se aplicó, sin los valores por omisión vacíos.
+             */
+            query: {
+                [key: string]: unknown;
+            };
+            /** Results */
+            results: components["schemas"]["PassOut"][];
+            /**
+             * Total
+             * @description Pasadas que cumplen la consulta, en todas las páginas.
+             */
+            total: number;
+        };
         /** SeriesFootprint */
         SeriesFootprint: {
             geometry: components["schemas"]["FootprintGeometry"];
@@ -852,6 +981,67 @@ export interface operations {
                         [key: string]: string;
                     };
                 };
+            };
+        };
+    };
+    search_passes_search_passes_get: {
+        parameters: {
+            query?: {
+                /** @description Zonas; por omisión, todas. Se puede repetir. */
+                aoi?: string[] | null;
+                /** @description Series por id completo o corto (T048A-F015). Se puede repetir. */
+                series?: string[] | null;
+                /** @description Primer día, incluido (UTC). */
+                from?: string | null;
+                /** @description Último día, incluido (UTC). */
+                to?: string | null;
+                /** @description A ascendente o D descendente. */
+                direction?: ("A" | "D") | null;
+                /** @description Sin latencia conocida no pasa el filtro. */
+                min_latency_hours?: number | null;
+                /** @description Sin latencia conocida no pasa el filtro. */
+                max_latency_hours?: number | null;
+                /** @description Se puede repetir. */
+                orbit_precision?: ("P" | "M" | "N" | "F")[] | null;
+                /** @description Se puede repetir. */
+                kind?: ("acquired" | "excluded" | "estimated")[] | null;
+                /** @description Estado en el plan de observación. Se puede repetir. */
+                plan?: ("planned" | "partial" | "not_planned" | "no_plan" | "unknown")[] | null;
+                /** @description Sin latencia, al final. */
+                sort?: "date" | "-date" | "latency" | "-latency";
+                /** @description Más de 50 por página pide el perfil researcher. */
+                limit?: number;
+                /** @description next_cursor de la página anterior. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PassSearchOut"];
+                };
+            };
+            /** @description Perfil insuficiente: sin cuenta (public) o limit > 50 sin perfil researcher. El cuerpo trae required_role. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Parámetro o cursor no válido. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };

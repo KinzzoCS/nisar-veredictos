@@ -11,11 +11,12 @@ import numpy as np
 import rasterio
 import rasterio.shutil
 
+from .cells import cell_features
 from .change import STATE_CODES, STATE_NODATA, Params, compare, smooth, observable, to_db
 from .gcov import GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from .qa import finalize_qa, scene_stats
 from .multitemporal import MultitemporalFilter
-from .terrain import terrain_mask
+from .terrain import DEM_ATTRIBUTION, DEM_SOURCE, DEM_VERTICAL_DATUM, dem_for_aoi, terrain_mask
 
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 BASE_NOTICES = [
@@ -48,6 +49,10 @@ SYNTHETIC_NOTICE = "DATOS SINTÉTICOS: sirven para probar el sistema y no descri
 
 
 def _write_cog(path: Path, data: np.ndarray, scene: Scene, nodata, resampling: str) -> None:
+    _write_cog_grid(path, data, scene.crs, scene.transform, nodata, resampling)
+
+
+def _write_cog_grid(path: Path, data: np.ndarray, crs, transform, nodata, resampling: str) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     profile = {
         "driver": "GTiff",
@@ -55,8 +60,8 @@ def _write_cog(path: Path, data: np.ndarray, scene: Scene, nodata, resampling: s
         "width": data.shape[1],
         "count": 1,
         "dtype": data.dtype.name,
-        "crs": scene.crs,
-        "transform": scene.transform,
+        "crs": crs,
+        "transform": transform,
         "nodata": nodata,
     }
     # La caché de GDAL por omisión es el 5 % de la RAM; con una escena completa en memoria basta con poca.
@@ -108,6 +113,12 @@ def _write_pair(
     _write_cog(artifact_root / layers["state"], result.state, before, STATE_NODATA, "nearest")
     _write_cog(artifact_root / layers["change_hh"], result.change_hh, before, float("nan"), "average")
     _write_cog(artifact_root / layers["change_hv"], result.change_hv, before, float("nan"), "average")
+    # Fuera de `layers`, que son COGs: las celdas son un GeoJSON para buscar, no una capa del mapa.
+    cells = cell_features(result.state, before.transform, before.crs)
+    cells_path = None
+    if cells is not None:
+        cells_path = f"{prefix}/pairs/{pair_id}/cells.geojson"
+        (artifact_root / cells_path).write_text(json.dumps(cells, ensure_ascii=False), encoding="utf-8")
     return {
         "id": pair_id,
         "from": before.meta.date,
@@ -117,6 +128,7 @@ def _write_pair(
         "granules": [before.meta.granule_id, after.meta.granule_id],
         "layers": layers,
         "stats": result.stats,
+        **({"cells": cells_path} if cells_path else {}),
     }
 
 
@@ -140,6 +152,24 @@ def _date_in_name(name: str) -> str:
     """Fecha de inicio del nombre de un gránulo NISAR (…_20260813T014433_…); el nombre entero si no la trae."""
     found = re.search(r"_(\d{4})(\d{2})(\d{2})T\d{6}_", name)
     return "-".join(found.groups()) if found else name
+
+
+def _publish_dem(dem_sources, aoi: dict, artifact_root: Path) -> dict | None:
+    """Publica el DEM de la zona como COG para el relieve de la interfaz (T-ECO-10); None si no hay DEM útil."""
+    found = dem_for_aoi(list(dem_sources), aoi["bbox"]) if dem_sources else None
+    if found is None:
+        return None
+    data, transform, crs = found
+    relative = f"{aoi['id']}/dem.tif"
+    _write_cog_grid(artifact_root / relative, data, crs, transform, float("nan"), "average")
+    return {
+        "layer": relative,
+        "source": DEM_SOURCE,
+        "crs": crs,
+        "vertical_datum": DEM_VERTICAL_DATUM,
+        "units": "m",
+        "attribution": DEM_ATTRIBUTION,
+    }
 
 
 def excluded_granules(aoi: dict) -> dict[str, str]:
@@ -226,6 +256,7 @@ def process_series(
             else []
         )
     )
+    dem = _publish_dem(dem_sources, aoi, artifact_root)
     manifest = {
         "schema_version": 1,
         "aoi": aoi["id"],
@@ -247,6 +278,8 @@ def process_series(
         "dates": dates,
         "pairs": pairs,
     }
+    if dem is not None:
+        manifest["dem"] = dem
     target.mkdir(parents=True, exist_ok=True)
     (target / "manifest.json").write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     return manifest

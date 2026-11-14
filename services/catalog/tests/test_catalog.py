@@ -762,6 +762,7 @@ def test_every_api_time_is_utc_iso8601():
         "/aois/{aoi_id}/timeline": "/aois/parral/timeline",
         "/aois/{aoi_id}/references/optical": "/aois/parral/references/optical?date=2026-06-29",
         "/aois/{aoi_id}/references/opera": "/aois/parral/references/opera?date=2026-06-29",
+        "/search/passes": "/search/passes?aoi=parral&kind=acquired&kind=excluded&kind=estimated",
     }
     routes = {route.path for route in public_app.routes if "GET" in getattr(route, "methods", set())}
     routes -= {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}
@@ -776,7 +777,8 @@ def test_every_api_time_is_utc_iso8601():
 
     found = {}
     for path, url in urls.items():
-        response = app.get(url)
+        # /search/passes pide el perfil student, que pone el gateway; al resto no le afecta.
+        response = app.get(url, headers={"X-Auth-Role": "student"})
         assert response.status_code == 200, url
         found[path] = stamps(response.json())
         assert all(UTC_STAMP.fullmatch(s) for s in found[path]), (url, found[path])
@@ -834,3 +836,99 @@ def test_opera_failure_on_second_page_is_502_not_partial(monkeypatch):
     water = CmrOperaSource(mock_client(second_page_fails(first)))
     response = full_client(water=water).get("/aois/parral/references/opera?date=2026-06-29")
     assert response.status_code == 502 and "OPERA" in response.json()["detail"]
+
+
+# --- Búsqueda de pasadas (T-ANT-16, RF-BUS-07) ---
+
+STUDENT = {"X-Auth-Role": "student"}
+RESEARCHER = {"X-Auth-Role": "researcher"}
+
+
+def passes_client(tmp_path=None, with_plan=False):
+    granules = [
+        published("20260617", when=datetime(2026, 6, 19, 12, 0, tzinfo=timezone.utc)),
+        # Misma serie con la órbita de pronóstico (F) en el nombre.
+        parse_title(TITLE.format(d="20260629", c="P05023").replace("_N_F_J_", "_F_F_J_"), 7000.0, BIG, "",
+                    datetime(2026, 7, 9, 12, 0, tzinfo=timezone.utc)),
+        t171("20260720"), t171("20260813"), t171("20260825"),
+    ]
+    plan_dir = write_plan(tmp_path / "plan") if with_plan else ROOT / "no-existe"
+    return TestClient(create_app(ROOT / "config" / "aois", ListSource(granules), clock=lambda: NOW, plan_dir=plan_dir))
+
+
+def test_search_passes_needs_student_and_researcher_above_50():
+    client = passes_client()
+    public = client.get("/search/passes")
+    assert public.status_code == 403 and public.json()["required_role"] == "student"
+    assert client.get("/search/passes", headers={"X-Auth-Role": "admin"}).status_code == 403
+    assert client.get("/search/passes", headers=STUDENT).status_code == 200
+    many = client.get("/search/passes?limit=100", headers=STUDENT)
+    assert many.status_code == 403 and many.json()["required_role"] == "researcher"
+    assert client.get("/search/passes?limit=100", headers=RESEARCHER).status_code == 200
+
+
+def test_search_passes_lists_acquired_excluded_and_estimated_with_their_fields():
+    body = passes_client().get("/search/passes", headers=STUDENT).json()
+    kinds = sorted({row["kind"] for row in body["results"]})
+    assert kinds == ["acquired", "estimated", "excluded"] and body["total"] == len(body["results"])
+    assert body["orbit_precision_basis"] == "granule_name"
+    excluded = [row for row in body["results"] if row["kind"] == "excluded"]
+    assert len(excluded) == 1 and excluded[0]["excluded_reason"] == "product_defect"
+    assert excluded[0]["date"] == "2026-08-13" and excluded[0]["direction"] == "D"
+    june17 = next(row for row in body["results"] if row["date"] == "2026-06-17")
+    assert june17["latency_hours"] == 50.3 and june17["orbit_precision"] == "N" and june17["contains_aoi"]
+    estimated = [row for row in body["results"] if row["kind"] == "estimated"]
+    assert all(row["granule_id"] is None and row["orbit_precision"] is None for row in estimated)
+    assert all(row["data_kind"] == "real" for row in body["results"])
+    assert all(row["observation_plan"] == "unknown" for row in body["results"]), "sin resumen de ingest plan"
+
+
+def test_search_passes_filters():
+    client = passes_client()
+
+    def dates(query):
+        return [row["date"] for row in client.get(f"/search/passes?{query}", headers=STUDENT).json()["results"]]
+
+    assert set(dates("direction=D&kind=acquired")) == {"2026-07-20", "2026-08-25"}
+    assert dates("series=T048A-F015&kind=acquired") == ["2026-06-17", "2026-06-29"]
+    assert dates("from=2026-07-01&to=2026-08-20&kind=acquired&kind=excluded") == ["2026-07-20", "2026-08-13"]
+    assert dates("orbit_precision=F") == ["2026-06-29"]
+    # Solo las dos de T048 tienen fecha de publicación: las demás no pasan un filtro de latencia.
+    assert dates("min_latency_hours=0") == ["2026-06-17", "2026-06-29"]
+    assert dates("max_latency_hours=100") == ["2026-06-17"]
+    body = client.get("/search/passes?direction=A&plan=planned", headers=STUDENT).json()
+    assert body["total"] == 0 and body["results"] == [] and body["query"]["plan"] == ["planned"]
+
+
+def test_search_passes_plan_filter_uses_the_ingest_plan_summary(tmp_path):
+    body = passes_client(tmp_path, with_plan=True).get("/search/passes?plan=planned", headers=STUDENT).json()
+    assert [(row["kind"], row["at"]) for row in body["results"]] == [("estimated", "2026-11-20T09:42:25Z")]
+
+
+def test_search_passes_sorts_and_pages_with_an_opaque_cursor():
+    client = passes_client()
+    by_latency = client.get("/search/passes?sort=-latency&limit=2", headers=STUDENT).json()
+    assert [row["latency_hours"] for row in by_latency["results"]] == [242.3, 50.3]
+    seen, cursor = [], None
+    while True:
+        query = "limit=2" + (f"&cursor={cursor}" if cursor else "")
+        page = client.get(f"/search/passes?{query}", headers=STUDENT).json()
+        seen += [(row["kind"], row["at"], row["series"]) for row in page["results"]]
+        cursor = page["next_cursor"]
+        if cursor is None:
+            break
+    everything = client.get("/search/passes", headers=STUDENT).json()
+    assert len(seen) == everything["total"] == len(set(seen))
+    assert [row["at"] for row in everything["results"]] == sorted(row["at"] for row in everything["results"])
+    assert client.get("/search/passes?cursor=basura", headers=STUDENT).status_code == 422
+    assert client.get("/search/passes?aoi=nope", headers=STUDENT).status_code == 404
+
+
+def test_only_the_new_search_route_declares_bearer_security():
+    spec = public_app.openapi()
+    assert spec["components"]["securitySchemes"]["bearer"]["scheme"] == "bearer"
+    route = spec["paths"]["/search/passes"]["get"]
+    assert route["security"] == [{"bearer": []}] and route["x-required-role"] == "student"
+    assert "x-auth-role" not in json.dumps(route).lower(), "la cabecera la pone el gateway, no el cliente"
+    older = {path: ops for path, ops in spec["paths"].items() if path != "/search/passes"}
+    assert all("security" not in op for ops in older.values() for op in ops.values()), "RF-ACC-07"

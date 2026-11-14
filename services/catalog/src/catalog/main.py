@@ -9,7 +9,9 @@ from typing import Annotated, Literal, TypeVar
 
 import httpx
 import yaml
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import FastAPI, Header, HTTPException, Query
+from fastapi.openapi.utils import get_openapi
+from fastapi.responses import JSONResponse
 from pydantic import AfterValidator, BaseModel, Field
 
 from .cmr import CmrSource, GranuleSource
@@ -17,6 +19,7 @@ from . import opera, plan
 from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, group_acquisitions, window
 from .pairing import Granule, Series, build_series, closed_ring, series_id
 from .timeline import build_timeline
+from . import search as passes_search
 
 T = TypeVar("T")
 
@@ -325,6 +328,111 @@ def _footprint_of(series: Series) -> SeriesFootprint | None:
     )
 
 
+# --- Búsqueda de pasadas (T-ANT-16, RF-BUS-07) ---
+
+# Perfiles en orden de capacidad (specs/06-acceso). Sin cuenta, `public`.
+ROLE_ORDER = ("public", "student", "researcher")
+STUDENT_LIMIT = 50
+
+
+class PassOut(BaseModel):
+    aoi: str
+    series: str = Field(description="Id completo de la serie, como en /aois/{id}/series.")
+    kind: Literal["acquired", "excluded", "estimated"] = Field(
+        description="acquired: pasada publicada y utilizable. excluded: publicada pero declarada inservible en la "
+        "zona. estimated: siguiente pasada estimada por el ciclo de 12 días, no adquirida."
+    )
+    at: UtcDatetime = Field(description="Hora UTC: de adquisición, o la estimada si kind es estimated.")
+    date: date
+    track: int
+    direction: Literal["A", "D"]
+    frame: int
+    granule_id: str | None = Field(description="Gránulo de CMR; null en las estimadas.")
+    published_at: UtcDatetime | None = Field(description="Fecha 'updated' de CMR, en UTC; aproxima la publicación.")
+    latency_hours: float | None = Field(description="Horas entre la adquisición y published_at.")
+    orbit_precision: Literal["P", "M", "N", "F"] | None = Field(
+        description="Letra que sigue al CRID en el nombre del gránulo: P precisa, M media, N casi en tiempo real y "
+        "F pronóstico, según la guía de ASF. ORBIT_TYPE de CMR no coincide con ella. null en las estimadas."
+    )
+    contains_aoi: bool | None = Field(description="La huella de la serie contiene la zona; null en las excluidas.")
+    excluded_reason: str | None = Field(description="Motivo de la exclusión; null si no está excluida.")
+    observation_plan: Literal["planned", "partial", "not_planned", "no_plan", "unknown"] = Field(
+        description="Estado en el plan de observación de NISAR (NISAR_COP). El resumen de `ingest plan` solo "
+        "cubre las pasadas que siguen a la última adquirida, así que las adquiridas y excluidas salen unknown."
+    )
+    data_kind: Literal["real"] = Field(description="Siempre real: catalog solo lee CMR, nunca datos sintéticos.")
+
+
+class PassSearchOut(BaseModel):
+    query: dict = Field(description="La consulta tal como se aplicó, sin los valores por omisión vacíos.")
+    total: int = Field(description="Pasadas que cumplen la consulta, en todas las páginas.")
+    next_cursor: str | None = Field(description="Cursor opaco de la página siguiente; null en la última.")
+    orbit_precision_basis: Literal["granule_name"] = "granule_name"
+    results: list[PassOut]
+
+
+def _role_allows(role: str | None, required: str) -> bool:
+    role = role if role in ROLE_ORDER else "public"
+    return ROLE_ORDER.index(role) >= ROLE_ORDER.index(required)
+
+
+def requiere_perfil(role: str | None, required: str) -> JSONResponse | None:
+    """403 con el perfil necesario si `X-Auth-Role` no llega (specs/06-acceso, RF-ACC-08). La pone el gateway."""
+    if _role_allows(role, required):
+        return None
+    names = {"student": "Estudiante", "researcher": "Investigador"}
+    return JSONResponse(
+        status_code=403,
+        content={
+            "detail": f"Hace falta una cuenta con el perfil {names[required]} o superior.",
+            "required_role": required,
+        },
+    )
+
+
+def _pass_rows(aoi: dict, granules: list[Granule], now: datetime, observation: dict | None) -> list:
+    usable, excluded = _split(aoi, granules)
+    series_list = build_series(usable, aoi["bbox"], min_dates=1)
+    by_id = {item.id: item for item in series_list}
+    result = build_timeline(
+        series_list, date.fromisoformat(aoi["window"]["start"]), date.fromisoformat(aoi["window"]["end"]), now
+    )
+    rows = [
+        passes_search.PassRow(
+            aoi=aoi["id"], series=item.series, kind="acquired", at=item.acquired_at,
+            track=by_id[item.series].track, direction=by_id[item.series].direction, frame=by_id[item.series].frame,
+            granule_id=item.granule_id, published_at=item.published_at, latency_hours=item.latency_hours,
+            contains_aoi=item.contains_aoi,
+            plan_status=plan.status_for(observation, item.series, item.acquired_at).status,
+        )
+        for item in result.passes
+    ]
+    for granule, entry in excluded:
+        latency = (granule.published_at - granule.acquired_at).total_seconds() / 3600 if granule.published_at else None
+        series = series_id(*granule.group_key)
+        rows.append(
+            passes_search.PassRow(
+                aoi=aoi["id"], series=series, kind="excluded", at=granule.acquired_at,
+                track=granule.track, direction=granule.direction, frame=granule.frame,
+                granule_id=granule.id, published_at=granule.published_at,
+                latency_hours=round(latency, 1) if latency is not None else None,
+                excluded_reason=entry["reason"],
+                plan_status=plan.status_for(observation, series, granule.acquired_at).status,
+            )
+        )
+    for item in result.next_pass_estimates:
+        source = by_id[item.series]
+        rows.append(
+            passes_search.PassRow(
+                aoi=aoi["id"], series=item.series, kind="estimated", at=item.expected_at,
+                track=source.track, direction=source.direction, frame=source.frame,
+                contains_aoi=source.contains_aoi,
+                plan_status=plan.status_for(observation, item.series, item.expected_at).status,
+            )
+        )
+    return rows
+
+
 def create_app(
     aoi_dir: Path | None = None,
     source: GranuleSource | None = None,
@@ -528,6 +636,90 @@ def create_app(
             ],
         )
 
+    @app.get(
+        "/search/passes",
+        response_model=PassSearchOut,
+        responses={
+            403: {"description": "Perfil insuficiente: sin cuenta (public) o limit > 50 sin perfil researcher. "
+                  "El cuerpo trae required_role."},
+            422: {"description": "Parámetro o cursor no válido."},
+        },
+        openapi_extra={"security": [{"bearer": []}], "x-required-role": "student"},
+    )
+    def search_passes(
+        x_auth_role: str | None = Header(default=None, include_in_schema=False),
+        aoi: list[str] | None = Query(None, description="Zonas; por omisión, todas. Se puede repetir."),
+        series: list[str] | None = Query(None, description="Series por id completo o corto (T048A-F015). Se puede repetir."),
+        from_: date | None = Query(None, alias="from", description="Primer día, incluido (UTC)."),
+        to: date | None = Query(None, description="Último día, incluido (UTC)."),
+        direction: Literal["A", "D"] | None = Query(None, description="A ascendente o D descendente."),
+        min_latency_hours: float | None = Query(None, ge=0, description="Sin latencia conocida no pasa el filtro."),
+        max_latency_hours: float | None = Query(None, ge=0, description="Sin latencia conocida no pasa el filtro."),
+        orbit_precision: list[Literal["P", "M", "N", "F"]] | None = Query(None, description="Se puede repetir."),
+        kind: list[Literal["acquired", "excluded", "estimated"]] | None = Query(None, description="Se puede repetir."),
+        plan_status: list[Literal["planned", "partial", "not_planned", "no_plan", "unknown"]] | None = Query(
+            None, alias="plan", description="Estado en el plan de observación. Se puede repetir."
+        ),
+        sort: Literal["date", "-date", "latency", "-latency"] = Query("date", description="Sin latencia, al final."),
+        limit: int = Query(STUDENT_LIMIT, ge=1, le=500, description="Más de 50 por página pide el perfil researcher."),
+        cursor: str | None = Query(None, description="next_cursor de la página anterior."),
+    ) -> PassSearchOut | JSONResponse:
+        """Pasadas de las zonas filtradas por fecha, dirección, latencia, precisión de órbita, exclusión y plan.
+
+        Perfil mínimo student (specs/06-acceso). Mientras el gateway no tenga cuentas (AUTH_ENABLED=0) todo el
+        mundo es public y responde 403 con el perfil necesario.
+        """
+        denied = requiere_perfil(x_auth_role, "student")
+        if denied is None and limit > STUDENT_LIMIT:
+            denied = requiere_perfil(x_auth_role, "researcher")
+        if denied is not None:
+            return denied
+        try:
+            offset = passes_search.decode_cursor(cursor) if cursor else 0
+        except ValueError as error:
+            raise HTTPException(422, str(error)) from None
+        known = _load_aois(directory)
+        for item in aoi or []:
+            if item not in known:
+                raise HTTPException(404, f"Zona desconocida: {item}")
+        selected = [known[item] for item in (aoi or sorted(known))]
+        rows = []
+        for zone in selected:
+            rows += _pass_rows(zone, granules_for(zone), now(), plan.load_plan(plans, zone["id"]))
+        query = passes_search.PassQuery(
+            aoi=tuple(aoi or ()), series=tuple(series or ()), start=from_, end=to, direction=direction,
+            min_latency_hours=min_latency_hours, max_latency_hours=max_latency_hours,
+            orbit_precision=tuple(orbit_precision or ()), kind=tuple(kind or ()), plan=tuple(plan_status or ()),
+            sort=sort, offset=offset, limit=limit,
+        )
+        page, total, following = passes_search.search(rows, query)
+        return PassSearchOut(
+            query=query.interpreted(),
+            total=total,
+            next_cursor=passes_search.encode_cursor(following) if following is not None else None,
+            results=[
+                PassOut(
+                    aoi=row.aoi, series=row.series, kind=row.kind, at=row.at, date=row.at.date(),
+                    track=row.track, direction=row.direction, frame=row.frame, granule_id=row.granule_id,
+                    published_at=row.published_at, latency_hours=row.latency_hours,
+                    orbit_precision=row.orbit_precision, contains_aoi=row.contains_aoi,
+                    excluded_reason=row.excluded_reason, observation_plan=row.plan_status, data_kind="real",
+                )
+                for row in page
+            ],
+        )
+
+    def openapi_with_bearer() -> dict:
+        # Las rutas nuevas declaran el esquema bearer (specs/06-acceso, RF-ACC-08); las anteriores no.
+        if app.openapi_schema is None:
+            schema = get_openapi(title=app.title, version=app.version, routes=app.routes)
+            schema.setdefault("components", {})["securitySchemes"] = {
+                "bearer": {"type": "http", "scheme": "bearer", "bearerFormat": "JWT"}
+            }
+            app.openapi_schema = schema
+        return app.openapi_schema
+
+    app.openapi = openapi_with_bearer
     return app
 
 

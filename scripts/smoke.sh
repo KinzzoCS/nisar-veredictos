@@ -108,6 +108,25 @@ test "$code" = "405" || fail "POST respondió $code, se esperaba 405"
 code=$(curl -s -o /dev/null -w '%{http_code}' -X OPTIONS "$BASE/api/verdicts/aois")
 test "$code" = "204" || fail "OPTIONS respondió $code, se esperaba 204"
 
+# Acceso en el gateway (T-BAL-10). AUTH_ENABLED es la misma variable que lee el compose: 0 por omisión.
+# La prueba completa de acceso (registro, 403, 429 y perfiles) es T-BAL-16.
+AUTH_ENABLED="${AUTH_ENABLED:-0}"
+# La comprobación previa de CORS con Authorization debe pasar desde el frontend, que está en otro origen.
+curl -s -o /dev/null -D "$TMP/preflight.txt" -X OPTIONS -H "Origin: http://localhost:3000"   -H "Access-Control-Request-Method: GET" -H "Access-Control-Request-Headers: authorization" "$BASE/api/verdicts/aois"
+grep -qi '^access-control-allow-headers:.*authorization' "$TMP/preflight.txt" || fail "CORS de /api/ sin Authorization"
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer no-es-un-token" "$BASE/api/verdicts/aois")
+code_auth=$(curl -s -o /dev/null -w '%{http_code}' "$BASE/api/auth/health")
+if [ "$AUTH_ENABLED" = "1" ]; then
+  # Un token roto da 401 también en una ruta actual, nunca 200 como public (RF-ACC-06).
+  test "$code" = "401" || fail "token roto en una ruta actual respondió $code, se esperaba 401"
+  test "$code_auth" = "200" || fail "/api/auth/health respondió $code_auth"
+  expect_code 404 "/api/auth/verify"
+else
+  # Sin validación, el token no se mira y todo es public; las rutas de auth dicen que el acceso está apagado.
+  test "$code" = "200" || fail "con AUTH_ENABLED=0, una ruta actual con token respondió $code"
+  test "$code_auth" = "503" || fail "con AUTH_ENABLED=0, /api/auth/health respondió $code_auth, se esperaba 503"
+fi
+
 # --- Catalog (Antena) -------------------------------------------------------
 
 get catalog_health "/api/catalog/health"
@@ -166,6 +185,15 @@ for acq in d['acquisitions']:
 "
   fi
   covered catalog "/aois/{aoi_id}/references/opera"
+fi
+
+# Búsqueda de pasadas (T-ANT-16). Pide el perfil student: sin cuenta (public) responde 403 y dice cuál falta.
+# No se prueba con X-Auth-Role a mano: hasta T-BAL-10 el gateway no borra esa cabecera del cliente.
+if curl -fsS "$BASE/api/catalog/openapi.json" | grep -q '/search/passes'; then
+  code=$(curl -s -o "$TMP/catalog_search_passes.json" -w '%{http_code}' "$BASE/api/catalog/search/passes")
+  test "$code" = "403" || fail "/api/catalog/search/passes sin cuenta respondió $code, se esperaba 403"
+  check "catalog /search/passes" catalog_search_passes "assert d['required_role'] == 'student', d"
+  covered catalog "/search/passes"
 fi
 
 # --- Verdicts (Balanza) -----------------------------------------------------
@@ -258,6 +286,16 @@ get pixel "/api/verdicts/aois/$AOI/series/$SERIES/pixel?lon=-105.67&lat=26.93"
 grep -q '"values"' "$TMP/pixel.json" || fail "píxel: values"
 covered verdicts "/aois/{aoi}/series/{series_id}/pixel"
 expect_code 422 "/api/verdicts/aois/$AOI/series/$SERIES/pixel?lon=500&lat=26.93"
+
+# Búsqueda (T-BAL-11). Sin token la petición es public, con AUTH_ENABLED a 0 o a 1: 403 con el perfil que haría
+# falta, también si el cliente se inventa X-Auth-Role (el gateway la pisa). Los 200 con token los añade T-BAL-16.
+for role_header in "" "X-Auth-Role: researcher"; do
+  code=$(curl -s -o "$TMP/search.json" -w '%{http_code}' ${role_header:+-H "$role_header"} \
+    "$BASE/api/verdicts/search/verdicts?state=change_probable")
+  test "$code" = "403" || fail "búsqueda sin token respondió $code con '${role_header:-sin cabecera}'"
+  check "búsqueda: required_role" search "assert d['required_role'] == 'student', d"
+done
+covered verdicts "/search/verdicts"
 
 # --- Teselas ----------------------------------------------------------------
 

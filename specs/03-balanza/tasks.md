@@ -11,6 +11,7 @@
 | T-BAL-07 | Reflejar las banderas de calidad de Eco en textos y recibo, y avisar del desplazamiento de la escena | P1 | T-ECO-03 | hecha |
 | T-BAL-08 | Contraste con OPERA DSWx-S1 | P1 | T-ANT-06, cuenta de Earthdata | hecha; probada con radar real y token el 2026-11-12 |
 | T-BAL-09 | Calibrar reglas con datos reales | P1 | T-ECO-07 | hecha: 5 % fijado con el ruido de 16 pares reales; el resto queda como supuesto declarado |
+| T-BAL-19 | Pasar la caja `bbox` de cada tesela Sentinel-2 de catalog a `OpticalTileOut`, para que el mapa la use como `bounds` (T-ATL-08) | P2 | T-ANT-19 | hecha |
 
 ## Ola 2: acceso, búsqueda e interfaz
 
@@ -18,8 +19,8 @@ Aprobada el 2026-11-14 por las cinco personas (PR 66). Especificaciones en [06-a
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-BAL-10 | Gateway con `auth_request`, cabeceras `X-Auth-*` de confianza, POST solo en `/api/auth/` (la comprobación del método pasa del `server` a cada `location`), CORS con `Authorization` nombrada, `AUTH_ENABLED` (0 por omisión) con `auth-on.conf`/`auth-off.conf` en plantilla, y servicio `auth` en el compose (RF-ACC-05 a 07 y 10) | P0 | T-ANT-14 | pendiente |
-| T-BAL-11 | [P] `GET /search/verdicts`: índice que calcula todos los veredictos al arrancar (hoy no se calculan), `water: not_available` mientras falte el contraste con OPERA, filtros, orden, cursor y permisos por perfil (RF-BUS-01, 03 a 05) | P0 | — | pendiente |
+| T-BAL-10 | Gateway con `auth_request`, cabeceras `X-Auth-*` de confianza, POST solo en `/api/auth/` (la comprobación del método pasa del `server` a cada `location`), CORS con `Authorization` nombrada, `AUTH_ENABLED` (0 por omisión) con `auth-on.conf`/`auth-off.conf` en plantilla, y servicio `auth` en el compose (RF-ACC-05 a 07 y 10) | P0 | T-ANT-14 | hecha (2026-11-14): `gateway/default.conf.template`, `gateway/auth/`, `gateway/snippets/` y `gateway/15-auth-mode.envsh`; `scripts/smoke.sh` pasa con `AUTH_ENABLED=0` y con `1`. Depende del PR 90 (T-ANT-14) |
+| T-BAL-11 | [P] `GET /search/verdicts`: índice que calcula todos los veredictos al arrancar (hoy no se calculan), `water: not_available` mientras falte el contraste con OPERA, filtros, orden, cursor y permisos por perfil (RF-BUS-01, 03 a 05) | P0 | — | hecha (2026-11-14): con `AUTH_ENABLED=0` responde 403 a todos; con 1, a `student` y `researcher` según su token |
 | T-BAL-12 | Cuotas por perfil en el gateway solo en las rutas nuevas, y cuota estricta por IP en `login` y `register`, medidas con la pila (RF-ACC-09) | P1 | T-BAL-10 | pendiente |
 | T-BAL-13 | Exportación CSV, GeoJSON y JSON con recibo, en streaming (RF-BUS-06) | P1 | T-BAL-11 | pendiente |
 | T-BAL-14 | `evidence.noise` en el veredicto y filtro y orden por dispersión (RF-BUS-09) | P1 | T-ECO-09 (su cambio de esquema se fusiona antes que cualquier manifiesto con `noise_*`: `stats` tiene `additionalProperties: false`) | pendiente |

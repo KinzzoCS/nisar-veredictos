@@ -1,4 +1,8 @@
-# Punto de entrada único para el frontend. Solo lectura: GET y OPTIONS.
+# Punto de entrada único para el frontend. Plantilla: la imagen oficial de nginx sustituye las variables
+# ${AUTH_*} con envsubst al arrancar (NGINX_ENVSUBST_FILTER en el compose); las de nginx, como $host, no se tocan.
+#
+# Solo lectura salvo /api/auth/, que admite POST y DELETE (T-BAL-10). El método se comprueba en cada location
+# y no en el server: allí se evalúa antes de elegir el location y cerraría /api/auth/.
 
 # TiTiler abre lo que reciba en url=. Solo pasan los artefactos propios y las
 # escenas Sentinel-2 L2A del bucket público de Earth Search (T-BAL-04). Se compara
@@ -7,6 +11,11 @@ map $arg_url $cog_url_allowed {
     default 0;
     "~^file%3A%2F%2F%2Fdata%2Fartifacts%2F" 1;
     "~^https%3A%2F%2Fsentinel-cogs\.s3\.us-west-2\.amazonaws\.com%2Fsentinel-s2-l2a-cogs%2F" 1;
+}
+
+# Origen exacto del frontend para /api/auth/, que lleva cookie y por eso no admite el comodín (specs/06-acceso).
+map $host $auth_allowed_origin {
+    default "${AUTH_ALLOWED_ORIGIN}";
 }
 
 server {
@@ -18,18 +27,19 @@ server {
     resolver 127.0.0.11 valid=10s ipv6=off;
 
     proxy_hide_header Access-Control-Allow-Origin;
-    add_header Access-Control-Allow-Origin "*" always;
-    add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
-    add_header Access-Control-Allow-Headers "*" always;
+    include /etc/nginx/snippets/cors-api.conf;
 
-    if ($request_method = OPTIONS) {
-        return 204;
-    }
-    if ($request_method != GET) {
-        return 405;
-    }
+    # El perfil lo decide solo el gateway (RF-ACC-05): estas cabeceras pisan siempre las que mande el cliente.
+    # auth-on.conf las toma de la respuesta de auth /verify; auth-off.conf fija public (RF-ACC-10).
+    proxy_set_header X-Auth-Role $auth_role;
+    proxy_set_header X-Auth-Sub $auth_sub;
+
+    # AUTH_MODE vale on u off según AUTH_ENABLED (gateway/15-auth-mode.envsh). Si falta, nginx no arranca.
+    include /etc/nginx/auth/auth-${AUTH_MODE}.conf;
 
     location = /health {
+        auth_request off;
+        include /etc/nginx/snippets/read-only.conf;
         default_type application/json;
         return 200 '{"status":"ok"}';
     }
@@ -37,12 +47,14 @@ server {
     # Con variables, proxy_pass no reescribe la URI: el prefijo se quita con
     # rewrite ... break, que conserva la query string.
     location /api/catalog/ {
+        include /etc/nginx/snippets/read-only.conf;
         set $catalog http://catalog:8000;
         rewrite ^/api/catalog/(.*)$ /$1 break;
         proxy_pass $catalog;
     }
 
     location /api/verdicts/ {
+        include /etc/nginx/snippets/read-only.conf;
         set $verdicts http://verdicts:8000;
         rewrite ^/api/verdicts/(.*)$ /$1 break;
         proxy_pass $verdicts;
@@ -52,6 +64,11 @@ server {
     }
 
     location /tiles/cog/ {
+        # Las teselas no son /api/: no validan el token ni reciben el perfil (specs/06-acceso, plan).
+        auth_request off;
+        proxy_set_header X-Auth-Role "";
+        proxy_set_header X-Auth-Sub "";
+        include /etc/nginx/snippets/read-only.conf;
         # nginx revisa el primer url= y TiTiler usa el último: con dos, TiTiler
         # podía pedir cualquier URL. Se rechaza el url= repetido (sin distinguir
         # mayúsculas) y cualquier nombre de parámetro codificado, como ur%6C=.
@@ -73,6 +90,8 @@ server {
     }
 
     location / {
+        auth_request off;
+        include /etc/nginx/snippets/read-only.conf;
         return 404;
     }
 }

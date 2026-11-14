@@ -133,6 +133,14 @@ def _threshold(values: np.ndarray, params: Params) -> float | None:
     return max(otsu(values), params.min_threshold_db)
 
 
+def _robust_spread(values: np.ndarray, median: float | None) -> float | None:
+    """1,4826 · mediana de |x − mediana|: equivale a la desviación típica si la distribución fuera normal."""
+    if median is None:
+        return None
+    values = values[np.isfinite(values)]
+    return float(1.4826 * np.median(np.abs(values - np.float32(median)))) if values.size else None
+
+
 def _median(values: np.ndarray) -> float | None:
     values = values[np.isfinite(values)]
     return float(np.median(values)) if values.size else None
@@ -177,9 +185,15 @@ def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray |
     del weight
 
     shifts: dict[str, float | None] = {}
+    spreads: dict[str, float | None] = {}
     for name, value in change.items():
-        shift = _median(value[both])
+        observed = value[both]
+        shift = _median(observed)
         shifts[name] = shift
+        # Dispersión de la diferencia (RF-BUS-08): 1,4826 · MAD alrededor de la mediana, sobre lo observable,
+        # tras suavizar y antes del umbral y del filtro de grupos. Restar el desplazamiento no la cambia.
+        spreads[name] = _robust_spread(observed, shift)
+        del observed
         if params.correct_scene_shift and shift is not None:
             value -= np.float32(shift)
 
@@ -206,6 +220,9 @@ def compare(a: Scene, b: Scene, params: Params = Params(), terrain: np.ndarray |
         "threshold_hv_db": thresholds["hv"],
         "mean_change_hh_db": _mean(change["hh"][changed]),
         "mean_change_hv_db": _mean(change["hv"][changed]),
+        # No es ruido del instrumento: incluye también cambio real repartido y textura (T-ECO-09).
+        "noise_hh_db": spreads["hh"],
+        "noise_hv_db": spreads["hv"],
     }
     if params.correct_scene_shift:
         # Mediana de la diferencia en lo observable: desplazamiento de toda la escena, ya restado de los cambios.

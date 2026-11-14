@@ -123,10 +123,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/verdicts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Búsqueda de veredictos (student y researcher)
+         * @description Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin el filtro de calidad y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados devuelve una lista vacía con total 0, nunca 404.
+         */
+        get: operations["search_verdicts_search_verdicts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** AccessDenied */
+        AccessDenied: {
+            /** Detail */
+            detail: string;
+            /**
+             * Required Role
+             * @enum {string}
+             */
+            required_role: "public" | "student" | "researcher";
+        };
         /** DateQuality */
         DateQuality: {
             /**
@@ -313,6 +343,21 @@ export interface components {
             change_hv: string;
             /** State */
             state: string;
+        };
+        /** NotEvaluated */
+        NotEvaluated: {
+            /**
+             * Count
+             * @description Filas que el filtro dejó fuera porque no se podía evaluar en ellas.
+             */
+            count: number;
+            /**
+             * Reasons
+             * @description Cuántas filas por cada motivo.
+             */
+            reasons: {
+                [key: string]: number;
+            };
         };
         /** OpticalEvidence */
         OpticalEvidence: {
@@ -661,6 +706,149 @@ export interface components {
              */
             threshold_db: number;
         };
+        /** SearchPage */
+        SearchPage: {
+            /**
+             * Next Cursor
+             * @description Cursor de la página siguiente. null en la última.
+             */
+            next_cursor: string | null;
+            query: components["schemas"]["SearchQuery"];
+            /** Results */
+            results: components["schemas"]["SearchResult"][];
+            /**
+             * Total
+             * @description Resultados que cumplen la consulta, sumando todas las páginas.
+             */
+            total: number;
+        };
+        /** SearchQuery */
+        SearchQuery: {
+            /**
+             * Filters
+             * @description Filtros aplicados, tal como se interpretaron.
+             */
+            filters: {
+                [key: string]: unknown;
+            };
+            /**
+             * Indexed At
+             * Format: date-time
+             * @description Cuándo se calcularon los veredictos del índice, en UTC.
+             */
+            indexed_at: string;
+            /** Limit */
+            limit: number;
+            /**
+             * Not Evaluated
+             * @description Por filtro: filas que quedaron fuera porque el dato no existe (p. ej. water sin contraste).
+             */
+            not_evaluated: {
+                [key: string]: components["schemas"]["NotEvaluated"];
+            };
+            /**
+             * Order
+             * @enum {string}
+             */
+            order: "asc" | "desc";
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "public" | "student" | "researcher";
+            /**
+             * Sort
+             * @enum {string}
+             */
+            sort: "date" | "interval" | "changed_fraction";
+            /**
+             * Water Contrast
+             * @description pending: el índice aún no tiene el contraste con OPERA y todas las filas dicen not_available.
+             * @enum {string}
+             */
+            water_contrast: "included" | "pending";
+        };
+        /** SearchResult */
+        SearchResult: {
+            /** Aoi */
+            aoi: string;
+            /** Cause */
+            cause: string | null;
+            /** Changed Fraction */
+            changed_fraction: number;
+            /**
+             * Data Kind
+             * @description Nunca falta: los datos sintéticos lo dicen en cada fila.
+             * @enum {string}
+             */
+            data_kind: "real" | "synthetic";
+            /**
+             * Direction
+             * @description Dirección de la órbita de la serie: A ascendente, D descendente.
+             */
+            direction: string;
+            /**
+             * Flagged Dates
+             * @description Fechas del par con la bandera radiometric_outlier del QA de Eco (receipt.quality).
+             */
+            flagged_dates: string[];
+            /**
+             * From Date
+             * Format: date
+             */
+            from_date: string;
+            /**
+             * Granules
+             * @description granule_id de las dos fechas, como en receipt.granules.
+             */
+            granules: string[];
+            /** Interval Days */
+            interval_days: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "consecutive" | "full_window";
+            /** Observed Fraction */
+            observed_fraction: number;
+            /**
+             * Optical Max Cloud Cover
+             * @description Mayor max_cloud_cover de las escenas ópticas de antes y después, por tesela. null si falta alguna de las dos escenas.
+             */
+            optical_max_cloud_cover: number | null;
+            /** Pair Id */
+            pair_id: string;
+            /**
+             * Scene Shift Exceeds Threshold
+             * @description evidence.scene_shift.exceeds_threshold. null si el veredicto no trae desplazamiento.
+             */
+            scene_shift_exceeds_threshold: boolean | null;
+            /**
+             * Scene Shift Hh Db
+             * @description evidence.scene_shift.hh_db. null si el veredicto no lo trae.
+             */
+            scene_shift_hh_db: number | null;
+            /** Scene Shift Hv Db */
+            scene_shift_hv_db: number | null;
+            /** Series Id */
+            series_id: string;
+            /**
+             * State
+             * @enum {string}
+             */
+            state: "change_probable" | "no_detectable_change" | "not_observable";
+            /**
+             * To Date
+             * Format: date
+             */
+            to_date: string;
+            /**
+             * Verdict Path
+             * @description Ruta del veredicto completo en esta API. Por el gateway lleva delante /api/verdicts.
+             */
+            verdict_path: string;
+            water: components["schemas"]["WaterRow"];
+        };
         /** SeriesInfo */
         SeriesInfo: {
             /** Bbox */
@@ -877,6 +1065,23 @@ export interface components {
             /** Tiles */
             tiles: components["schemas"]["WaterTileOut"][];
         };
+        /** WaterRow */
+        WaterRow: {
+            after: components["schemas"]["WaterSideRow"] | null;
+            /** @description null mientras el contraste no está calculado. */
+            before: components["schemas"]["WaterSideRow"] | null;
+            /**
+             * Reasons
+             * @description Por qué no hay contraste en alguna fecha: los status distintos de compared, o contrast_not_computed si el índice aún no tiene el contraste. Vacía si las dos fechas se compararon.
+             */
+            reasons: string[];
+            /**
+             * Summary
+             * @description disagree si alguna de las dos fechas del par sale disagree; agree si las dos salen agree; not_available en cualquier otro caso, también mientras el contraste con OPERA no está calculado o si verdicts no tiene token. disagree es un desacuerdo entre dos métodos, no dice cuál acierta.
+             * @enum {string}
+             */
+            summary: "agree" | "disagree" | "not_available";
+        };
         /** WaterSide */
         WaterSide: {
             /**
@@ -903,6 +1108,21 @@ export interface components {
              * @enum {string}
              */
             status: "compared" | "synthetic" | "no_credentials" | "none_in_window" | "catalog_unavailable" | "read_failed" | "no_overlap" | "partial_overlap";
+        };
+        /** WaterSideRow */
+        WaterSideRow: {
+            /** Assessment */
+            assessment: ("agree" | "disagree") | null;
+            /**
+             * Compared Fraction
+             * @description Fracción de la zona comparada. null si no se comparó.
+             */
+            compared_fraction: number | null;
+            /**
+             * Status
+             * @description evidence.water.<lado>.status del veredicto.
+             */
+            status: string;
         };
         /** WaterTileOut */
         WaterTileOut: {
@@ -1149,6 +1369,90 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+        };
+    };
+    search_verdicts_search_verdicts_get: {
+        parameters: {
+            query?: {
+                /** @description Zona. */
+                aoi?: string | null;
+                /** @description Serie, p. ej. T048A-F015. */
+                series_id?: string | null;
+                /** @description Dirección de la órbita. */
+                direction?: ("A" | "D") | null;
+                kind?: ("consecutive" | "full_window") | null;
+                /** @description from_date del par igual o posterior. */
+                date_from?: string | null;
+                /** @description to_date del par igual o anterior. */
+                date_to?: string | null;
+                /** @description interval_days mínimo. */
+                interval_min?: number | null;
+                /** @description interval_days máximo. */
+                interval_max?: number | null;
+                /** @description Uno o varios estados. */
+                state?: ("change_probable" | "no_detectable_change" | "not_observable")[] | null;
+                /** @description Una o varias causas de not_observable. */
+                cause?: string[] | null;
+                /** @description changed_fraction mínima (0 a 1). */
+                changed_min?: number | null;
+                /** @description changed_fraction máxima (0 a 1). */
+                changed_max?: number | null;
+                /** @description Desplazamiento de la escena sobre el umbral. Las filas sin desplazamiento no se evalúan. */
+                scene_shift_exceeds?: boolean | null;
+                /** @description Solo researcher. true: alguna fecha con radiometric_outlier; false: ninguna. */
+                quality_flag?: boolean | null;
+                /** @description Contraste con OPERA. Las filas con water not_available quedan fuera y se cuentan en query.not_evaluated. */
+                water?: ("agree" | "disagree") | null;
+                /** @description Nubosidad máxima por tesela de las dos escenas ópticas, en %. */
+                max_cloud_cover?: number | null;
+                data_kind?: ("real" | "synthetic") | null;
+                /** @description date ordena por to_date. */
+                sort?: "date" | "interval" | "changed_fraction";
+                order?: "asc" | "desc";
+                limit?: number;
+                /** @description next_cursor de la página anterior, con la misma consulta. */
+                cursor?: string | null;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SearchPage"];
+                };
+            };
+            /** @description Cursor ilegible, de otra consulta o de un índice anterior. */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Perfil insuficiente; required_role dice cuál hace falta. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessDenied"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

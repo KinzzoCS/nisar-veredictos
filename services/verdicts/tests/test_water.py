@@ -432,7 +432,7 @@ def test_failed_download_is_not_stored(manifest_root, tmp_path):
 def test_warm_up_compares_real_series_in_the_background(manifest_root, tmp_path):
     opera, fetcher = _real_with_products(manifest_root, *_same_and_elsewhere())
     with _disk_client(manifest_root, tmp_path, opera, fetcher, warm_cache=True):
-        for thread in [t for t in threading.enumerate() if t.name == "warm-water"]:
+        for thread in [t for t in threading.enumerate() if t.name == "warm-up"]:
             thread.join(timeout=30)
     assert len(fetcher.urls) == 2 and len(list((tmp_path / "water").glob("*.json"))) == 2
 

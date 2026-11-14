@@ -54,6 +54,9 @@ services:
       # Con token y radar real, el contraste con OPERA se calcula al arrancar, en segundo plano, y se guarda
       # en disco: la primera carga de T048 tardaba ~63 s y el gateway cortaba a los 60 s. Sin token no hace nada.
       VERDICTS_WARM_CACHE: "1"
+      # Índice de búsqueda (T-BAL-11): calcula todos los veredictos al arrancar, en segundo plano. Sin él, la primera
+      # búsqueda lo calcula. Con token, el contraste con OPERA entra en el índice cuando termina de calentarse.
+      VERDICTS_SEARCH_INDEX: "1"
       VERDICTS_CACHE_DIR: /cache
     volumes:
       - ./data:/data:ro
@@ -73,16 +76,39 @@ services:
       seed:
         condition: service_completed_successfully
 
+  # Cuentas, sesiones y tokens de los perfiles (specs/06-acceso, Antena). Sin puerto publicado: solo el gateway
+  # llega a él. La clave Ed25519 se genera al primer arranque en ./data/auth (fuera de git) si el .env no la trae.
+  auth:
+    build: ./services/auth
+    environment:
+      AUTH_DATA_DIR: /data/auth
+      AUTH_PRIVATE_KEY: ${AUTH_PRIVATE_KEY:-}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-auto}
+    volumes:
+      - ./data/auth:/data/auth
+
   gateway:
     image: nginx:1.29-alpine
     ports:
       - "8080:80"
+    environment:
+      # 0 (por omisión): sin validar tokens, todo public y las rutas nuevas con 403 (RF-ACC-10). 1: valida cada
+      # petición a /api/ con auth (auth_request). Se cambia en el .env o al levantar: AUTH_ENABLED=1 docker compose up
+      AUTH_ENABLED: ${AUTH_ENABLED:-0}
+      # Origen exacto del frontend para /api/auth/, que lleva cookie y no admite el comodín de CORS.
+      AUTH_ALLOWED_ORIGIN: ${AUTH_ALLOWED_ORIGIN:-http://localhost:3000}
+      # envsubst solo toca ${AUTH_*} en la plantilla; las variables de nginx ($host...) quedan como están.
+      NGINX_ENVSUBST_FILTER: "^AUTH_"
     volumes:
-      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./gateway/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+      - ./gateway/auth:/etc/nginx/auth:ro
+      - ./gateway/snippets:/etc/nginx/snippets:ro
+      - ./gateway/15-auth-mode.envsh:/docker-entrypoint.d/15-auth-mode.envsh:ro
     depends_on:
       - catalog
       - verdicts
       - tiles
+      - auth
 
   # Sitio estático de Faro y Atlas en http://localhost:3000. El navegador llama al gateway en :8080.
   frontend:

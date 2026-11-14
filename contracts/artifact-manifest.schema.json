@@ -79,6 +79,7 @@
           "kind": { "enum": ["consecutive", "full_window"] },
           "spans_data_gap": { "type": "boolean" },
           "granules": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+          "cells": { "type": "string", "description": "Opcional (T-ECO-12). Ruta de un GeoJSON (no es un COG) en WGS84 con celdas de 1 km alineadas a múltiplos de 1 km de la proyección de la escena y recortadas a ella. Por celda: id, state (misma regla que el veredicto, con not_observable y su cause), observed_fraction, changed_fraction (sobre lo observado) y pixels. Falta si la malla no está en metros." },
           "layers": {
             "type": "object",
             "required": ["state", "change_hh", "change_hv"],
@@ -101,10 +102,26 @@
               "mean_change_hh_db": { "type": ["number", "null"] },
               "mean_change_hv_db": { "type": ["number", "null"] },
               "scene_shift_hh_db": { "type": ["number", "null"], "description": "Mediana de la diferencia HH en lo observable (desplazamiento de toda la escena). Opcional. Solo está presente cuando ya se restó de los cambios antes del umbral (T-ECO-07); si falta, el cambio no está corregido." },
-              "scene_shift_hv_db": { "type": ["number", "null"], "description": "Igual que scene_shift_hh_db, para HV." }
+              "scene_shift_hv_db": { "type": ["number", "null"], "description": "Igual que scene_shift_hh_db, para HV." },
+              "noise_hh_db": { "type": ["number", "null"], "description": "Dispersión de la diferencia HH del par (T-ECO-09, RF-BUS-08): 1,4826 · MAD alrededor de la mediana, en dB, sobre los píxeles observables (sin low_looks, terrain ni no_data), después de suavizar 5 × 5 y antes del umbral y del filtro de grupos. No depende de la corrección del desplazamiento de escena. No es ruido del instrumento: incluye también cambio real repartido (humedad, vegetación) y textura. Opcional." },
+              "noise_hv_db": { "type": ["number", "null"], "description": "Igual que noise_hh_db, para HV." }
             }
           }
         }
+      }
+    },
+    "dem": {
+      "type": "object",
+      "description": "Opcional (T-ECO-10). DEM de la zona publicado como COG para el relieve de la interfaz, en su malla nativa (1″ en EPSG:4326 para GLO-30) recortada con margen. Falta si el procesamiento no tuvo DEM.",
+      "required": ["layer", "source", "crs", "vertical_datum", "units", "attribution"],
+      "additionalProperties": false,
+      "properties": {
+        "layer": { "type": "string", "description": "Ruta del COG, común a todas las series de la zona: <aoi>/dem.tif." },
+        "source": { "type": "string" },
+        "crs": { "type": "string", "description": "CRS del COG, que no es el de las capas del radar." },
+        "vertical_datum": { "type": "string", "description": "Referencia de las alturas. EGM2008 significa alturas ortométricas sobre el geoide, no sobre el elipsoide." },
+        "units": { "const": "m" },
+        "attribution": { "type": "string", "description": "Texto de atribución que exige la licencia del DEM; la interfaz debe mostrarlo junto al relieve." }
       }
     }
   }
