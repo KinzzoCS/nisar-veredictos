@@ -17,8 +17,10 @@ import {
   bboxContinuo,
   contornoZona,
   estiloMapaBase,
+  fuenteDatos,
   textoExtension,
   validarBbox,
+  ZOOM_MAXIMO_MAPA,
 } from "./mapaBase";
 import { OPACIDAD_MINIMA_TRAMA } from "./estado";
 import { plantillaEstado } from "./protocolo";
@@ -89,6 +91,8 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     style: estiloMapaBase(proyeccion().tipo),
     bounds: bboxContinuo(estado.aoi),
     fitBoundsOptions: { padding: 32 },
+    // Dos niveles sobre el dato de 10 m: se ve cada píxel sin aparentar más detalle (T-ATL-08).
+    maxZoom: ZOOM_MAXIMO_MAPA,
     attributionControl: false,
     // En 2D, sin giro ni inclinación: la escala y el contorno se leen con el norte arriba.
     // En 3D se activan (T-ATL-10); ver aplicarInteraccion.
@@ -344,7 +348,8 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       "radar-trama": plantillaEstado(estado.layers.state, "trama"),
     };
     for (const id of IDS_RADAR) {
-      map.addSource(id, { type: "raster", tiles: [fuentes[id]], tileSize: 256 });
+      // Acotada a la zona y, salvo la trama, al zoom del dato (T-ATL-08).
+      map.addSource(id, fuenteDatos(fuentes[id], estado.aoi, { ampliar: id !== "radar-trama" }));
       const categorica = id === "radar-state" || id === "radar-trama";
       map.addLayer(
         {

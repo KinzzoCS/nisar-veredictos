@@ -5,7 +5,7 @@
 // del mapa principal, que es el único que recibe ratón y teclado.
 import * as maplibregl from "maplibre-gl";
 import type { MapProps } from "../types/map";
-import { contornoZona, estiloMapaBase } from "./mapaBase";
+import { contornoZona, estiloMapaBase, fuenteDatos } from "./mapaBase";
 import {
   describirLado,
   ladoDisponible,
@@ -145,7 +145,10 @@ export function crearComparador(
     if (!vista) return;
     vista.tiles.forEach((plantilla, i) => {
       const capaId = `${id}-${estado.lado}-${i}`;
-      optico.addSource(capaId, { type: "raster", tiles: [plantillaOptica(plantilla)], tileSize: 256 });
+      // Acotada a la zona y al zoom del dato (T-ATL-08). Cada tesela MGRS cubre solo una parte de la
+      // zona, así que dentro de ella aún se piden algunas fuera de su huella: para quitarlas hace falta
+      // la caja de cada tesela, que catalog ya da (T-ANT-19) y verdicts aún no pasa.
+      optico.addSource(capaId, fuenteDatos(plantillaOptica(plantilla), estado.aoi));
       optico.addLayer(
         { id: capaId, type: "raster", source: capaId, paint: { "raster-fade-duration": 0 } },
         "aoi-contorno-halo",

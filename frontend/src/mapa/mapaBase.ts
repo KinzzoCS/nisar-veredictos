@@ -1,4 +1,4 @@
-import type { StyleSpecification } from "maplibre-gl";
+import type { RasterSourceSpecification, StyleSpecification } from "maplibre-gl";
 import type { Feature, Polygon } from "geojson";
 import type { Idioma } from "./textos";
 import type { Bbox } from "./tipos";
@@ -25,6 +25,37 @@ export function atribuciones(idioma: Idioma, nisar: boolean): string[] {
 }
 
 export const ZOOM_MAXIMO_BASE = 19;
+
+/**
+ * Zoom cuyas teselas tienen un píxel (unos 8,5 m a 27° de latitud) ya más fino que el dato de
+ * 10 m de NISAR y Sentinel-2. Más cerca, MapLibre amplía esas teselas en vez de pedir otras al
+ * servidor, que no tendrían más detalle (T-ATL-08).
+ */
+export const ZOOM_NATIVO_DATOS = 14;
+
+/**
+ * Máximo del mapa: dos niveles sobre el dato, para ver cada píxel de 10 m (unos 5 px de
+ * pantalla) al elegir un punto, sin invitar a buscar un detalle que el dato no tiene (RF-ATL-08).
+ */
+export const ZOOM_MAXIMO_MAPA = 16;
+
+/**
+ * Fuente raster de la API acotada a la zona y al zoom del dato (T-ATL-08):
+ * - `bounds` con la caja de la zona: MapLibre no pide teselas que no la tocan, que fuera de
+ *   los artefactos de radar dan 404. Si la zona cruza el antimeridiano no se acota.
+ * - `maxzoom` en el zoom del dato, salvo con `ampliar: false` (la trama, que se dibuja por
+ *   píxel de tesela y al ampliarse saldría más gruesa).
+ */
+export function fuenteDatos(
+  plantilla: string,
+  aoi: Bbox,
+  { ampliar = true }: { ampliar?: boolean } = {},
+): RasterSourceSpecification {
+  const fuente: RasterSourceSpecification = { type: "raster", tiles: [plantilla], tileSize: 256 };
+  if (!cruzaAntimeridiano(aoi)) fuente.bounds = [...validarBbox(aoi)];
+  if (ampliar) fuente.maxzoom = ZOOM_NATIVO_DATOS;
+  return fuente;
+}
 
 /** `proyeccion`: "globe" abre el globo 3D de MapLibre, que pasa a plano al acercarse (T-ATL-09). */
 export function estiloMapaBase(proyeccion: "globe" | "mercator" = "mercator"): StyleSpecification {

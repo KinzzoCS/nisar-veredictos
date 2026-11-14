@@ -115,6 +115,12 @@ Controles en 3D (T-ATL-10):
 
 Pendiente: el espacio alrededor del globo sale oscuro.
 
+## Límites de zoom
+
+- El mapa llega como mucho al zoom 16 (`ZOOM_MAXIMO_MAPA`): un píxel de 10 m ocupa unos 5 px de pantalla, suficiente para elegir un punto sin aparentar más detalle.
+- Las capas de radar y las ópticas piden teselas hasta el zoom 14 (`ZOOM_NATIVO_DATOS`); por encima, MapLibre amplía las que ya tiene. La trama no, porque se dibuja por píxel de tesela.
+- Cada fuente de datos lleva `bounds` con la caja de la zona (`fuenteDatos` en [`mapaBase.ts`](mapaBase.ts)), así que no se piden teselas fuera de ella. Si la zona cruza el antimeridiano no se acota.
+
 ## Estado
 
 | Parte | Tarea | Estado |
@@ -127,7 +133,8 @@ Pendiente: el espacio alrededor del globo sale oscuro.
 | Línea de tiempo de pasadas, huecos y eventos | T-ATL-06 | Hecho; probado con la API real de Parral. Faro la monta bajo la consulta de evento (PR 76) |
 | Globo 3D (`modo3d`) con caída a 2D y aviso | T-ATL-09 | Hecho; probado en el navegador con la API local |
 | Botón 2D/3D, giro e inclinación, escala oculta y teclas en 3D | T-ATL-10 | Hecho; probado en el navegador con la API local |
-| Comparador óptico (`optical` y `compare`) | T-ATL-07 | En curso: probado solo con teselas de prueba; falta la API con el PR 19 y comprobar La Boquilla |
+| Comparador óptico (`optical` y `compare`) | T-ATL-07 | Hecho; probado con la API real y artefactos reales de T048 (PR 77) |
+| Límites de zoom y fuentes acotadas a la zona | T-ATL-08 | Hecho; probado con la API real. Quedan 404 ópticos dentro de la zona hasta tener la caja de cada tesela |
 
 ## Desarrollo
 
