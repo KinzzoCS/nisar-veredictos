@@ -1,8 +1,8 @@
+import { avisoEscena, type AvisoEscena } from '../mapa/escena'
 import type { MapLayerName, VistaOptica } from '../types/map'
 import { API_BASE, absoluteTileUrl, type Lang, type SeriesInfo, type Verdict } from './client'
 
 type OpticalSide = Verdict['evidence']['optical']['before']
-type SceneShift = Verdict['evidence']['scene_shift']
 
 /** Nombres legibles de las zonas; si falta, se usa el identificador. */
 const ZONE_NAMES: Record<string, string> = { parral: 'Hidalgo del Parral' }
@@ -14,7 +14,7 @@ export interface VerdictMapOptions {
   layers: Record<MapLayerName, string>
   dataKind: Verdict['receipt']['data_kind']
   causaNoObservable: string | undefined
-  desplazamientoEscena: boolean
+  desplazamientoEscena: AvisoEscena
   idioma: Lang
   pixelUrl: string
   optical: { before: VistaOptica; after: VistaOptica }
@@ -32,14 +32,6 @@ export function opticalView(side: OpticalSide): VistaOptica {
     daysFromRadar: scene.days_from_radar,
     coversAoi: scene.covers_aoi,
   }
-}
-
-/**
- * Avisa de un cambio posiblemente no local solo si Eco no descontó ya el desplazamiento
- * de la escena. Cuando entre el PR 49 de Atlas, se sustituye por `avisoEscena(scene_shift)`.
- */
-export function sceneShiftWarning(shift: SceneShift | undefined): boolean {
-  return Boolean(shift?.exceeds_threshold && !shift.corrected)
 }
 
 /** Hay algo que comparar si algún lado trae escena con teselas. */
@@ -72,7 +64,7 @@ export function mapOptionsFor(
     },
     dataKind: verdict.receipt.data_kind,
     causaNoObservable: verdict.state === 'not_observable' ? (verdict.cause_label ?? undefined) : undefined,
-    desplazamientoEscena: sceneShiftWarning(verdict.evidence.scene_shift),
+    desplazamientoEscena: avisoEscena(verdict.evidence.scene_shift),
     idioma: lang,
     pixelUrl: `${API_BASE}/api/verdicts/aois/${encodeURIComponent(aoiId)}/series/${encodeURIComponent(series.id)}/pixel`,
     optical: { before: opticalView(o.before), after: opticalView(o.after) },

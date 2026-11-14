@@ -414,3 +414,8 @@ button:disabled {
   opacity: 0.55;
   cursor: not-allowed;
 }
+
+/* Línea de tiempo de Atlas bajo la respuesta del evento (T-FAR-19). */
+.pass-timeline {
+  margin-top: 1.5rem;
+}

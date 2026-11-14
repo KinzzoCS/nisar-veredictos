@@ -51,7 +51,7 @@ Cada una tiene su `spec.md` y su `plan.md`; sus tareas viven en el `tasks.md` de
 
 ## Prioridades de la ola 2
 
-Las fechas de arriba ya pasaron. Para acceso, búsqueda e interfaz (propuesta del 2026-11-14):
+Las fechas de arriba ya pasaron. Para acceso, búsqueda e interfaz (aprobada el 2026-11-14, PR 66):
 
 - **P0:** el mínimo que se puede enseñar: cuentas, gateway con `AUTH_ENABLED`, búsqueda básica, vistas y globo 3D con paso a 2D.
 - **P1:** la funcionalidad completa de cada especificación.

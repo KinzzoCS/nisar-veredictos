@@ -2,7 +2,7 @@
 
 - **Responsables:** @KinzzoCS (servicio `auth`) y @lospapulindos2-netizen (gateway y aplicación de permisos)
 - **Consumen:** @danielsanchez-033 (inicio de sesión y perfiles en la interfaz) y @Fransomware (herramientas del mapa por perfil)
-- **Estado:** borrador, propuesto el 2026-11-14
+- **Estado:** aprobada el 2026-11-14 por las cinco personas (PR 66)
 
 ## Misión
 

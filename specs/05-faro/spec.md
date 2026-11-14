@@ -23,22 +23,22 @@ Que cualquier persona entienda en menos de un minuto qué pasó, qué no sabemos
 
 | ID | Requisito | Prioridad |
 |---|---|---|
-| RF-FAR-01 | Tarjeta de veredicto: estado, "qué detectamos", "qué no prueba", "qué falta", hipótesis y recibo desplegable | P0 |
-| RF-FAR-02 | Consulta de evento: fecha y tipo de evento, con la respuesta y sus supuestos | P0 |
-| RF-FAR-03 | Distintivo permanente cuando los datos son sintéticos | P0 |
-| RF-FAR-04 | Modo historia de Parral en tres escenas: tormenta no observable, cambio en el monzón y estabilidad de los jales | P1 |
-| RF-FAR-05 | Español e inglés en toda la interfaz | P1 |
-| RF-FAR-06 | WCAG 2.1 AA: contraste, teclado, foco visible y estados no solo por color | P1 |
-| RF-FAR-07 | Glosario y explicación breve de cómo ve el radar | P1 |
+| RF-FAR-01 | Tarjeta de veredicto: estado, "qué detectamos", "qué no prueba", "qué falta", hipótesis y recibo desplegable | Hecho (T-FAR-02, PR 50) |
+| RF-FAR-02 | Consulta de evento: fecha y tipo de evento, con la respuesta y sus supuestos | Hecho (T-FAR-03, PR 56) |
+| RF-FAR-03 | Distintivo permanente cuando los datos son sintéticos | Hecho (T-FAR-04, PR 50) |
+| RF-FAR-04 | Modo historia de Parral en tres escenas: tormenta no observable, cambio en el monzón y estabilidad de los jales | Hecho (T-FAR-06, PR 57) |
+| RF-FAR-05 | Español e inglés en toda la interfaz | Hecho (T-FAR-07, PR 69) |
+| RF-FAR-06 | WCAG 2.1 AA: contraste, teclado, foco visible y estados no solo por color | Hecho (T-FAR-07, PR 69) |
+| RF-FAR-07 | Glosario y explicación breve de cómo ve el radar | Hecho (T-FAR-08) |
 | RF-FAR-08 | Guion de demo de 3 minutos y material para el jurado | P1 |
-| RF-FAR-09 | Prueba rápida con 3 a 5 personas y ajustes resultantes | P2 |
+| RF-FAR-09 | Prueba rápida con 3 a 5 personas y ajustes resultantes ([prueba.md](prueba.md)) | P2 |
 
 ## Criterios de aceptación
 
-- [ ] La tarjeta muestra siempre los tres textos juntos, nunca solo "qué detectamos".
-- [ ] `not_observable` tiene su propio estilo y texto, distinto de "sin cambio".
-- [ ] Ningún texto de interfaz afirma más que la API.
-- [ ] La demo completa funciona solo con teclado.
+- [x] La tarjeta muestra siempre los tres textos juntos, nunca solo "qué detectamos" (T-FAR-02).
+- [x] `not_observable` tiene su propio estilo y texto, distinto de "sin cambio" (T-FAR-02).
+- [x] Ningún texto de interfaz afirma más que la API: los textos del veredicto llegan tal cual y una prueba pasa la de lenguaje de Balanza por `src/i18n/` (T-FAR-02).
+- [x] La demo completa funciona solo con teclado (T-FAR-07).
 
 ### Tarjeta de veredicto (T-FAR-02) y distintivo de datos sintéticos (T-FAR-04)
 
@@ -122,6 +122,21 @@ Cierra RF-FAR-05 y RF-FAR-06 sobre lo que ya hay. Los textos del veredicto llega
 - [x] La demo completa (historia, selector de par, tarjeta, recibo, botones del mapa y consulta de evento) se recorre solo con teclado, con el foco siempre visible.
 
 Fuera de esta entrega: el módulo de mapa (`src/mapa/`, de Atlas), que tiene sus propios textos ES/EN; lo que salga de la auditoría ahí se avisa a Atlas. Tampoco se prueba con un lector de pantalla real (NVDA o VoiceOver).
+
+### Guion de demo y material para el jurado (T-FAR-09)
+
+Cierra RF-FAR-08 en [demo.md](demo.md). El guion sigue la historia de Parral (T-FAR-06) y termina en el recibo, para que el jurado vea en tres pasos el valor del producto y pueda abrir la procedencia de cualquier afirmación.
+
+- [x] Un guion hablado de 3 minutos como máximo, con lo que se dice y lo que se hace en pantalla en cada tramo, cronometrado al ensayarlo en la app. El equipo lo ensayó en persona el 2026-11-14 y cupo en los 3 minutos.
+- [x] El guion no fija ninguna cifra ni ningún estado de un par: se leen en pantalla, porque los artefactos pueden reprocesarse (constitución II.6). Solo cita cifras externas con su fuente, como los 22,8 mm del boletín de Protección Civil.
+- [x] Cada afirmación del guion y de la ficha sale de la API, de una especificación o de `MEMORY.md`. Nada presenta una hipótesis como causa ni lo sintético como real.
+- [x] Los textos pasan la misma prueba de lenguaje que `src/i18n/` (palabras que prohíbe `services/verdicts/tests/test_language.py`).
+- [x] Una ficha de una página para el jurado: qué hace, con qué datos, qué no hace, cómo comprobar una respuesta y fuentes.
+- [x] Respuestas cortas a las preguntas probables del jurado, cada una con su fuente en el repositorio.
+- [x] Una lista de comprobación antes de salir a escena y un plan por si algo falla.
+- [x] El equipo revisa el guion antes de la demo (decisión del 2026-11-14 en `MEMORY.md`: T-FAR-09 se cierra con todo el equipo). Las cinco personas confirmaron a Faro el 2026-11-14 que lo leyeron y les parece bien.
+
+Fuera de esta entrega: diapositivas, vídeo grabado y la versión en inglés del guion.
 
 ## Interfaces
 

@@ -25,7 +25,7 @@ function options(over: Partial<VerdictMapOptions> = {}): VerdictMapOptions {
     layers: { state: 'http://g/s', change_hh: 'http://g/h', change_hv: 'http://g/v' },
     dataKind: 'real',
     causaNoObservable: undefined,
-    desplazamientoEscena: false,
+    desplazamientoEscena: 'ninguno',
     idioma: 'es',
     pixelUrl: 'http://g/pixel',
     optical: { before: { status: 'clear', tiles: ['http://g/t'] }, after: { status: 'none_in_window', tiles: [] } },

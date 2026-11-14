@@ -41,7 +41,7 @@ Sentinel-2 / OPERA ────> Antena: catalog                   │          
 | Manifiesto de artefactos | Eco | Balanza | `contracts/artifact-manifest.schema.json` |
 | API de veredictos | Balanza | Atlas, Faro | `contracts/verdicts.openapi.json` |
 | Interfaz del mapa | Atlas | Faro | `specs/04-atlas/plan.md` |
-| API de acceso (propuesta, ola 2) | Antena | Balanza (gateway), Faro | `contracts/auth.openapi.json` |
+| API de acceso (ola 2) | Antena | Balanza (gateway), Faro | `contracts/auth.openapi.json` |
 
 ## Calendario
 
@@ -53,8 +53,8 @@ La fecha del evento sale de una fuente secundaria y falta confirmarla.
 | 11 nov | P0 en curso. El frontend consume la API sintética |
 | 12 nov | P0 terminados e integrados. Datos reales si ya hay cuenta de Earthdata |
 | 13 nov | Calibración y ensayo completo de la demo |
-| 14 nov | Evento. Último día para cambios de contrato que rompen; al terminar el día (hora de Parral) los contratos se congelan |
-| 15 nov | Evento: solo cambios aditivos de contrato, P1, P2 y demo |
+| 14 nov | Evento. El sistema sigue creciendo: ola 2 aprobada (PR 66) y cualquier cambio, aunque sea radical, con el proceso de la constitución VI.2 |
+| 15 nov | Evento: demo. Sin congelamiento de contratos: lo que está listo se fusiona |
 
 ## Demo mínima aceptable
 
@@ -71,4 +71,4 @@ La fecha del evento sale de una fuente secundaria y falta confirmarla.
 | Lectura remota lenta | Probar `--limit 2` lo antes posible y medir | Antena |
 | RAM insuficiente con 10 fechas a 10 m | Procesar por pares | Eco |
 | Umbrales sin calibrar | Declararlo en cada veredicto y calibrar con datos reales | Eco y Balanza |
-| Cambios de contrato tardíos | Congelación al terminar el 14 de noviembre; los cambios que rompen necesitan la aprobación de quien consume el contrato | Todos |
+| Cambios de contrato durante el evento | Sin congelamiento (decisión del 2026-11-14). Los cambios que rompen necesitan la aprobación de quien consume el contrato y se prueban con `scripts/smoke.sh` antes de fusionar | Todos |
