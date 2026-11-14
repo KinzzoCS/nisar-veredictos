@@ -79,6 +79,7 @@
           "kind": { "enum": ["consecutive", "full_window"] },
           "spans_data_gap": { "type": "boolean" },
           "granules": { "type": "array", "items": { "type": "string" }, "minItems": 2, "maxItems": 2 },
+          "cells": { "type": "string", "description": "Opcional (T-ECO-12). Ruta de un GeoJSON (no es un COG) en WGS84 con celdas de 1 km alineadas a múltiplos de 1 km de la proyección de la escena y recortadas a ella. Por celda: id, state (misma regla que el veredicto, con not_observable y su cause), observed_fraction, changed_fraction (sobre lo observado) y pixels. Falta si la malla no está en metros." },
           "layers": {
             "type": "object",
             "required": ["state", "change_hh", "change_hv"],
