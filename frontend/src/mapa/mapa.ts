@@ -1,5 +1,10 @@
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+// MapLibre 6 busca su worker junto a su propio módulo. En `vite build` ese módulo
+// queda dentro del bundle y el worker no se copia: "Worker failed to load" y mapa
+// en blanco. Con ?url, Vite emite el worker y le pasamos su ruta (vale también
+// para el comparador, porque es un ajuste global).
+import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "./mapa.css";
 import { crearComparador, type Comparador } from "./comparador";
 import { normalizarAvisoEscena } from "./escena";
@@ -18,6 +23,8 @@ import {
 } from "./seleccion";
 import { TEXTOS } from "./textos";
 import type { Bbox, CambiosMapa, CapaRadar, MapaAtlas, OpcionesMapa } from "./tipos";
+
+maplibregl.setWorkerUrl(workerUrl);
 
 const ATRIBUCION_NISAR =
   'Radar: <a href="https://nisar.jpl.nasa.gov/" target="_blank" rel="noopener">NASA/ISRO NISAR</a> (GCOV)';
