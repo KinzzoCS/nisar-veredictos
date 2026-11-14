@@ -743,3 +743,33 @@ def test_event_texts_call_the_duration_an_assumption(client, params, lang, assum
     assert any(assumed in text for text in texts), texts
     for phrase in as_fact:
         assert not any(phrase in text for text in texts), (phrase, texts)
+
+
+# --- Relieve (T-BAL-15, RF-INT-12) ---------------------------------------------------------------------------------
+
+DEM = {
+    "layer": "parral/dem.tif", "source": "Copernicus DEM GLO-30", "crs": "EPSG:4326",
+    "vertical_datum": "EGM2008", "units": "m",
+    "attribution": "produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH "
+                   "2014-2018 provided under COPERNICUS by the European Union and ESA; all rights reserved",
+}
+
+
+def test_series_without_dem_has_null_relief(client):
+    series = client.get("/aois/parral/series").json()
+    assert series and all(item["relief"] is None for item in series)
+
+
+def test_series_with_dem_gives_a_terrainrgb_template(manifest_root):
+    path = manifest_root / "parral/T048A-F015/manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    manifest["dem"] = DEM
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    relief = TestClient(create_app(manifest_root)).get("/aois/parral/series").json()[0]["relief"]
+    assert relief["tiles"].startswith("/tiles/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=")
+    assert "file%3A%2F%2F%2Fdata%2Fartifacts%2Fparral%2Fdem.tif" in relief["tiles"]
+    assert "algorithm=terrainrgb" in relief["tiles"]
+    assert relief["encoding"] == "mapbox" and relief["exaggeration"] == 1.0 and relief["tile_size"] == 256
+    assert relief["attribution"] == DEM["attribution"] and relief["vertical_datum"] == "EGM2008"

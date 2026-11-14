@@ -307,6 +307,36 @@ for layer in state change_hh; do
   test "$content_type" = "image/png" || fail "tesela $layer: $content_type"
 done
 
+# Relieve (T-BAL-15): si el manifiesto trae dem, /series da una plantilla terrainrgb y su tesela es un PNG. Sin dem
+# (el seed sintético aún no lo trae), relief es null y se avisa.
+"$PY" - "$TMP/verdicts_series.json" >"$TMP/relief.txt" <<'PY' || fail "relieve en /series"
+import json, sys
+templates = set()
+for item in json.load(open(sys.argv[1], encoding="utf-8")):
+    relief = item["relief"]
+    if relief is None:
+        continue
+    assert "algorithm=terrainrgb" in relief["tiles"] and relief["encoding"] == "mapbox", relief
+    assert relief["attribution"] and relief["exaggeration"] == 1 and relief["units"] == "m", relief
+    templates.add(relief["tiles"])
+assert len(templates) <= 1, "cada zona tiene un solo DEM"
+print(templates.pop() if templates else "")
+PY
+relief_template=$(tr -d '\r' <"$TMP/relief.txt")
+if [ -n "$relief_template" ]; then
+  tile=$(echo "$relief_template" | sed 's/{z}/9/; s/{x}/106/; s/{y}/216/')
+  content_type=$(curl -fsS -o "$TMP/relief.png" -w '%{content_type}' "$BASE$tile") || fail "tesela de relieve"
+  test "$content_type" = "image/png" || fail "tesela de relieve: $content_type"
+  echo "Relieve: tesela terrainrgb servida"
+else
+  WARNINGS+=("relieve sin probar: ninguna serie trae dem en su manifiesto (falta un DEM sintético o reprocesar)")
+fi
+# Solo el algoritmo del relieve pasa el gateway: otro, sus parámetros o un segundo algorithm= dan 403.
+DEM_URL="url=file%3A%2F%2F%2Fdata%2Fartifacts%2F$AOI%2Fdem.tif"
+for query in "algorithm=hillshade" "algorithm=terrainrgb&algorithm=hillshade" "algorithm=terrainrgb&algorithm_params=%7B%7D"; do
+  expect_code 403 "/tiles/cog/tiles/WebMercatorQuad/9/106/216.png?$DEM_URL&$query"
+done
+
 # El gateway no debe abrir archivos fuera de los artefactos.
 expect_code 403 "/tiles/cog/info?url=file%3A%2F%2F%2Fetc%2Fpasswd"
 

@@ -1194,6 +1194,70 @@
         "title": "Receipt",
         "type": "object"
       },
+      "ReliefOut": {
+        "description": "Plantilla de teselas de relieve con el DEM de la zona que publica Eco (T-ECO-10).",
+        "properties": {
+          "attribution": {
+            "description": "Texto de atribución que exige la licencia; la interfaz lo muestra junto al relieve.",
+            "title": "Attribution",
+            "type": "string"
+          },
+          "crs": {
+            "description": "CRS del COG del DEM, que no es el del radar.",
+            "title": "Crs",
+            "type": "string"
+          },
+          "encoding": {
+            "const": "mapbox",
+            "default": "mapbox",
+            "description": "Terrain-RGB: altura = -10000 + (R * 65536 + G * 256 + B) * 0,1 m.",
+            "title": "Encoding",
+            "type": "string"
+          },
+          "exaggeration": {
+            "default": 1.0,
+            "description": "Exageración vertical por omisión (RF-INT-12): 1, sin exagerar. Si la interfaz la cambia, debe mostrar el factor en pantalla.",
+            "title": "Exaggeration",
+            "type": "number"
+          },
+          "source": {
+            "description": "Fuente del DEM, del manifiesto (dem.source).",
+            "title": "Source",
+            "type": "string"
+          },
+          "tile_size": {
+            "default": 256,
+            "description": "Píxeles por lado de cada tesela.",
+            "title": "Tile Size",
+            "type": "integer"
+          },
+          "tiles": {
+            "description": "Plantilla XYZ por el gateway, con algorithm=terrainrgb. Se pide como fuente raster-dem de MapLibre con encoding mapbox y tileSize 256.",
+            "title": "Tiles",
+            "type": "string"
+          },
+          "units": {
+            "const": "m",
+            "default": "m",
+            "title": "Units",
+            "type": "string"
+          },
+          "vertical_datum": {
+            "description": "Referencia de las alturas. EGM2008: sobre el geoide, no el elipsoide.",
+            "title": "Vertical Datum",
+            "type": "string"
+          }
+        },
+        "required": [
+          "tiles",
+          "source",
+          "crs",
+          "vertical_datum",
+          "attribution"
+        ],
+        "title": "ReliefOut",
+        "type": "object"
+      },
       "SceneShiftOut": {
         "properties": {
           "basis": {
@@ -1596,6 +1660,17 @@
           "maturity": {
             "title": "Maturity",
             "type": "string"
+          },
+          "relief": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReliefOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Teselas de relieve con el DEM de la zona (RF-INT-12, T-BAL-15). null si el manifiesto no trae dem. Es el mismo DEM para todas las series de la zona. Los datos del DEM son los de su fuente aunque el radar de la serie sea sintético."
           }
         },
         "required": [

@@ -24,7 +24,7 @@ Aprobada el 2026-11-14 por las cinco personas (PR 66). Especificaciones en [06-a
 | T-BAL-12 | Cuotas por perfil en el gateway solo en las rutas nuevas, y cuota estricta por IP en `login` y `register`, medidas con la pila (RF-ACC-09) | P1 | T-BAL-10 | pendiente |
 | T-BAL-13 | Exportación CSV, GeoJSON y JSON con recibo, en streaming (RF-BUS-06) | P1 | T-BAL-11 | pendiente |
 | T-BAL-14 | `evidence.noise` en el veredicto y filtro y orden por dispersión (RF-BUS-09) | P1 | T-ECO-09 (su cambio de esquema se fusiona antes que cualquier manifiesto con `noise_*`: `stats` tiene `additionalProperties: false`) | pendiente |
-| T-BAL-15 | Plantilla de relieve en la API y paso de `algorithm=terrainrgb` por el gateway (RF-INT-12) | P1 | T-ECO-10 | pendiente |
+| T-BAL-15 | Plantilla de relieve en la API y paso de `algorithm=terrainrgb` por el gateway (RF-INT-12) | P1 | T-ECO-10 | hecha (2026-11-14): `relief` en `GET /aois/{aoi}/series` (null sin `dem` en el manifiesto) y el gateway solo deja pasar `algorithm=terrainrgb`. Probado con el DEM real de `processor fetch-dem`; la pila sintética no tiene `dem.tif` hasta que Eco añada un DEM sintético |
 | T-BAL-16 | Prueba de humo de acceso: rutas de `auth`, 401 (también en una ruta actual), 403, 429 en una ruta nueva y en `login`, rutas actuales sin cuota, CORS con `Authorization`, cabecera falsificada y cuerpos idénticos con los tres perfiles | P0 | T-BAL-10 | pendiente |
 | T-BAL-17 | Texto libre (FTS5) y filtro por `bbox` con la huella de la serie (RF-BUS-02 y 10) | P1 | T-BAL-11, T-ANT-17 | pendiente |
 | T-BAL-18 | Fracción de cambio dentro de un rectángulo con las celdas de Eco, ponderada por su `observed_fraction` (RF-BUS-10) | P2 | T-ECO-12, T-BAL-17 | pendiente |
