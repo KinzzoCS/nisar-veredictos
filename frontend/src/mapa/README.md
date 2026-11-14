@@ -66,6 +66,24 @@ Con `compare: "swipe"` y `optical` con al menos un lado (`VistaOptica`, ver [`sr
 mapa.actualizar({ optical: { before, after }, compare: "swipe" }); // "off" lo quita
 ```
 
+## Globo 3D
+
+Con `modo3d: true` el mapa usa el globo de MapLibre 6.16.0 (`projection: globe`), que pasa a plano por dentro al acercarse: globo hasta el zoom 11 y Mercator desde el 12. Por omisión es `false` y el mapa queda en 2D, como hasta ahora ([`globo.ts`](globo.ts)).
+
+```ts
+mapa.actualizar({ modo3d: true }); // false vuelve al plano
+```
+
+Se queda en 2D, y lo dice en pantalla, si:
+
+- el navegador no tiene aceleración gráfica (WebGL 2 por software);
+- `setProjection` falla;
+- el comparador óptico está activo, para que el radar y el óptico casen (RF-INT-20). Al quitarlo, vuelve el globo.
+
+MapLibre 6 solo funciona con WebGL 2, así que sin él no hay mapa ni en 2D: `crearMapa` no rompe la página, muestra la extensión de la zona en texto, el distintivo de sintético y un aviso.
+
+Todavía no (T-ATL-10): botón 2D/3D, girar e inclinar, ocultar la escala sobre el globo y el fondo oscuro del espacio.
+
 ## Estado
 
 | Parte | Tarea | Estado |
@@ -75,6 +93,7 @@ mapa.actualizar({ optical: { before, after }, compare: "swipe" }); // "off" lo q
 | Selección de punto y serie por píxel | T-ATL-04 | Hecho; falta probarlo con la API real |
 | Distintivo de sintético y atribución de NISAR solo con datos reales | — | Hecho |
 | Teclado: mapa (flechas, + y −, Enter, Escape), selector de capa y opacidad | — | Hecho |
+| Globo 3D (`modo3d`) con caída a 2D y aviso | T-ATL-09 | Hecho; probado en el navegador con la API local |
 | Comparador óptico (`optical` y `compare`) | T-ATL-07 | En curso: probado solo con teselas de prueba; falta la API con el PR 19 y comprobar La Boquilla |
 
 ## Desarrollo
@@ -83,7 +102,7 @@ Desde `frontend/`:
 
 ```bash
 npm install
-npm run dev:mapa   # banco de pruebas en /src/mapa/demo.html
+npm run dev:mapa   # banco de pruebas en /src/mapa/demo.html (?3d abre el globo; ?sin-comparador lo quita)
 npm test
 npx tsc -b         # tipos, igual que npm run build
 ```

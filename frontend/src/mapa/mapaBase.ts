@@ -26,9 +26,11 @@ export function atribuciones(idioma: Idioma, nisar: boolean): string[] {
 
 export const ZOOM_MAXIMO_BASE = 19;
 
-export function estiloMapaBase(): StyleSpecification {
+/** `proyeccion`: "globe" abre el globo 3D de MapLibre, que pasa a plano al acercarse (T-ATL-09). */
+export function estiloMapaBase(proyeccion: "globe" | "mercator" = "mercator"): StyleSpecification {
   return {
     version: 8,
+    projection: { type: proyeccion },
     sources: {
       osm: {
         type: "raster",

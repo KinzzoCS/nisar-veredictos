@@ -1,3 +1,4 @@
+import type { MotivoSin3d } from "./globo";
 import type { CapaRadar } from "./tipos";
 
 export type Idioma = "es" | "en";
@@ -54,6 +55,11 @@ interface Textos {
     "cloudy" | "partial_coverage" | "none_in_window" | "catalog_unavailable",
     string
   >;
+  // Globo 3D (T-ATL-09)
+  /** Sin WebGL 2 no hay mapa, ni en 2D: se dice y se deja la zona en texto. */
+  sinMapa: string;
+  /** Se pidió el 3D (`modo3d`) y el mapa está en 2D: por qué. */
+  sin3d: Record<MotivoSin3d, string>;
   /** Igual que CAUSES de services/verdicts/src/verdicts/narrative.py. */
   causas: Record<string, string>;
 }
@@ -137,6 +143,13 @@ export const TEXTOS: Record<Idioma, Textos> = {
       none_in_window: "No hay escena Sentinel-2 cercana a esta fecha",
       catalog_unavailable: "El catálogo de imágenes ópticas no respondió",
     },
+    sinMapa:
+      "Este navegador no puede dibujar el mapa: necesita WebGL 2. La zona de estudio sigue arriba, en texto.",
+    sin3d: {
+      sin_aceleracion: "Mapa en 2D: el navegador no tiene aceleración gráfica para el globo 3D.",
+      fallo_globo: "Mapa en 2D: el globo 3D falló en este navegador.",
+      comparador: "Mapa en 2D mientras está el comparador, para que el radar y la imagen óptica casen.",
+    },
     causas: CAUSAS_ES,
   },
   en: {
@@ -197,6 +210,13 @@ export const TEXTOS: Record<Idioma, Textos> = {
       partial_coverage: "The scene does not cover the whole area",
       none_in_window: "No Sentinel-2 scene close to this date",
       catalog_unavailable: "The optical image catalog did not respond",
+    },
+    sinMapa:
+      "This browser cannot draw the map: it needs WebGL 2. The study area is still shown above, as text.",
+    sin3d: {
+      sin_aceleracion: "Map in 2D: the browser has no graphics acceleration for the 3D globe.",
+      fallo_globo: "Map in 2D: the 3D globe failed in this browser.",
+      comparador: "Map in 2D while the comparator is on, so that radar and optical imagery line up.",
     },
     causas: CAUSAS_EN,
   },

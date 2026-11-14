@@ -4,10 +4,23 @@ import { RDBU } from "./leyenda";
 import { avisoEscena, type DesplazamientoEscenaApi } from "./escena";
 import { crearMapa } from "./mapa";
 import { ErrorHttp, registrarCargador } from "./protocolo";
-import type { Bbox, CapaRadar } from "./tipos";
+import type { Bbox, CapaRadar, MapaAtlas } from "./tipos";
 import type { EstadoOptico, VistaOptica } from "../types/map";
 
-const GATEWAY = import.meta.env.VITE_GATEWAY ?? "http://localhost:8080";
+const GATEWAY =
+  import.meta.env.VITE_GATEWAY ?? import.meta.env.VITE_API_BASE ?? "http://localhost:8080";
+
+// ?3d abre el globo (T-ATL-09); ?sin-comparador lo quita, porque con él el mapa queda en 2D.
+const PARAMS = new URLSearchParams(location.search);
+const MODO_3D = PARAMS.has("3d");
+const CON_COMPARADOR = !PARAMS.has("sin-comparador");
+
+declare global {
+  interface Window {
+    /** Para probar `actualizar` desde la consola del navegador. */
+    atlasMapa?: MapaAtlas;
+  }
+}
 
 // Respaldo solo para desarrollar sin la pila levantada; se avisa en pantalla.
 const BBOX_RESPALDO: Bbox = [-105.95, 26.7, -105.4, 27.15]; // config/aois/parral.yaml
@@ -75,7 +88,7 @@ async function main() {
     aviso.textContent =
       `Veredicto ${v.id} de la serie ${serie.id}, desde ${GATEWAY}.` +
       (optica ? "" : " La API aún no trae evidence.optical (PR 19): sin comparador.");
-    crearMapa(document.getElementById("mapa")!, {
+    window.atlasMapa = crearMapa(document.getElementById("mapa")!, {
       aoi: serie.bbox,
       nombreZona: "Hidalgo del Parral",
       dataKind: v.receipt.data_kind,
@@ -84,7 +97,8 @@ async function main() {
       desplazamientoEscena: avisoEscena(v.evidence?.scene_shift),
       pixelUrl: `${GATEWAY}/api/verdicts/aois/parral/series/${serie.id}/pixel`,
       optical: optica && { before: vistaDesdeApi(optica.before), after: vistaDesdeApi(optica.after) },
-      compare: "swipe",
+      compare: CON_COMPARADOR ? "swipe" : "off",
+      modo3d: MODO_3D,
       onPointSelected: (p) => console.debug("onPointSelected", p),
       onViewChanged: (vista) => console.debug("onViewChanged", vista),
       onLayerChanged: (c) => console.debug("onLayerChanged", c),
@@ -94,7 +108,7 @@ async function main() {
       `API no disponible en ${GATEWAY} (${(e as Error).message}). ` +
       "Extensión de config/aois/parral.yaml y teselas de PRUEBA generadas en el navegador.";
     registrarTeselasPrueba(BBOX_RESPALDO);
-    crearMapa(document.getElementById("mapa")!, {
+    window.atlasMapa = crearMapa(document.getElementById("mapa")!, {
       aoi: BBOX_RESPALDO,
       nombreZona: "Hidalgo del Parral",
       dataKind: "synthetic",
@@ -120,7 +134,8 @@ async function main() {
         },
         after: { status: "none_in_window", tiles: [] },
       },
-      compare: "swipe",
+      compare: CON_COMPARADOR ? "swipe" : "off",
+      modo3d: MODO_3D,
       onPointSelected: (p) => console.debug("onPointSelected", p),
       onViewChanged: (vista) => console.debug("onViewChanged", vista),
       onLayerChanged: (c) => console.debug("onLayerChanged", c),

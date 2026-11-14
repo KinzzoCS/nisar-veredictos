@@ -8,6 +8,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?url";
 import "./mapa.css";
 import { crearComparador, type Comparador } from "./comparador";
 import { normalizarAvisoEscena } from "./escena";
+import { capacidadGrafica, elegirProyeccion } from "./globo";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { ladoDisponible } from "./optico";
 import {
@@ -45,6 +46,9 @@ const IDS_RADAR = ["radar-state", "radar-change_hh", "radar-change_hv", "radar-t
  * la ventana del punto.
  */
 export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtlas {
+  const capacidad = capacidadGrafica();
+  if (capacidad === "sin_webgl2") return mapaSinWebgl(contenedor, opciones);
+
   const estado = {
     aoi: validarBbox(opciones.aoi),
     zona: opciones.nombreZona,
@@ -59,7 +63,20 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     punto: null as { lon: number; lat: number } | null,
     optical: opciones.optical,
     compare: opciones.compare ?? "off",
+    modo3d: opciones.modo3d ?? false,
+    falloGlobo: false,
   };
+
+  // Comparador óptico (T-ATL-07): solo con compare "swipe" y al menos un lado con datos.
+  const quiereComparador = () =>
+    estado.compare === "swipe" && ladoDisponible(estado.optical, "after") !== null;
+  const proyeccion = () =>
+    elegirProyeccion({
+      modo3d: estado.modo3d,
+      capacidad,
+      falloGlobo: estado.falloGlobo,
+      comparadorActivo: quiereComparador(),
+    });
 
   contenedor.classList.add("atlas-mapa");
   const lienzo = document.createElement("div");
@@ -68,7 +85,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
 
   const map = new maplibregl.Map({
     container: lienzo,
-    style: estiloMapaBase(),
+    style: estiloMapaBase(proyeccion().tipo),
     bounds: bboxContinuo(estado.aoi),
     fitBoundsOptions: { padding: 32 },
     attributionControl: false,
@@ -117,7 +134,31 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   const anuncio = document.createElement("div");
   anuncio.className = "atlas-solo-lector";
   anuncio.setAttribute("role", "status");
-  contenedor.append(cruz, ayuda, anuncio);
+  // Por qué el mapa está en 2D si se pidió el 3D (RF-INT-17).
+  const aviso3d = document.createElement("div");
+  aviso3d.className = "atlas-aviso-3d";
+  aviso3d.setAttribute("role", "status");
+  contenedor.append(cruz, ayuda, anuncio, aviso3d);
+
+  // setProjection necesita el estilo cargado; antes, la proyección va en el propio estilo.
+  let cargado = false;
+  let proyeccionActual = proyeccion().tipo;
+  function aplicarProyeccion() {
+    let p = proyeccion();
+    if (p.tipo !== proyeccionActual && cargado) {
+      try {
+        map.setProjection({ type: p.tipo });
+      } catch (e) {
+        console.warn("[atlas] el globo falló; el mapa sigue en 2D", e);
+        estado.falloGlobo = true;
+        p = proyeccion();
+        map.setProjection({ type: p.tipo });
+      }
+      proyeccionActual = p.tipo;
+    }
+    aviso3d.textContent = p.motivo ? TEXTOS[estado.idioma].sin3d[p.motivo] : "";
+    aviso3d.hidden = !p.motivo;
+  }
 
   const marcador = new maplibregl.Marker({ color: "#1b1f3b" });
   const ventana = new maplibregl.Popup({ maxWidth: "300px", closeOnClick: false, focusAfterOpen: false });
@@ -282,13 +323,16 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       paint: { "line-color": "#1b1f3b", "line-width": 2, "line-dasharray": [3, 2] },
     });
     aplicarCapas();
+    cargado = true;
+    aplicarProyeccion();
   });
 
-  // Comparador óptico (T-ATL-07): solo con compare "swipe" y al menos un lado con datos.
   let comparador: Comparador | null = null;
 
   function aplicarComparador() {
-    const activo = estado.compare === "swipe" && ladoDisponible(estado.optical, "after") !== null;
+    const activo = quiereComparador();
+    // Antes que el comparador: su mapa óptico copia la cámara del principal ya en 2D.
+    aplicarProyeccion();
     if (activo && !comparador) {
       comparador = crearComparador(contenedor, map, {
         optical: estado.optical,
@@ -347,7 +391,8 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       }
       if ("optical" in c) estado.optical = c.optical;
       if (c.compare) estado.compare = c.compare;
-      if ("optical" in c || c.compare || c.idioma || c.aoi) aplicarComparador();
+      if ("modo3d" in c) estado.modo3d = c.modo3d ?? false;
+      if ("optical" in c || c.compare || c.idioma || c.aoi || "modo3d" in c) aplicarComparador();
     },
     fijarOpacidad,
     encuadrar: () => map.fitBounds(bboxContinuo(estado.aoi), { padding: 32 }),
@@ -358,6 +403,49 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       map.remove();
       contenedor.replaceChildren();
       contenedor.classList.remove("atlas-mapa");
+    },
+  };
+}
+
+/** Sin WebGL 2, MapLibre no dibuja nada: se dice y se deja la zona en texto, sin romper la página. */
+function mapaSinWebgl(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtlas {
+  let aoi = validarBbox(opciones.aoi);
+  let zona = opciones.nombreZona;
+  let idioma = opciones.idioma ?? "es";
+  let dataKind = opciones.dataKind;
+  contenedor.classList.add("atlas-mapa", "atlas-sin-mapa");
+  const extension = document.createElement("div");
+  extension.className = "atlas-extension";
+  extension.append(document.createElement("strong"), document.createElement("span"));
+  const sello = document.createElement("div");
+  sello.className = "atlas-sintetico";
+  sello.setAttribute("role", "status");
+  const aviso = document.createElement("p");
+  aviso.className = "atlas-aviso-sin-mapa";
+  aviso.setAttribute("role", "alert");
+  contenedor.append(extension, sello, aviso);
+  function dibujar() {
+    const t = TEXTOS[idioma];
+    extension.querySelector("strong")!.textContent = t.extensionDe(zona ?? t.zonaPorDefecto);
+    extension.querySelector("span")!.textContent = textoExtension(aoi);
+    sello.textContent = t.sintetico;
+    sello.hidden = dataKind !== "synthetic";
+    aviso.textContent = t.sinMapa;
+  }
+  dibujar();
+  return {
+    actualizar(c) {
+      if (c.aoi) aoi = validarBbox(c.aoi);
+      if ("nombreZona" in c) zona = c.nombreZona;
+      if (c.idioma) idioma = c.idioma;
+      if (c.dataKind) dataKind = c.dataKind;
+      dibujar();
+    },
+    fijarOpacidad: () => {},
+    encuadrar: () => {},
+    destruir: () => {
+      contenedor.replaceChildren();
+      contenedor.classList.remove("atlas-mapa", "atlas-sin-mapa");
     },
   };
 }
