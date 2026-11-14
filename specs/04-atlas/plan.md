@@ -60,3 +60,4 @@ Los campos con `?` faltan cuando `scene` es `null`. Faro hace la conversión des
 ## Riesgos
 
 - Las teselas de 10 m a zoom bajo pueden verse vacías. Se limita el zoom y se explica.
+- Límites de zoom (T-ATL-08, 2026-11-14): el mapa llega como mucho al zoom 16, dos niveles sobre el dato, donde un píxel de 10 m ocupa unos 5 px de pantalla. Las fuentes de radar y ópticas piden teselas hasta el zoom 14 (unos 8,5 m por píxel a 27° de latitud) y MapLibre las amplía por encima, porque más teselas no traerían más detalle. La trama de lo no observable no se amplía: se dibuja por píxel de tesela y saldría más gruesa. Todas las fuentes de datos llevan `bounds` con la caja de la zona, salvo si cruza el antimeridiano.

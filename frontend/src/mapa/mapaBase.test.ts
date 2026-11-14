@@ -8,8 +8,11 @@ import {
   cruzaAntimeridiano,
   estiloMapaBase,
   formatoCoordenada,
+  fuenteDatos,
   textoExtension,
   validarBbox,
+  ZOOM_MAXIMO_MAPA,
+  ZOOM_NATIVO_DATOS,
 } from "./mapaBase";
 import type { Bbox } from "./tipos";
 
@@ -90,5 +93,48 @@ describe("formato de coordenadas", () => {
 
   it("describe la extensión de Parral", () => {
     expect(textoExtension(PARRAL)).toBe("O −105.95° · S 26.7° · E −105.4° · N 27.15°");
+  });
+});
+
+describe("límites de zoom y fuentes acotadas (T-ATL-08)", () => {
+  const PLANTILLA = "http://localhost:8080/tiles/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=x";
+
+  it("el zoom nativo tiene píxeles más finos que el dato de 10 m en Parral, y el máximo deja ver cada píxel", () => {
+    const metrosPorPixel = (z: number) => (156543.03392 * Math.cos((27 * Math.PI) / 180)) / 2 ** z;
+    expect(metrosPorPixel(ZOOM_NATIVO_DATOS)).toBeLessThan(10);
+    expect(metrosPorPixel(ZOOM_NATIVO_DATOS - 1)).toBeGreaterThan(10);
+    // Al zoom máximo, un píxel de 10 m ocupa varios píxeles de pantalla, pero no decenas.
+    const pantalla = 10 / metrosPorPixel(ZOOM_MAXIMO_MAPA);
+    expect(pantalla).toBeGreaterThan(4);
+    expect(pantalla).toBeLessThan(8);
+  });
+
+  it("acota la fuente a la zona y al zoom del dato", () => {
+    const fuente = fuenteDatos(PLANTILLA, PARRAL);
+    expect(fuente).toEqual({
+      type: "raster",
+      tiles: [PLANTILLA],
+      tileSize: 256,
+      bounds: [-105.95, 26.7, -105.4, 27.15],
+      maxzoom: ZOOM_NATIVO_DATOS,
+    });
+  });
+
+  it("no limita el zoom de la trama, que se dibuja por píxel de tesela", () => {
+    const fuente = fuenteDatos(PLANTILLA, PARRAL, { ampliar: false });
+    expect(fuente.maxzoom).toBeUndefined();
+    expect(fuente.bounds).toEqual([-105.95, 26.7, -105.4, 27.15]);
+  });
+
+  it("no acota una zona que cruza el antimeridiano, para no perder teselas", () => {
+    const fuente = fuenteDatos(PLANTILLA, [170, -20, -170, -10]);
+    expect(fuente.bounds).toBeUndefined();
+    expect(fuente.maxzoom).toBe(ZOOM_NATIVO_DATOS);
+  });
+
+  it("no comparte el arreglo de la zona con la fuente", () => {
+    const zona: typeof PARRAL = [...PARRAL];
+    const fuente = fuenteDatos(PLANTILLA, zona);
+    expect(fuente.bounds).not.toBe(zona);
   });
 });
