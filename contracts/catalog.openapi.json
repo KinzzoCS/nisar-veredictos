@@ -623,6 +623,221 @@
         "title": "OpticalTile",
         "type": "object"
       },
+      "PassOut": {
+        "properties": {
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "at": {
+            "description": "Hora UTC: de adquisición, o la estimada si kind es estimated.",
+            "format": "date-time",
+            "title": "At",
+            "type": "string"
+          },
+          "contains_aoi": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "La huella de la serie contiene la zona; null en las excluidas.",
+            "title": "Contains Aoi"
+          },
+          "data_kind": {
+            "const": "real",
+            "description": "Siempre real: catalog solo lee CMR, nunca datos sintéticos.",
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "A",
+              "D"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "excluded_reason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Motivo de la exclusión; null si no está excluida.",
+            "title": "Excluded Reason"
+          },
+          "frame": {
+            "title": "Frame",
+            "type": "integer"
+          },
+          "granule_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Gránulo de CMR; null en las estimadas.",
+            "title": "Granule Id"
+          },
+          "kind": {
+            "description": "acquired: pasada publicada y utilizable. excluded: publicada pero declarada inservible en la zona. estimated: siguiente pasada estimada por el ciclo de 12 días, no adquirida.",
+            "enum": [
+              "acquired",
+              "excluded",
+              "estimated"
+            ],
+            "title": "Kind",
+            "type": "string"
+          },
+          "latency_hours": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Horas entre la adquisición y published_at.",
+            "title": "Latency Hours"
+          },
+          "observation_plan": {
+            "description": "Estado en el plan de observación de NISAR (NISAR_COP). El resumen de `ingest plan` solo cubre las pasadas que siguen a la última adquirida, así que las adquiridas y excluidas salen unknown.",
+            "enum": [
+              "planned",
+              "partial",
+              "not_planned",
+              "no_plan",
+              "unknown"
+            ],
+            "title": "Observation Plan",
+            "type": "string"
+          },
+          "orbit_precision": {
+            "anyOf": [
+              {
+                "enum": [
+                  "P",
+                  "M",
+                  "N",
+                  "F"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Letra que sigue al CRID en el nombre del gránulo: P precisa, M media, N casi en tiempo real y F pronóstico, según la guía de ASF. ORBIT_TYPE de CMR no coincide con ella. null en las estimadas.",
+            "title": "Orbit Precision"
+          },
+          "published_at": {
+            "anyOf": [
+              {
+                "format": "date-time",
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Fecha 'updated' de CMR, en UTC; aproxima la publicación.",
+            "title": "Published At"
+          },
+          "series": {
+            "description": "Id completo de la serie, como en /aois/{id}/series.",
+            "title": "Series",
+            "type": "string"
+          },
+          "track": {
+            "title": "Track",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "aoi",
+          "series",
+          "kind",
+          "at",
+          "date",
+          "track",
+          "direction",
+          "frame",
+          "granule_id",
+          "published_at",
+          "latency_hours",
+          "orbit_precision",
+          "contains_aoi",
+          "excluded_reason",
+          "observation_plan",
+          "data_kind"
+        ],
+        "title": "PassOut",
+        "type": "object"
+      },
+      "PassSearchOut": {
+        "properties": {
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Cursor opaco de la página siguiente; null en la última.",
+            "title": "Next Cursor"
+          },
+          "orbit_precision_basis": {
+            "const": "granule_name",
+            "default": "granule_name",
+            "title": "Orbit Precision Basis",
+            "type": "string"
+          },
+          "query": {
+            "additionalProperties": true,
+            "description": "La consulta tal como se aplicó, sin los valores por omisión vacíos.",
+            "title": "Query",
+            "type": "object"
+          },
+          "results": {
+            "items": {
+              "$ref": "#/components/schemas/PassOut"
+            },
+            "title": "Results",
+            "type": "array"
+          },
+          "total": {
+            "description": "Pasadas que cumplen la consulta, en todas las páginas.",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "query",
+          "total",
+          "next_cursor",
+          "results"
+        ],
+        "title": "PassSearchOut",
+        "type": "object"
+      },
       "SeriesGranule": {
         "properties": {
           "date": {
@@ -956,6 +1171,13 @@
         "title": "ValidationError",
         "type": "object"
       }
+    },
+    "securitySchemes": {
+      "bearer": {
+        "bearerFormat": "JWT",
+        "scheme": "bearer",
+        "type": "http"
+      }
     }
   },
   "info": {
@@ -1243,6 +1465,310 @@
           }
         },
         "summary": "Health"
+      }
+    },
+    "/search/passes": {
+      "get": {
+        "description": "Pasadas de las zonas filtradas por fecha, dirección, latencia, precisión de órbita, exclusión y plan.\n\nPerfil mínimo student (specs/06-acceso). Mientras el gateway no tenga cuentas (AUTH_ENABLED=0) todo el\nmundo es public y responde 403 con el perfil necesario.",
+        "operationId": "search_passes_search_passes_get",
+        "parameters": [
+          {
+            "description": "Zonas; por omisión, todas. Se puede repetir.",
+            "in": "query",
+            "name": "aoi",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Zonas; por omisión, todas. Se puede repetir.",
+              "title": "Aoi"
+            }
+          },
+          {
+            "description": "Series por id completo o corto (T048A-F015). Se puede repetir.",
+            "in": "query",
+            "name": "series",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Series por id completo o corto (T048A-F015). Se puede repetir.",
+              "title": "Series"
+            }
+          },
+          {
+            "description": "Primer día, incluido (UTC).",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Primer día, incluido (UTC).",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Último día, incluido (UTC).",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Último día, incluido (UTC).",
+              "title": "To"
+            }
+          },
+          {
+            "description": "A ascendente o D descendente.",
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "A",
+                    "D"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A ascendente o D descendente.",
+              "title": "Direction"
+            }
+          },
+          {
+            "description": "Sin latencia conocida no pasa el filtro.",
+            "in": "query",
+            "name": "min_latency_hours",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sin latencia conocida no pasa el filtro.",
+              "title": "Min Latency Hours"
+            }
+          },
+          {
+            "description": "Sin latencia conocida no pasa el filtro.",
+            "in": "query",
+            "name": "max_latency_hours",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Sin latencia conocida no pasa el filtro.",
+              "title": "Max Latency Hours"
+            }
+          },
+          {
+            "description": "Se puede repetir.",
+            "in": "query",
+            "name": "orbit_precision",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "P",
+                      "M",
+                      "N",
+                      "F"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Se puede repetir.",
+              "title": "Orbit Precision"
+            }
+          },
+          {
+            "description": "Se puede repetir.",
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "acquired",
+                      "excluded",
+                      "estimated"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Se puede repetir.",
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "Estado en el plan de observación. Se puede repetir.",
+            "in": "query",
+            "name": "plan",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "planned",
+                      "partial",
+                      "not_planned",
+                      "no_plan",
+                      "unknown"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Estado en el plan de observación. Se puede repetir.",
+              "title": "Plan"
+            }
+          },
+          {
+            "description": "Sin latencia, al final.",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "date",
+              "description": "Sin latencia, al final.",
+              "enum": [
+                "date",
+                "-date",
+                "latency",
+                "-latency"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Más de 50 por página pide el perfil researcher.",
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "description": "Más de 50 por página pide el perfil researcher.",
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "next_cursor de la página anterior.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor de la página anterior.",
+              "title": "Cursor"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PassSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "403": {
+            "description": "Perfil insuficiente: sin cuenta (public) o limit > 50 sin perfil researcher. El cuerpo trae required_role."
+          },
+          "422": {
+            "description": "Parámetro o cursor no válido."
+          }
+        },
+        "security": [
+          {
+            "bearer": []
+          }
+        ],
+        "summary": "Search Passes",
+        "x-required-role": "student"
       }
     }
   }

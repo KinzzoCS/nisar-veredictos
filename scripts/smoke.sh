@@ -187,6 +187,15 @@ for acq in d['acquisitions']:
   covered catalog "/aois/{aoi_id}/references/opera"
 fi
 
+# Búsqueda de pasadas (T-ANT-16). Pide el perfil student: sin cuenta (public) responde 403 y dice cuál falta.
+# No se prueba con X-Auth-Role a mano: hasta T-BAL-10 el gateway no borra esa cabecera del cliente.
+if curl -fsS "$BASE/api/catalog/openapi.json" | grep -q '/search/passes'; then
+  code=$(curl -s -o "$TMP/catalog_search_passes.json" -w '%{http_code}' "$BASE/api/catalog/search/passes")
+  test "$code" = "403" || fail "/api/catalog/search/passes sin cuenta respondió $code, se esperaba 403"
+  check "catalog /search/passes" catalog_search_passes "assert d['required_role'] == 'student', d"
+  covered catalog "/search/passes"
+fi
+
 # --- Verdicts (Balanza) -----------------------------------------------------
 
 get verdicts_health "/api/verdicts/health"

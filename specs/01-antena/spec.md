@@ -41,6 +41,7 @@ Alimentar el sistema con los datos correctos y decir con exactitud **cuándo** e
 - [x] Un fallo del catálogo externo devuelve un 502 claro, nunca datos parciales sin aviso.
 - [x] Las fuentes ópticas no requieren cuenta y su licencia queda citada.
 - [x] Cada tesela Sentinel-2 de `/references/optical` trae su caja `bbox` en WGS84, `[oeste, sur, este, norte]`: la del item STAC de Earth Search, que es la de su huella de datos y no la del cuadrado MGRS; si falta o no es válida, la de la huella, y si tampoco hay huella, `null`. Como en STAC, una caja que cruza el antimeridiano trae oeste > este y se conserva así. Para `S2A_13RDK_20260812_1_L2A`, escena de borde de franja, es `[-106.00934, 26.12852, -105.70229, 27.12071]` (T-ANT-19, 2026-11-14).
+- [x] `GET /search/passes` (RF-BUS-07) lista las pasadas adquiridas, excluidas y estimadas de las zonas, filtradas por zona, serie, fechas, dirección, latencia, precisión de órbita (letra del nombre del gránulo), tipo y plan de observación, con orden, total y cursor. Pide el perfil `student` y, con más de 50 por página, `researcher`; sin cuenta, 403 con `required_role`. Es la única ruta de catalog que declara `security` en el contrato. En Parral, con CMR real: 18 adquiridas, la excluida del 08-13, las F del 09-18 y 10-12 de T171 y las siguientes del 11-17 y 11-20, planificadas (2026-11-14, T-ANT-16).
 - [x] Un gránulo excluido no aparece en `granules` ni en `passes`, sí en `excluded` con su motivo, y `ingest` no lo descarga.
 
 ### Plan de observación (RF-ANT-04, T-ANT-09)
