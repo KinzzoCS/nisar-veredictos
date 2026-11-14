@@ -14,7 +14,7 @@ Una aplicación abierta (GPL-3.0-only) para el reto NASA/ISRO NISAR. Convierte d
 
 | Rol | Persona | Carpetas | Especificación |
 |---|---|---|---|
-| Antena: ingesta y tiempo | @KinzzoCS | `services/catalog`, `services/ingest`, `config/aois` | [01-antena](specs/01-antena/spec.md) |
+| Antena: ingesta y tiempo | @KinzzoCS | `services/catalog`, `services/ingest`, `services/auth`, `config/aois` | [01-antena](specs/01-antena/spec.md) |
 | Eco: señal y georreferencia | @TakoKami-dev | `services/processor` | [02-eco](specs/02-eco/spec.md) |
 | Balanza: interpretación y veracidad | @lospapulindos2-netizen | `services/verdicts`, `gateway`, `docker-compose.yml`, `scripts` | [03-balanza](specs/03-balanza/spec.md) |
 | Atlas: mapa y representación web | @Fransomware | Módulo de mapa en `frontend/` | [04-atlas](specs/04-atlas/spec.md) |
@@ -37,6 +37,7 @@ Una aplicación abierta (GPL-3.0-only) para el reto NASA/ISRO NISAR. Convierte d
 | `contracts/gcov-subset.md` | Antena con Eco | Pruebas de `ingest` |
 | `contracts/artifact-manifest.schema.json` | Eco con Balanza | Pruebas de `processor` y `verdicts` |
 | `contracts/verdicts.openapi.json` | Balanza | `python -m verdicts.export_openapi contracts/verdicts.openapi.json` |
+| `contracts/auth.openapi.json` (ola 2, aún no existe) | Antena | `python -m auth.export_openapi contracts/auth.openapi.json` |
 
 Las pruebas fallan si el contrato publicado no coincide con el código. Los contratos se congelan al terminar el sábado 14 de noviembre, hora de Parral (15 de noviembre, 06:00 UTC).
 

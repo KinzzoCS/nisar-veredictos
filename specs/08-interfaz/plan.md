@@ -1,0 +1,41 @@
+# Interfaz por perfiles y mapa en 3D: plan técnico
+
+## Vistas (Faro)
+
+- Un contexto de React `VistaContexto` con `vista: "public" | "student" | "researcher"` y `perfil` (de `auth`, o `public` sin cuenta). La vista inicial es el perfil; el selector la cambia y se guarda en `localStorage` dentro de un `try/catch`.
+- Los componentes no se duplican por vista: cada uno recibe la vista y añade bloques (`<ExplicacionCampo>` en Estudiante, `<TablaEvidencia>` en Investigador). Lo obligatorio de las tres vistas vive fuera de esas ramas, así que no se puede ocultar por error.
+- Sesión: el token de acceso en memoria (un módulo, no `localStorage`); `client.ts` añade `Authorization` si hay token y, ante 401, llama una vez a `/api/auth/refresh` y repite. Si vuelve a fallar, cierra la sesión y lo dice.
+- Rutas de la aplicación: `/` (historia y respuesta), `/explorar` (mapa y veredicto), `/buscar` y `/cuenta`.
+
+## Sistema de diseño (Faro)
+
+- Variables CSS en `:root` y redefinidas para el tema oscuro, con una prueba que calcula el contraste de cada par texto-fondo declarado y falla por debajo de 4,5:1 (3:1 en texto grande e iconos).
+- Colores de estado coordinados con la leyenda de Atlas: cambio probable en color sólido; no observable con trama y borde discontinuo; sin cambio, neutro. Nunca solo color (constitución IX.2).
+- Tipografía y escala tipográfica fijas en pocas medidas; la decisión de fuente se anota en MEMORY con su licencia.
+
+## Globo y relieve (Atlas)
+
+- **Proyección.** MapLibre GL JS 6.16.0 admite la proyección de globo sin biblioteca nueva. Comprobado el 2026-11-14 en los tipos de `frontend/node_modules` (observación de Faro en el PR 66): `map.setProjection(projection: ProjectionSpecification)`, cuyo `type` acepta el texto `'globe'` (también `'mercator'` y `'vertical-perspective'`), un estado de transición o una expresión; la librería trae además `GlobeControl`. Se usa `map.setProjection({ type: "globe" })`: `globe` ya pasa a Mercator por dentro al acercarse, así que no hay que escribir la transición (`vertical-perspective` es el globo que no cambia). Corregido el 2026-11-14 por Atlas en el PR 66; los tipos lo dicen («globe projection to fall back to mercator projection in an animated way»). Visto en el navegador por Atlas el 2026-11-14: globo hasta el zoom 11, transición en 11,5 y Mercator desde 12 (detalle en MEMORY).
+- **Relieve.** Eco publica un COG del DEM GLO-30 recortado a la zona en `artifacts/<aoi>/dem.tif` (EPSG:4326 o su CRS declarado). El mapa añade una fuente `raster-dem` con la plantilla `/tiles/cog/tiles/WebMercatorQuad/{z}/{x}/{y}.png?url=file:///data/artifacts/<aoi>/dem.tif&algorithm=terrainrgb` y `encoding: "mapbox"`. El gateway ya deja pasar `file:///data/artifacts/`; Balanza solo comprueba que el parámetro `algorithm` llega a TiTiler. La ruta exacta de la plantilla la publica la API, no se construye en el frontend.
+- **Modo 2D.** `setProjection` a Mercator, `setTerrain(null)`, `pitch` 0, `bearing` 0 y `maxPitch` 0, y se vuelven a desactivar girar e inclinar (`dragRotate`, `touchPitch` y el giro con teclado), como hoy, para que el norte quede arriba.
+- **Modo 3D.** Se activan girar e inclinar al entrar y se desactivan al volver a 2D, después de poner la orientación a 0. Observación de Atlas en el PR 66.
+- **Escala.** El control de escala se quita mientras haya inclinación (`pitch > 0`) o la proyección efectiva no sea Mercator (el globo a zoom bajo, donde la escala no vale en toda la vista), y vuelve cuando se cumplen las dos cosas. La proyección efectiva se lee del zoom o de `transitionState`, no del evento `projectiontransition`, que no avisa del paso a Mercator (prueba de Atlas, 2026-11-14). En 3D, el encuadre de Parral (zoom 9-10) queda en globo y sin escala. El aviso de perspectiva usa los textos de `textos.ts` en los dos idiomas.
+- **Comparador en 3D.** Hoy `src/mapa/comparador.ts` copia al mapa óptico el centro, el zoom, la orientación y la inclinación, pero no la proyección ni el relieve: en 3D, el radar iría sobre un globo con relieve y el óptico sobre un plano, y el deslizador no casaría. En 3D, el comparador copia también la proyección y el relieve, o fuerza 2D mientras está activo y lo dice; Atlas elige en T-ATL-10 y lo anota en `specs/04-atlas/plan.md`.
+- **Trama y distintivo en 3D.** La trama de lo no observable se dibuja en píxeles de tesela, así que con inclinación y relieve se deforma; se comprueba que sigue distinguiéndose de "sin cambio" y que el distintivo de datos sintéticos sigue visible.
+- **Huellas.** Las huellas de las series vienen de catalog (`/aois/{id}/series`, campo nuevo y opcional `footprint` en GeoJSON, tarea de Antena). Si faltan, el globo muestra solo la caja de la zona.
+- **Interfaz.** Opciones nuevas de `crearMapa`, todas opcionales: `modo3d: boolean`, `relieve?: { plantilla: string; exageracion?: number; atribucion: string }`, `huellas?: GeoJSON.FeatureCollection` y el evento `onBboxDrawn`. Se documentan en `specs/04-atlas/plan.md`.
+
+## Pruebas
+
+- Faro: pruebas de componentes con las tres vistas; prueba de contraste de variables; prueba de que cambiar de vista no llama a `fetch`; axe en las rutas principales.
+- Atlas: pruebas de `estado` y `seleccion` también con `modo3d`, con `project`/`unproject` de un lon/lat fijo en 2D y en 3D; prueba de que con `pitch > 0` o con el globo a zoom bajo no hay control de escala; prueba de que el comparador en 3D tiene la misma proyección en los dos mapas o está en 2D; prueba de que, sin soporte de globo, `crearMapa` abre en 2D y emite el aviso.
+- Manual: el recorrido de la demo con teclado en 2D y en 3D, anotado en el PR.
+
+## Riesgos
+
+| Riesgo | Mitigación |
+|---|---|
+| El 3D añade peso y teselas y empeora móviles | Relieve solo en la zona, mapa diferido, presupuesto de RF-INT-08 medido en el PR |
+| El 3D distrae del producto (veredictos honestos) | En vista Público el globo vuela a Parral y se queda en la respuesta; el 3D no tiene estados propios ni cifras |
+| La inclinación hace engañosas las áreas | Sin escala con inclinación y aviso de perspectiva; el análisis se hace en 2D |
+| Un rediseño grande rompe criterios ya aprobados de Faro | Las pruebas actuales de la tarjeta, la consulta de evento y la historia siguen en verde en cada PR |
