@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import secrets
 import sqlite3
 import threading
@@ -45,6 +46,30 @@ CREATE TABLE IF NOT EXISTS personal_tokens (
   revoked_at TEXT
 );
 CREATE INDEX IF NOT EXISTS personal_tokens_user ON personal_tokens(user_id);
+-- Historias de la comunidad (RF-ACC-13 a 17, T-ANT-20). Solo referencias a veredictos: nunca sus textos.
+CREATE TABLE IF NOT EXISTS stories (
+  id TEXT PRIMARY KEY,
+  author_id TEXT NOT NULL REFERENCES users(id),
+  author_role TEXT NOT NULL,
+  title TEXT NOT NULL,
+  aoi TEXT NOT NULL,
+  series TEXT NOT NULL,
+  from_date TEXT NOT NULL,
+  to_date TEXT NOT NULL,
+  pairs TEXT NOT NULL,
+  notes TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  downloads INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS stories_aoi ON stories(aoi, created_at);
+CREATE TABLE IF NOT EXISTS story_ratings (
+  story_id TEXT NOT NULL REFERENCES stories(id) ON DELETE CASCADE,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  role TEXT NOT NULL,
+  stars INTEGER NOT NULL CHECK (stars BETWEEN 1 AND 5),
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (story_id, user_id)
+);
 """
 
 # Tokens personales para scripts (RF-ACC-11, T-ANT-18): opacos, con prefijo para reconocerlos y distinguirlos
@@ -81,6 +106,42 @@ class PersonalToken:
         if self.revoked_at is not None:
             return "revoked"
         return "expired" if self.expires_at <= now else "active"
+
+
+@dataclass(frozen=True)
+class RatingSummary:
+    count: int
+    average: float | None
+
+
+@dataclass(frozen=True)
+class Story:
+    id: str
+    author_id: str
+    author_role: str
+    title: str
+    aoi: str
+    series: str
+    from_date: str
+    to_date: str
+    pairs: list[dict[str, str]]
+    notes: str
+    created_at: datetime
+    downloads: int
+    ratings: RatingSummary
+    by_role: dict[str, RatingSummary]
+
+
+# Historia con sus estrellas agregadas: total y desglose por perfil declarado (RF-ACC-15).
+STORY_SELECT = """
+SELECT s.*,
+  COUNT(r.stars) AS n, SUM(r.stars) AS total,
+  SUM(CASE WHEN r.role = 'student' THEN 1 ELSE 0 END) AS n_student,
+  SUM(CASE WHEN r.role = 'student' THEN r.stars END) AS total_student,
+  SUM(CASE WHEN r.role = 'researcher' THEN 1 ELSE 0 END) AS n_researcher,
+  SUM(CASE WHEN r.role = 'researcher' THEN r.stars END) AS total_researcher
+FROM stories s LEFT JOIN story_ratings r ON r.story_id = s.id
+"""
 
 
 class RefreshRejected(Exception):
@@ -235,6 +296,107 @@ class Store:
         if row["role"] != "researcher":
             raise PersonalTokenRejected("La cuenta ya no tiene el perfil researcher")
         return User(row["id"], row["email"], row["password_hash"], row["role"], datetime.fromisoformat(row["created_at"]))
+
+    # --- Historias de la comunidad (T-ANT-20) ---
+
+    def create_story(self, author: User, fields: dict, now: datetime) -> Story:
+        """Guarda una historia. `fields` ya viene validado: title, aoi, series, from_date, to_date, pairs y notes."""
+        story_id = str(uuid.uuid4())
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT INTO stories (id, author_id, author_role, title, aoi, series, from_date, to_date, pairs, notes,"
+                " created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                (
+                    story_id,
+                    author.id,
+                    author.role,
+                    fields["title"],
+                    fields["aoi"],
+                    fields["series"],
+                    fields["from_date"],
+                    fields["to_date"],
+                    json.dumps(fields["pairs"], separators=(",", ":")),
+                    fields["notes"],
+                    now.isoformat(),
+                ),
+            )
+        story = self.story(story_id)
+        assert story is not None
+        return story
+
+    def story(self, story_id: str) -> Story | None:
+        with self._lock:
+            row = self._db.execute(f"{STORY_SELECT} WHERE s.id = ? GROUP BY s.id", (story_id,)).fetchone()
+            return self._story(row) if row else None
+
+    def stories(self, aoi: str | None, sort: str, limit: int, offset: int) -> tuple[list[Story], int]:
+        """(página de historias, total). `sort`: recent (más nuevas) o stars (mejor promedio, luego más votos)."""
+        where, params = ("WHERE s.aoi = ?", [aoi]) if aoi else ("", [])
+        order = "s.created_at DESC" if sort == "recent" else "AVG(r.stars) IS NULL, AVG(r.stars) DESC, COUNT(r.stars) DESC, s.created_at DESC"
+        with self._lock:
+            total = self._db.execute(f"SELECT COUNT(*) FROM stories s {where}", params).fetchone()[0]
+            rows = self._db.execute(
+                f"{STORY_SELECT} {where} GROUP BY s.id ORDER BY {order}, s.id LIMIT ? OFFSET ?", [*params, limit, offset]
+            ).fetchall()
+            return [self._story(row) for row in rows], total
+
+    def delete_story(self, story_id: str) -> None:
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM story_ratings WHERE story_id = ?", (story_id,))
+            self._db.execute("DELETE FROM stories WHERE id = ?", (story_id,))
+
+    def rate_story(self, story_id: str, user: User, stars: int, now: datetime) -> None:
+        """Una valoración por cuenta e historia: valorar otra vez la sustituye."""
+        with self._lock, self._db:
+            self._db.execute(
+                "INSERT INTO story_ratings (story_id, user_id, role, stars, updated_at) VALUES (?, ?, ?, ?, ?) "
+                "ON CONFLICT (story_id, user_id) DO UPDATE SET stars = excluded.stars, role = excluded.role, "
+                "updated_at = excluded.updated_at",
+                (story_id, user.id, user.role, stars, now.isoformat()),
+            )
+
+    def unrate_story(self, story_id: str, user_id: str) -> None:
+        with self._lock, self._db:
+            self._db.execute("DELETE FROM story_ratings WHERE story_id = ? AND user_id = ?", (story_id, user_id))
+
+    def my_stars(self, story_ids: list[str], user_id: str) -> dict[str, int]:
+        if not story_ids:
+            return {}
+        marks = ",".join("?" for _ in story_ids)
+        with self._lock:
+            rows = self._db.execute(
+                f"SELECT story_id, stars FROM story_ratings WHERE user_id = ? AND story_id IN ({marks})", [user_id, *story_ids]
+            ).fetchall()
+        return {row["story_id"]: row["stars"] for row in rows}
+
+    def count_download(self, story_id: str) -> None:
+        with self._lock, self._db:
+            self._db.execute("UPDATE stories SET downloads = downloads + 1 WHERE id = ?", (story_id,))
+
+    @staticmethod
+    def _story(row: sqlite3.Row) -> Story:
+        def summary(count: int, total: int | None) -> RatingSummary:
+            return RatingSummary(count, round(total / count, 2) if count and total is not None else None)
+
+        return Story(
+            id=row["id"],
+            author_id=row["author_id"],
+            author_role=row["author_role"],
+            title=row["title"],
+            aoi=row["aoi"],
+            series=row["series"],
+            from_date=row["from_date"],
+            to_date=row["to_date"],
+            pairs=json.loads(row["pairs"]),
+            notes=row["notes"],
+            created_at=datetime.fromisoformat(row["created_at"]),
+            downloads=row["downloads"],
+            ratings=summary(row["n"], row["total"]),
+            by_role={
+                "student": summary(row["n_student"], row["total_student"]),
+                "researcher": summary(row["n_researcher"], row["total_researcher"]),
+            },
+        )
 
     @staticmethod
     def _personal(row: sqlite3.Row) -> PersonalToken:
