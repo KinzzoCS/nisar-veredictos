@@ -23,7 +23,7 @@ Aprobada el 2026-11-14 por las cinco personas (PR 66). Especificaciones en [06-a
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-ANT-14 | [P] Servicio `services/auth`: registro, inicio de sesión, renovación rotativa, cierre, `/me`, `/verify` y JWKS; Argon2id, EdDSA y SQLite en volumen; contrato `contracts/auth.openapi.json` (RF-ACC-01 a 04 y 12) | P0 | — | pendiente |
+| T-ANT-14 | [P] Servicio `services/auth`: registro, inicio de sesión, renovación rotativa, cierre, `/me`, `/verify` y JWKS; Argon2id, EdDSA y SQLite en volumen; contrato `contracts/auth.openapi.json` (RF-ACC-01 a 04 y 12) | P0 | — | hecha (2026-11-14): `services/auth` con `uvicorn --factory`, 21 pruebas, contrato `contracts/auth.openapi.json` y probado en Docker. Falta montarlo en el compose y el gateway (Balanza, T-BAL-10) |
 | T-ANT-15 | Orden para crear cuentas de prueba con contraseñas del `.env`, documentada en el README del servicio | P1 | T-ANT-14 | pendiente |
 | T-ANT-16 | [P] `GET /search/passes` en catalog: fechas, dirección, latencia, precisión de órbita, exclusión y plan (RF-BUS-07) | P1 | — | pendiente |
 | T-ANT-17 | [P] Huella de cada serie (`footprint`, GeoJSON opcional) en `/aois/{id}/series` para el globo (RF-INT-16) | P1 | — | pendiente |
