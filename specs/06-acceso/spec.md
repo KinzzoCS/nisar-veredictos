@@ -44,10 +44,10 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 | RF-ACC-03 | Renovación con un token opaco y rotativo en cookie `HttpOnly`, `Secure` fuera de localhost y `SameSite=Strict`; se guarda solo su hash, y reutilizar uno ya rotado revoca toda la familia | P0 |
 | RF-ACC-04 | Contraseñas con Argon2id; mínimo 12 caracteres; sin requisitos de composición; respuesta idéntica para "no existe" y "contraseña incorrecta" | P0 |
 | RF-ACC-05 | El gateway valida el token en cada petición a `/api/` y pasa a los servicios `X-Auth-Role` y `X-Auth-Sub`. Borra esas cabeceras si vienen del cliente | P0 |
-| RF-ACC-06 | Sin cabecera `Authorization`, la petición es `public`. Con un token inválido, caducado o de otra audiencia, responde 401 y **no** degrada a `public` en silencio | P0 |
-| RF-ACC-07 | Ninguna ruta que exista el 2026-11-14 pide token ni cambia su respuesta según el perfil | P0 |
+| RF-ACC-06 | Sin cabecera `Authorization`, la petición es `public`. Con un token inválido, caducado o de otra audiencia, responde 401 en **cualquier** ruta, también en las actuales, y **no** degrada a `public` en silencio | P0 |
+| RF-ACC-07 | Ninguna ruta que exista el 2026-11-14 pide token, cambia su respuesta según el perfil ni cuenta para las cuotas por perfil. La única diferencia posible es el 401 de RF-ACC-06, que depende de que el token sea válido y no del perfil | P0 |
 | RF-ACC-08 | Las rutas nuevas declaran en su contrato el perfil mínimo; con un perfil insuficiente responden 403 con el perfil que haría falta | P0 |
-| RF-ACC-09 | Cuotas por perfil en el gateway: `public` por IP, y `student` y `researcher` por `sub`. Al pasarse, 429 con `Retry-After` | P1 |
+| RF-ACC-09 | Cuotas por perfil en el gateway, **solo en las rutas nuevas**: `public` por IP, y `student` y `researcher` por `sub`. Además, una cuota estricta por IP en `POST /api/auth/login` y `/api/auth/register`, contra los intentos de adivinar contraseñas. Al pasarse, 429 con `Retry-After`. Las rutas actuales y las teselas no cuentan: en la demo todo el público comparte una IP | P1 |
 | RF-ACC-10 | `AUTH_ENABLED=0` deja el gateway como hoy (todo `public`, rutas nuevas con 403). Es el valor por omisión hasta que el equipo apruebe activarlo | P0 |
 | RF-ACC-11 | Tokens personales para scripts (`researcher`): se crean y revocan desde la cuenta, se muestran una sola vez y caducan como máximo a los 90 días | P2 |
 | RF-ACC-12 | Registro sin datos personales más allá de un correo y una contraseña; sin verificación de correo en esta ola, y se dice así | P1 |
@@ -61,14 +61,19 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 | Búsqueda de veredictos y de pasadas (`specs/07-busqueda`) | no | sí, con filtros básicos y 50 resultados por página | sí, con todos los filtros y paginación |
 | Exportar resultados con su recibo (CSV, GeoJSON, JSON) | no | no | sí |
 | Tokens personales para scripts | no | no | sí |
-| Cuota orientativa (a calibrar en T-BAL-12) | 60 peticiones/min por IP | 120/min | 600/min |
+| Cuota orientativa en las rutas nuevas (a calibrar en T-BAL-12) | 60 peticiones/min por IP | 120/min | 600/min |
+| Cuota en las rutas actuales y las teselas | ninguna | ninguna | ninguna |
+| Cuota de `login` y `register` (a calibrar en T-BAL-12) | 5 intentos/min por IP, para todos | | |
 
 ## Criterios de aceptación
 
 - [ ] Con `AUTH_ENABLED=1`, la misma petición a `/api/verdicts/aois/parral/series/T048A-F015/verdicts` devuelve un cuerpo idéntico sin token, con token de `student` y con token de `researcher` (prueba automática que compara los cuerpos).
 - [ ] Con `AUTH_ENABLED=0`, `bash scripts/smoke.sh` pasa sin cambios.
 - [ ] Una petición con `X-Auth-Role: researcher` y sin token llega a los servicios como `public`.
-- [ ] Un token caducado, con firma de otra clave o con `aud` distinto recibe 401, nunca 200 como `public`.
+- [ ] Un token caducado, con firma de otra clave o con `aud` distinto recibe 401, nunca 200 como `public`, también en una ruta actual.
+- [ ] Superar la cuota de `public` en una ruta nueva no cambia la respuesta de las rutas actuales: siguen dando 200 desde la misma IP.
+- [ ] El sexto intento de `POST /api/auth/login` en un minuto desde la misma IP recibe 429 con `Retry-After`.
+- [ ] Desde el origen del frontend (`http://localhost:3000`), una petición a `/api/` con `Authorization` pasa la comprobación previa de CORS del navegador.
 - [ ] Reutilizar un token de renovación ya rotado revoca la sesión y obliga a entrar de nuevo.
 - [ ] Ningún servicio salvo el gateway publica un puerto en `docker-compose.yml` (hoy se cumple; la prueba lo vigila).
 - [ ] El repositorio no contiene la clave privada ni contraseñas: la clave se genera al arrancar si falta, en un volumen fuera de git, o se lee del `.env`.
@@ -89,4 +94,4 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 ## Preguntas abiertas
 
 - ¿Se activa `AUTH_ENABLED=1` en la demo del 15 de noviembre o después? Recomendación: después, para que la demo no dependa de una pieza nueva.
-- ¿Las teselas (`/tiles/cog/`) cuentan para la cuota? Propuesta: no, porque el mapa pide decenas por vista; se limitan aparte por IP.
+- ~~¿Las teselas (`/tiles/cog/`) cuentan para la cuota?~~ Resuelta el 2026-11-14 en la revisión del PR 66 (Faro y Balanza): ni las teselas ni ninguna ruta actual cuentan (RF-ACC-07 y RF-ACC-09).

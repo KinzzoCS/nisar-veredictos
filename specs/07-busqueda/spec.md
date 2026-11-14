@@ -33,17 +33,18 @@ Hoy hay una zona, dos series y 18 veredictos reales. La búsqueda se diseña par
 | RF-BUS-05 | `student`: filtros de RF-BUS-01 salvo los de calidad y ruido, y 50 resultados por página. `researcher`: todo, hasta 500 por página | P0 |
 | RF-BUS-06 | `GET /search/verdicts/export?format=csv\|geojson\|json` (`researcher`): mismas consultas, con recibo, gránulos, umbrales y la consulta usada en la cabecera o en `metadata` | P1 |
 | RF-BUS-07 | `GET /search/passes` en `catalog`: zona, serie, rango de fechas, dirección, latencia, precisión de órbita (letra del nombre del gránulo), excluida o no, con plan de observación o no | P1 |
-| RF-BUS-08 | Ruido de cada par en el manifiesto: desviación robusta (1,4826 · MAD) de la diferencia corregida en HH y HV, como campos opcionales `stats.noise_hh_db` y `stats.noise_hv_db` | P1 |
-| RF-BUS-09 | El veredicto expone ese ruido en `evidence.noise` (campo nuevo y opcional) y la búsqueda filtra y ordena por él | P1 |
-| RF-BUS-10 | Filtro espacial por `bbox` (WGS84): series cuya huella corta el rectángulo y, en P2, la fracción de cambio dentro de él leyendo el COG `state` | P1 (huella), P2 (fracción) |
+| RF-BUS-08 | **Dispersión de la diferencia** de cada par en el manifiesto, en HH y HV, como campos opcionales `stats.noise_hh_db` y `stats.noise_hv_db`: desviación robusta (1,4826 · MAD alrededor de la mediana) sobre los píxeles observables del par (sin `low_looks`, `terrain` ni `no_data`), después de suavizar 5 × 5 y **antes** del filtro de grupos. No depende de la corrección del desplazamiento de escena, porque restar una constante no cambia la MAD. No es ruido del instrumento: incluye también cambio real repartido (humedad, vegetación) y textura, y la descripción del campo lo dice | P1 |
+| RF-BUS-09 | El veredicto expone esa dispersión en `evidence.noise` (campo nuevo y opcional, con la misma advertencia) y la búsqueda filtra y ordena por ella | P1 |
+| RF-BUS-10 | Filtro espacial por `bbox` (WGS84): series cuya huella corta el rectángulo y, en P2, la fracción de cambio dentro de él calculada con las celdas de 1 km de Eco (T-ECO-12), ponderada por la fracción observable de cada celda. Si lo observable dentro del rectángulo no llega a `MIN_OBSERVED_FRACTION`, el resultado es `not_observable`, igual que un veredicto | P1 (huella), P2 (fracción) |
 | RF-BUS-11 | Búsquedas guardadas por cuenta | P2 |
 
 ## Criterios de aceptación
 
-- [ ] `state=change_probable` sobre los artefactos reales devuelve exactamente T048 08-16→08-28 y 08-28→09-09 (los dos únicos según MEMORY, 2026-11-14).
+- [ ] `state=change_probable` devuelve exactamente los pares cuyo veredicto en `/aois/{aoi}/series/{serie}/verdicts` tiene ese estado, comparados en la misma pila y con los mismos artefactos (prueba automática). No se compara con una lista fija: depende de los artefactos del momento, y T048 08-16→08-28 está solo 0,18 puntos sobre el umbral. Con los artefactos reales corregidos por T-ECO-07 (hay que reprocesar con `processor` si la copia local es anterior) hoy son T048 08-16→08-28 y 08-28→09-09.
 - [ ] Un filtro sin resultados devuelve una lista vacía con el total 0 y la consulta interpretada, nunca un 404.
 - [ ] Un resultado de datos sintéticos lleva `data_kind: synthetic` y la interfaz lo marca en la fila.
-- [ ] La exportación CSV incluye, por fila, `data_kind`, los dos `granule_id`, `interval_days`, `decision_rule` y el aviso de umbral sin calibrar.
+- [ ] La exportación CSV incluye, por fila, `data_kind`, los dos `granule_id`, `interval_days`, `decision_rule` con el umbral y `calibrated`, y la lista de supuestos declarados del veredicto.
+- [ ] Mientras el contraste con OPERA no está calculado, o si `verdicts` no tiene token, cada fila lleva `water: not_available`, no desaparece del resultado y `query` dice por qué el filtro `water` no se pudo aplicar.
 - [ ] `student` recibe 403 con `required_role: researcher` al pedir la exportación o un filtro de ruido; `public` recibe 403 en `/search/*`.
 - [ ] Ningún resultado afirma más que el veredicto completo: los textos son los mismos campos de la API (prueba de lenguaje incluida).
 - [ ] Los manifiestos sin `stats.noise_*` siguen siendo válidos y el veredicto sale sin `evidence.noise`.

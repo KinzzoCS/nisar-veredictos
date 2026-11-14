@@ -17,7 +17,7 @@ Propuesta del 2026-11-14, pendiente de aprobación. Especificaciones en [06-acce
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|
-| T-ATL-09 | [P] Globo 3D con la proyección de globo de MapLibre 6.16.0, transición a plano al acercarse y caída a 2D si no hay soporte (RF-INT-10 y 17) | P0 | — | pendiente |
+| T-ATL-09 | [P] Globo 3D con `setProjection` y el tipo `'globe'` de MapLibre 6.16.0 (comprobado en sus tipos el 2026-11-14), transición a plano al acercarse con una expresión por zoom (probarla en el navegador y anotarla en MEMORY) y caída a 2D si no hay soporte (RF-INT-10 y 17) | P0 | — | pendiente |
 | T-ATL-10 | Botón 2D/3D, escala oculta con inclinación y aviso de perspectiva, misma selección de punto en 3D y teclado para girar e inclinar (RF-INT-11, 13 a 15) | P0 | T-ATL-09 | pendiente |
 | T-ATL-11 | Interfaz `crearMapa` ampliada con opciones opcionales, publicada en `plan.md` (RF-INT-19) | P0 | T-ATL-09 | pendiente |
 | T-ATL-12 | Relieve GLO-30 con exageración declarada y atribución de Copernicus DEM (RF-INT-12) | P1 | T-ATL-10, T-BAL-15 | pendiente |

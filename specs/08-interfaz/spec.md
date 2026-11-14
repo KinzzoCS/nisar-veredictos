@@ -71,7 +71,7 @@ Las tres vistas muestran siempre, juntos, el estado, "qué detectamos", "qué no
 
 - [ ] Una persona sin cuenta, en vista Público, llega a la respuesta de la tormenta del 1 de julio sin abrir ningún menú.
 - [ ] En las tres vistas, el estado, los tres textos, el distintivo de datos sintéticos y el recibo están presentes (prueba de componentes con las tres vistas).
-- [ ] Cambiar de vista no hace ninguna petición nueva a la API: la vista es solo presentación.
+- [ ] Cambiar de vista no vuelve a pedir el veredicto ni cambia ningún dato mostrado: el estado, las cifras, `data_kind` y el recibo son idénticos en las tres vistas. Una vista puede pedir datos **adicionales** que solo ella enseña (la serie por píxel en Estudiante, el comparador óptico en Investigador).
 - [ ] La auditoría automática de accesibilidad (axe) no da errores en las tres vistas, en claro y oscuro, en 2D y en 3D.
 - [ ] El mismo clic sobre Parral en 2D y en 3D sin inclinación devuelve las mismas coordenadas.
 - [ ] Con inclinación, no hay barra de escala y sí el aviso de perspectiva.
