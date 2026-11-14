@@ -13,7 +13,7 @@
 
 ## Ola 2: acceso, búsqueda e interfaz
 
-Propuesta del 2026-11-14, pendiente de aprobación. Especificaciones en [06-acceso](../06-acceso/spec.md), [07-busqueda](../07-busqueda/spec.md) y [08-interfaz](../08-interfaz/spec.md). Prioridades de esta ola en [specs/README.md](../README.md#prioridades-de-la-ola-2).
+Aprobada el 2026-11-14 por las cinco personas (PR 66). Especificaciones en [06-acceso](../06-acceso/spec.md), [07-busqueda](../07-busqueda/spec.md) y [08-interfaz](../08-interfaz/spec.md). Prioridades de esta ola en [specs/README.md](../README.md#prioridades-de-la-ola-2).
 
 | ID | Tarea | Prioridad | Depende de | Estado |
 |---|---|---|---|---|

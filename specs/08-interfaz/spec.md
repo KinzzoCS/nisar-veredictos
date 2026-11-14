@@ -2,7 +2,7 @@
 
 - **Responsables:** @danielsanchez-033 (sistema de diseño, vistas por perfil, inicio de sesión y búsqueda) y @Fransomware (globo 3D, relieve y herramientas del mapa)
 - **Aportan:** @TakoKami-dev (relieve como artefacto), @KinzzoCS (huella de cada serie) y @lospapulindos2-netizen (gateway para el relieve)
-- **Estado:** borrador, propuesto el 2026-11-14
+- **Estado:** aprobada el 2026-11-14 por las cinco personas (PR 66)
 - **Depende de:** `specs/06-acceso` y `specs/07-busqueda`
 
 ## Misión
