@@ -36,7 +36,7 @@ Mostrar dónde ocurre cada cosa con precisión y sin engañar a la vista: capas 
 
 - [ ] El estado no observable se distingue sin depender del color.
 - [ ] La atribución de cada fuente está visible en el mapa.
-- [ ] Una capa radar y la óptica coinciden visualmente sobre la presa La Boquilla. Si no, se reporta a Eco.
+- [x] Una capa radar y la óptica coinciden en el mapa, sin desplazamiento mayor de un píxel, sobre una zona de la app con artefactos de radar. Si no, se reporta a Eco. Comprobado por Antena el 2026-11-14 en Parral con la API real y la serie T048 (PR 77); T171 sin probar, y respecto a T048 está desplazada de 0,5 a 1,1 px en filas (T-ECO-06), así que su comparador podría descuadrarse de 5 a 11 m. La presa La Boquilla queda fuera de la zona de Parral y la app no tiene artefactos suyos: la coincidencia allí se comprobó con los datos en T-ECO-06 (2026-11-12).
 - [ ] El mapa funciona con teclado: desplazamiento, zoom y selección de punto.
 
 ## Interfaces
