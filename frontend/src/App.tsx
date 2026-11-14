@@ -109,6 +109,9 @@ export default function App() {
 
   return (
     <>
+      <a className="skip-link" href="#main">
+        {t('app.skipToMain')}
+      </a>
       <header className="app-header">
         <div>
           <h1>{t('app.title')}</h1>
@@ -118,7 +121,7 @@ export default function App() {
       </header>
       {synthetic && <SyntheticBanner />}
 
-      <main>
+      <main id="main" tabIndex={-1}>
         {aoi && <Story aoi={aoi} lang={lang} onShowPair={showPair} />}
         {state.status === 'loading' && <p>{t('series.loading')}</p>}
         {state.status === 'error' && <p role="alert">{t('series.error')}</p>}

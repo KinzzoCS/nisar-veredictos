@@ -1,7 +1,8 @@
 {
   "app": {
     "title": "NISAR Veredictos",
-    "tagline": "Qué cambió, qué no se detectó y qué no se puede saber, con los datos que lo respaldan."
+    "tagline": "Qué cambió, qué no se detectó y qué no se puede saber, con los datos que lo respaldan.",
+    "skipToMain": "Saltar al contenido principal"
   },
   "language": {
     "label": "Idioma",
