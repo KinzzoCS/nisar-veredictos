@@ -61,9 +61,9 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 | Búsqueda de veredictos y de pasadas (`specs/07-busqueda`) | no | sí, con filtros básicos y 50 resultados por página | sí, con todos los filtros y paginación |
 | Exportar resultados con su recibo (CSV, GeoJSON, JSON) | no | no | sí |
 | Tokens personales para scripts | no | no | sí |
-| Cuota orientativa en las rutas nuevas (a calibrar en T-BAL-12) | 60 peticiones/min por IP | 120/min | 600/min |
+| Cuota en las rutas nuevas (T-BAL-12, sin calibrar con uso real) | 60 peticiones/min por IP | 120/min | 600/min |
 | Cuota en las rutas actuales y las teselas | ninguna | ninguna | ninguna |
-| Cuota de `login` y `register` (a calibrar en T-BAL-12) | 5 intentos/min por IP, para todos | | |
+| Cuota de `login` y `register` (T-BAL-12, cuotas separadas) | 5 intentos/min por IP, para todos | | |
 
 ## Criterios de aceptación
 
@@ -71,13 +71,13 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 - [x] Con `AUTH_ENABLED=0`, `bash scripts/smoke.sh` pasa sin cambios. Pila de Docker sintética, 2026-11-14 (T-BAL-10).
 - [x] Una petición con `X-Auth-Role: researcher` y sin token llega a los servicios como `public`. Con los dos valores de `AUTH_ENABLED`, `/search/verdicts` del PR 91 responde 403 con `required_role: student` (T-BAL-10, 2026-11-14).
 - [x] Un token caducado, con firma de otra clave o con `aud` distinto recibe 401, nunca 200 como `public`, también en una ruta actual. Probado a mano con `AUTH_ENABLED=1` en `/api/verdicts/aois` (T-BAL-10, 2026-11-14). Desde T-BAL-16, `scripts/smoke.sh` lo prueba en tres rutas actuales y en la búsqueda, también con un perfil inexistente, sin firma y con `Authorization: Basic`.
-- [ ] Superar la cuota de `public` en una ruta nueva no cambia la respuesta de las rutas actuales: siguen dando 200 desde la misma IP. La prueba ya está en `scripts/smoke.sh` (T-BAL-16); falta la cuota (T-BAL-12).
-- [ ] El sexto intento de `POST /api/auth/login` en un minuto desde la misma IP recibe 429 con `Retry-After`. La prueba ya está en `scripts/smoke.sh` (T-BAL-16); falta la cuota (T-BAL-12).
+- [x] Superar la cuota de `public` en una ruta nueva no cambia la respuesta de las rutas actuales: siguen dando 200 desde la misma IP. `scripts/smoke.sh` con `AUTH_ENABLED=1`: 429 en la búsqueda y después 200 en tres rutas actuales y en una tesela, y `student` sigue buscando (T-BAL-12, 2026-11-14).
+- [x] El sexto intento de `POST /api/auth/login` en un minuto desde la misma IP recibe 429 con `Retry-After`. Seis intentos seguidos dan 429 como tarde en el sexto (`scripts/smoke.sh`, T-BAL-12, 2026-11-14). La cuota es un cubo de nginx (`limit_req`): tras agotarla vuelve un intento cada 12 s, así que en un minuto entero caben hasta 10 si se reparten.
 - [x] Desde el origen del frontend (`http://localhost:3000`), una petición a `/api/` con `Authorization` pasa la comprobación previa de CORS del navegador. `scripts/smoke.sh` comprueba que `Access-Control-Allow-Headers` nombra `Authorization` (T-BAL-10); no se probó en un navegador.
 - [x] Reutilizar un token de renovación ya rotado revoca la sesión y obliga a entrar de nuevo. Prueba de `services/auth` y comprobado en Docker el 2026-11-14 (T-ANT-14).
 - [ ] Ningún servicio salvo el gateway publica un puerto en `docker-compose.yml` (hoy se cumple; la prueba lo vigila).
 - [x] El repositorio no contiene la clave privada ni contraseñas: la clave se genera al arrancar si falta, en un volumen fuera de git, o se lee del `.env`. `AUTH_DATA_DIR` (por omisión `data/auth`, ignorado por git) guarda la clave con permisos 600 (T-ANT-14).
-- [ ] La prueba de humo cubre las rutas de `auth` y comprueba 401, 403 y 429. Con `AUTH_ENABLED=1` cubre todas las rutas del contrato de `auth` y comprueba 401 y 403 (T-BAL-16, 2026-11-14); el 429 queda como aviso hasta T-BAL-12, y la CI aún no levanta la pila con `AUTH_ENABLED=1`.
+- [x] La prueba de humo cubre las rutas de `auth` y comprueba 401, 403 y 429. Con `AUTH_ENABLED=1` (T-BAL-16 y T-BAL-12, 2026-11-14). La CI aún levanta la pila solo con `AUTH_ENABLED=0`.
 - [x] Las dependencias nuevas tienen licencia compatible con GPL-3.0 y se anotan en MEMORY (PyPI, 2026-11-14).
 
 ## Interfaces
