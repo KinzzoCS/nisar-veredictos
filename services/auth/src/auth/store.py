@@ -34,7 +34,24 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
   expires_at TEXT NOT NULL,
   rotated_at TEXT
 );
+CREATE TABLE IF NOT EXISTS personal_tokens (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  name TEXT NOT NULL,
+  hash TEXT NOT NULL UNIQUE,
+  prefix TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  revoked_at TEXT
+);
+CREATE INDEX IF NOT EXISTS personal_tokens_user ON personal_tokens(user_id);
 """
+
+# Tokens personales para scripts (RF-ACC-11, T-ANT-18): opacos, con prefijo para reconocerlos y distinguirlos
+# de un JWT, y de ellos solo se guarda el SHA-256.
+PERSONAL_PREFIX = "nvp_"
+PERSONAL_MAX_DAYS = 90
+PERSONAL_MAX_ACTIVE = 10
 
 
 def hash_token(token: str) -> str:
@@ -50,8 +67,32 @@ class User:
     created_at: datetime
 
 
+@dataclass(frozen=True)
+class PersonalToken:
+    id: str
+    user_id: str
+    name: str
+    prefix: str
+    created_at: datetime
+    expires_at: datetime
+    revoked_at: datetime | None
+
+    def status(self, now: datetime) -> str:
+        if self.revoked_at is not None:
+            return "revoked"
+        return "expired" if self.expires_at <= now else "active"
+
+
 class RefreshRejected(Exception):
     """Token de renovación inexistente, caducado, revocado o reutilizado."""
+
+
+class PersonalTokenRejected(Exception):
+    """Token personal inexistente, revocado, caducado o de una cuenta que ya no puede tenerlo."""
+
+
+class TooManyPersonalTokens(Exception):
+    """La cuenta ya tiene el máximo de tokens personales activos."""
 
 
 class Store:
@@ -138,6 +179,74 @@ class Store:
                 self._db.execute(
                     "UPDATE families SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ?", (now.isoformat(), row["family_id"])
                 )
+
+    # --- Tokens personales (T-ANT-18) ---
+
+    def create_personal_token(self, user_id: str, name: str, days: int, now: datetime) -> tuple[str, PersonalToken]:
+        """(token en claro, que solo se devuelve aquí, y su ficha). Como mucho PERSONAL_MAX_ACTIVE activos."""
+        if not 1 <= days <= PERSONAL_MAX_DAYS:
+            raise ValueError(f"La vida debe ir de 1 a {PERSONAL_MAX_DAYS} días")
+        token = PERSONAL_PREFIX + secrets.token_urlsafe(32)
+        item = PersonalToken(
+            str(uuid.uuid4()), user_id, name, token[: len(PERSONAL_PREFIX) + 6], now, now + timedelta(days=days), None
+        )
+        with self._lock, self._db:
+            active = self._db.execute(
+                "SELECT COUNT(*) FROM personal_tokens WHERE user_id = ? AND revoked_at IS NULL AND expires_at > ?",
+                (user_id, now.isoformat()),
+            ).fetchone()[0]
+            if active >= PERSONAL_MAX_ACTIVE:
+                raise TooManyPersonalTokens(f"Ya hay {active} tokens personales activos; revoca alguno antes")
+            self._db.execute(
+                "INSERT INTO personal_tokens (id, user_id, name, hash, prefix, created_at, expires_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+                (item.id, user_id, name, hash_token(token), item.prefix, now.isoformat(), item.expires_at.isoformat()),
+            )
+        return token, item
+
+    def personal_tokens(self, user_id: str) -> list[PersonalToken]:
+        with self._lock:
+            rows = self._db.execute(
+                "SELECT * FROM personal_tokens WHERE user_id = ? ORDER BY created_at DESC, id", (user_id,)
+            ).fetchall()
+        return [self._personal(row) for row in rows]
+
+    def revoke_personal_token(self, user_id: str, token_id: str, now: datetime) -> bool:
+        """True si el token existe y es de esa cuenta (revocarlo dos veces no cambia la fecha)."""
+        with self._lock, self._db:
+            cursor = self._db.execute(
+                "UPDATE personal_tokens SET revoked_at = COALESCE(revoked_at, ?) WHERE id = ? AND user_id = ?",
+                (now.isoformat(), token_id, user_id),
+            )
+            return cursor.rowcount == 1
+
+    def check_personal_token(self, token: str, now: datetime) -> User:
+        """La cuenta dueña de un token personal válido. Busca por hash: una lectura por clave única."""
+        with self._lock:
+            row = self._db.execute(
+                "SELECT t.expires_at, t.revoked_at, u.* FROM personal_tokens t JOIN users u ON u.id = t.user_id WHERE t.hash = ?",
+                (hash_token(token),),
+            ).fetchone()
+        if row is None:
+            raise PersonalTokenRejected("Token personal inexistente")
+        if row["revoked_at"] is not None:
+            raise PersonalTokenRejected("Token personal revocado")
+        if datetime.fromisoformat(row["expires_at"]) <= now:
+            raise PersonalTokenRejected("Token personal caducado")
+        if row["role"] != "researcher":
+            raise PersonalTokenRejected("La cuenta ya no tiene el perfil researcher")
+        return User(row["id"], row["email"], row["password_hash"], row["role"], datetime.fromisoformat(row["created_at"]))
+
+    @staticmethod
+    def _personal(row: sqlite3.Row) -> PersonalToken:
+        return PersonalToken(
+            row["id"],
+            row["user_id"],
+            row["name"],
+            row["prefix"],
+            datetime.fromisoformat(row["created_at"]),
+            datetime.fromisoformat(row["expires_at"]),
+            datetime.fromisoformat(row["revoked_at"]) if row["revoked_at"] else None,
+        )
 
     def _new_token(self, family: str, now: datetime) -> str:
         token = secrets.token_urlsafe(32)
