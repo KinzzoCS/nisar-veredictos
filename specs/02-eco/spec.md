@@ -42,6 +42,7 @@ Convertir recortes GCOV en mediciones fiables y bien ubicadas: control de calida
 ## Interfaces
 
 - **Consume:** recortes GCOV (`contracts/gcov-subset.md`) y el DEM Copernicus GLO-30.
+- **Datos sintéticos:** `seed-synthetic` genera también un DEM sintético de la zona y lo publica como `dem.tif` con `dem.data_kind: "synthetic"`, sin fuente ni atribución de Copernicus (T-ECO-13). Un DEM sintético nunca se usa con gránulos reales: si llega junto a ellos, se ignora para el relieve y para el layover.
 - **Produce:** COGs, estados y manifiesto (`contracts/artifact-manifest.schema.json`); el DEM de cada zona como COG en `<zona>/dem.tif` para el relieve de la interfaz (campo `dem` del manifiesto, T-ECO-10), y por cada par un GeoJSON de celdas de 1 km para buscar por rectángulo (campo `cells` del par, T-ECO-12).
 
 ## Fuera de alcance

@@ -117,6 +117,7 @@
       "additionalProperties": false,
       "properties": {
         "layer": { "type": "string", "description": "Ruta del COG, común a todas las series de la zona: <aoi>/dem.tif." },
+        "data_kind": { "enum": ["real", "synthetic"], "description": "Opcional (T-ECO-13). synthetic: DEM inventado de seed-synthetic, que no describe ningún relieve real; su vertical_datum es none y su attribution no es la de Copernicus. Si falta, el DEM es real." },
         "source": { "type": "string" },
         "crs": { "type": "string", "description": "CRS del COG, que no es el de las capas del radar." },
         "vertical_datum": { "type": "string", "description": "Referencia de las alturas. EGM2008 significa alturas ortométricas sobre el geoide, no sobre el elipsoide." },
