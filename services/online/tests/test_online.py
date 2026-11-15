@@ -98,3 +98,36 @@ def test_restart_marks_interrupted_jobs(tmp_path):
     r._save(job)
     r2, _ = _runner(tmp_path, [])
     assert r2.get("z-x")["state"] == "failed" and "reinicio" in r2.get("z-x")["error"]
+
+
+def test_done_job_carries_light_summary_from_manifest(tmp_path):
+    """Al terminar, el trabajo trae el resumen por par sacado del manifiesto (conteos sintéticos)."""
+    import json
+
+    def handler(req):
+        return httpx.Response(200, json=[serie("T048A-F015-4005-DHDH-P05023", "DHDH", 4)])
+
+    def run(args, job):
+        zid = args[args.index("--aoi") + 1]
+        target = tmp_path / "artifacts" / zid / "T048A-F015"
+        target.mkdir(parents=True)
+        pair = lambda i, f, t, kind, counts: {"id": i, "from": f, "to": t, "kind": kind, "spans_data_gap": False,
+                                             "granules": [], "layers": {}, "stats": {"counts": counts}}
+        manifest = {"series": {"id": "T048A-F015"}, "data_kind": "synthetic",
+                    "dates": [{"date": "2026-09-09"}, {"date": "2026-09-21"}, {"date": "2026-10-03"}],
+                    "pairs": [pair("p1", "2026-09-09", "2026-09-21", "consecutive", {"no_change": 90, "change_probable": 10}),
+                              pair("p2", "2026-09-21", "2026-10-03", "consecutive", {"no_change": 99, "change_probable": 1}),
+                              pair("p3", "2026-09-09", "2026-10-03", "full_window", {"no_change": 10, "low_looks": 80, "terrain": 10})]}
+        (target / "manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
+        return 0
+
+    r = Runner(tmp_path / "zones", tmp_path, "http://catalog.test", max_dates=3, window_days=150, run=run,
+               client=httpx.Client(transport=httpx.MockTransport(handler)))
+    job = _wait(r, r.submit("Delicias", [-105.5, 28.1, -105.4, 28.2], 0.3)["id"])
+    s = job["summary"]
+    assert job["state"] == "done" and s["series"] == "T048A-F015" and s["data_kind"] == "synthetic"
+    assert s["rules"]["calibrated"] is False
+    p1, p2, p3 = s["pairs"]
+    assert (p1["state"], p1["changed_fraction"], p1["interval_days"]) == ("change_probable", 0.1, 12)
+    assert (p2["state"], p2["changed_fraction"]) == ("no_detectable_change", 0.01)
+    assert (p3["state"], p3["cause"], p3["observed_fraction"]) == ("not_observable", "low_looks", 0.1)

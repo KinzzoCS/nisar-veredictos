@@ -306,6 +306,13 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       ventana.remove();
       return;
     }
+    // Fuera de la zona con datos no se pregunta: la API respondería 404 y la consola lo apuntaría como error.
+    const [oeste, sur, este, norte] = estado.aoi;
+    const lonDentro = oeste <= este ? p.lon >= oeste && p.lon <= este : p.lon >= oeste || p.lon <= este;
+    if (!(lonDentro && p.lat >= sur && p.lat <= norte)) {
+      ventana.setLngLat([p.lon, p.lat]).setDOMContent(contenidoError(p, t.fueraDeSerie, estado.idioma)).addTo(map);
+      return;
+    }
     const control = new AbortController();
     peticion = control;
     ventana.setLngLat([p.lon, p.lat]).setDOMContent(contenidoCargando(p, estado.idioma)).addTo(map);

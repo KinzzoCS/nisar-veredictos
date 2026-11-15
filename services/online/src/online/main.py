@@ -64,6 +64,45 @@ def zone_id(name: str, bbox: list[float]) -> str:
     return f"z-{slug(name)}-{h}"
 
 
+# Copia de services/verdicts/src/verdicts/rules.py (los servicios no importan código entre sí; processor/cells.py
+# hace lo mismo). Solo sirve para el resumen ligero que la interfaz enseña al terminar, antes de pedir a verdicts el
+# veredicto completo, que es el que manda. Si Balanza cambia los umbrales, hay que cambiarlos aquí.
+MIN_OBSERVED_FRACTION = 0.5
+MIN_CHANGED_FRACTION = 0.05
+UNOBSERVABLE_CAUSES = ("outside_scene", "invalid_or_partial", "input_exception", "low_looks", "no_data", "terrain")
+
+
+def summarize_manifest(manifest: dict) -> dict:
+    """Resumen por par sacado del manifiesto de processor: fechas, estado y fracción de cambio, con la misma regla
+    que verdicts (`decide`). Declara que es provisional y sin calibrar; el veredicto de verdicts es el que vale."""
+    pairs = []
+    for p in manifest.get("pairs", []):
+        counts = p.get("stats", {}).get("counts", {})
+        observed = counts.get("no_change", 0) + counts.get("change_probable", 0)
+        total = sum(counts.values())
+        observed_fraction = observed / total if total else 0.0
+        changed_fraction = counts.get("change_probable", 0) / observed if observed else 0.0
+        cause = None
+        if observed_fraction < MIN_OBSERVED_FRACTION:
+            state = "not_observable"
+            cause = max(UNOBSERVABLE_CAUSES, key=lambda name: counts.get(name, 0))
+        else:
+            state = "change_probable" if changed_fraction >= MIN_CHANGED_FRACTION else "no_detectable_change"
+        frm, to = p["from"], p["to"]
+        pairs.append({
+            "id": p["id"], "from": frm, "to": to, "kind": p.get("kind"),
+            "interval_days": (dt.date.fromisoformat(to[:10]) - dt.date.fromisoformat(frm[:10])).days,
+            "state": state, "cause": cause,
+            "observed_fraction": round(observed_fraction, 4), "changed_fraction": round(changed_fraction, 4),
+        })
+    return {
+        "series": manifest.get("series", {}).get("id"), "data_kind": manifest.get("data_kind"),
+        "dates": [d["date"] for d in manifest.get("dates", [])], "pairs": pairs,
+        "rules": {"min_observed_fraction": MIN_OBSERVED_FRACTION, "min_changed_fraction": MIN_CHANGED_FRACTION,
+                  "calibrated": False, "source": "manifest"},
+    }
+
+
 def series_config_id(s: dict) -> str:
     return f"T{int(s['track']):03d}{s['direction']}-F{int(s['frame']):03d}"
 
@@ -240,6 +279,11 @@ class Runner:
                 if zid in self._cancel:
                     raise InterruptedError()
                 raise RuntimeError("processor no pudo leer o procesar las fechas (revisa EARTHDATA_TOKEN y la conexión)")
+            # Respuesta ligera: el resumen por par sale del manifiesto y llega con el estado `done`, antes de que la
+            # interfaz pida teselas o veredictos a verdicts.
+            manifest_path = self.data_dir / "artifacts" / zid / sid / "manifest.json"
+            if manifest_path.exists():
+                job["summary"] = summarize_manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
             job.update(state="done", step=None, finished_at=now(), aoi=zid)
             self._save(job)
         except InterruptedError:

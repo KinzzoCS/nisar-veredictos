@@ -44,7 +44,14 @@ caja. El servicio, uno a uno y con estado en `data/aois-online/<zona>.job.json`:
    `EARTHDATA_TOKEN` del `.env`) y lee **en memoria** solo la ventana de la zona. No escribe recortes en disco: solo
    los artefactos del veredicto en `data/artifacts/<zona>`. Sin `radarGrid` ni DEM, no marca layover ni sombra (el
    manifiesto lo avisa).
-4. verdicts y tiles ven `data/artifacts/<zona>` sin reiniciarse; la interfaz recarga las zonas y pasa a sus veredictos.
+4. Al terminar, el trabajo trae `summary`: por par, fechas, días, estado y fracción de cambio, calculados del manifiesto
+   con la regla de verdicts (umbrales copiados, `calibrated: false`). La pestaña Hallazgos lo enseña en cuanto llega.
+5. verdicts y tiles ven `data/artifacts/<zona>` sin reiniciarse; la interfaz recarga las zonas y pasa a sus veredictos,
+   que son los que mandan.
+
+En la interfaz, el procesado vive en la pestaña Hallazgos: una ciudad buscada se procesa sola y abre Hallazgos; un
+punto elegido con un clic en el mapa (caja de ±0,05°, «Punto lat, lon», sin mover el mapa) espera al botón «Procesar
+veredictos de este punto». La historia y la investigación usan ese punto.
 
 processor se instala en la imagen de `online` y se llama como programa: no se importa. ingest no interviene.
 

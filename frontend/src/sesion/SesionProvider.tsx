@@ -58,10 +58,13 @@ export function SesionProvider({ children }: { children: ReactNode }) {
     renovarLuego.current = () => void renovar()
     if (hayMarca()) void renovar()
     else
-      // Sin sesión previa basta saber si el acceso está encendido: /health da 200, o 503 con AUTH_ENABLED=0.
+      // Sin sesión previa basta saber si el acceso está encendido. Con AUTH_ENABLED=0 el gateway responde 200 con
+      // `auth_enabled: false` (desde el 2026-11-15; antes, 503, que también se acepta).
       authApi
         .GET('/health')
-        .then(({ response }) => setSesion(response.status === 503 ? { estado: 'apagado' } : { estado: 'anonima' }))
+        .then(({ data, response }) =>
+          setSesion(response.status === 503 || (data as { auth_enabled?: boolean } | undefined)?.auth_enabled === false ? { estado: 'apagado' } : { estado: 'anonima' }),
+        )
         .catch(() => setSesion({ estado: 'apagado' }))
     return () => clearTimeout(temporizador.current)
   }, [renovar])

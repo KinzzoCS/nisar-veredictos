@@ -34,7 +34,9 @@ Variables de `online` (procesado en línea):
 
 Nada se guarda en disco salvo el resultado (`data/artifacts/<zona>` y el estado en `data/aois-online`). Medido el
 2026-11-15 con Delicias (Chihuahua, 0,1° × 0,1°, T048A-F016): las cuatro capas de una fecha suman 17,8 MB de trozos
-comprimidos y se leen en unos 35 s. La primera versión copiaba recortes con ingest y llegó a 8,7 GB de red sin
+comprimidos y se leen en unos 35 s. Con la caja que da Nominatim para Delicias, recortada al máximo de 0,3° × 0,3°
+(nueve veces el área), las 4 fechas tardaron 890 s (casi 4 min por fecha) y dejaron 689 MB de artefactos; ningún
+recorte en disco. La primera versión copiaba recortes con ingest y llegó a 8,7 GB de red sin
 terminar dos fechas; se descartó.
 
 Solo `RELIEFWEB_APPNAME` y `FIRMS_MAP_KEY` son credenciales: van en el `.env` local, nunca en git. Los catálogos

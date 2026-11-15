@@ -8,7 +8,7 @@ Todo pasa por el gateway en `http://localhost:8080`. Contratos OpenAPI en `contr
 | `/api/verdicts/` | verdicts | `contracts/verdicts.openapi.json` |
 | `/api/auth/` | auth | `contracts/auth.openapi.json` |
 | `/api/research/` | research (nuevo, 2026-11-15) | `contracts/research.openapi.json` |
-| `/api/online/` | online (nuevo, 2026-11-15) | `GET /zones`, `POST /zones {name, bbox}` (202), `GET /zones/{id}`, `POST /zones/{id}/cancel`, `GET /limits`, `GET /health` |
+| `/api/online/` | online (nuevo, 2026-11-15) | `GET /zones`, `POST /zones {name, bbox}` (202), `GET /zones/{id}` (al terminar, con `summary`: por par, fechas, días, estado y fracción de cambio sacados del manifiesto con la regla de verdicts, `calibrated: false`), `POST /zones/{id}/cancel`, `GET /limits`, `GET /health` |
 
 ## Investigación (`/api/research/`)
 

@@ -80,7 +80,7 @@ export function LineaPasadas({
       </div>
       <div className="linea-asas">
         <label className="sr-solo" htmlFor={ids.desde}>
-          {t('search.from')}
+          {t('timeline.from')}
         </label>
         <input
           id={ids.desde}
@@ -92,7 +92,7 @@ export function LineaPasadas({
           onChange={(e) => onPeriodo(Math.min(Number(e.target.value), hasta), hasta)}
         />
         <label className="sr-solo" htmlFor={ids.hasta}>
-          {t('search.to')}
+          {t('timeline.to')}
         </label>
         <input
           id={ids.hasta}

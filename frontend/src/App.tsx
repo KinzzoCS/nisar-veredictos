@@ -33,7 +33,7 @@ import { LeyendaEstados } from './components/Marca'
 import { Reproductor } from './components/Reproductor'
 import { SesionBoton } from './components/SesionBoton'
 import { HistoriaZona, type ZonaHistoria } from './components/HistoriaZona'
-import { ProcesadoZona } from './components/ProcesadoZona'
+import { ProcesadoZona, ResumenPares, type ResumenProcesado } from './components/ProcesadoZona'
 import { SyntheticBanner } from './components/SyntheticBadge'
 import { VerdictCard } from './components/VerdictCard'
 import { authApi, detalle, useSesion } from './sesion/sesion'
@@ -50,7 +50,7 @@ type Load =
 type Zona = { aoi: string; nombre: string; bbox: Bbox; series: SeriesInfo[] }
 
 /** Veredictos de todas las series, con el idioma en que se pidieron. */
-type Todos = { lang: Lang; status: 'ready' | 'error'; items: Verdict[]; fallidas: string[] }
+type Todos = { aoi: string; lang: Lang; status: 'ready' | 'error'; items: Verdict[]; fallidas: string[] }
 
 /** Pestañas de la barra derecha (T-FAR-21, RF-INT-27). */
 type PestanaDer = 'hallazgos' | 'historia' | 'evento' | 'comunidad' | 'investigacion'
@@ -263,6 +263,8 @@ function Contenido() {
   // Zona de los filtros (2026-11-15): sin lugar buscado, la primera zona con veredictos; con uno, la zona procesada
   // que lo toca o, si ninguna, sus pasadas de NISAR (modo mundo). Los veredictos siguen cargados para el mapa.
   const [lugar, setLugar] = useState<Lugar | null>(null)
+  // Un punto elegido con un clic en el mapa (2026-11-15): no se procesa solo, y la historia y la investigación son suyas.
+  const esPunto = lugar?.source === 'map-click'
   const [semilla, setSemilla] = useState<Lugar | null>(null)
   const zonas = useMemo(() => (state.status === 'ready' ? state.zonas : []), [state])
   const zonaDelLugar = lugar ? zonas.find((z) => seTocan(z.bbox, lugar.bbox)) : undefined
@@ -270,13 +272,16 @@ function Contenido() {
   const zona = zonas.find((z) => z.aoi === zonaVeredictos) ?? zonas[0]
   const modoMundo = Boolean(lugar && !zonaDelLugar)
   // Zona de la pestaña Historia: el lugar buscado si no tiene veredictos; si no, la zona con veredictos en pantalla.
-  const zonaHistoria: ZonaHistoria | null = modoMundo && lugar
+  const zonaHistoria: ZonaHistoria | null = (modoMundo || esPunto) && lugar
     ? { id: lugar.id === 'vista' ? `vista-${lugar.bbox.map((v) => v.toFixed(2)).join('_')}` : lugar.id, name: lugar.name, bbox: lugar.bbox }
     : zona
       ? { id: zona.aoi, name: zona.nombre, bbox: zona.bbox }
       : null
+  // Resumen ligero del procesado en línea: Hallazgos lo enseña mientras llegan los veredictos de la zona nueva.
+  const [resumenOnline, setResumenOnline] = useState<{ aoi: string; resumen: ResumenProcesado } | null>(null)
   // El procesado en línea terminó: se recargan las zonas y la nueva pasa a tener veredictos.
-  function zonaProcesada(nueva: string, bbox: Bbox) {
+  function zonaProcesada(nueva: string, bbox: Bbox, resumen: ResumenProcesado | null) {
+    setResumenOnline(resumen ? { aoi: nueva, resumen } : null)
     loadSeries()
       .then((st) => {
         setState(st)
@@ -298,6 +303,27 @@ function Contenido() {
     setGranulosMundo([])
     setElegidoMundo(null)
     abrirIzq(true)
+    // Hallazgos sigue a la zona elegida: sus veredictos o, sin ellos, el procesado en línea con su avance.
+    setPestanaDer('hallazgos')
+    abrirDer(true)
+  }
+
+  // Un clic en el mapa cambia la zona de Filtros a ese punto (caja de ±0,05°), sin mover el mapa.
+  function irAPunto(p: { lon: number; lat: number }) {
+    const r = (v: number) => Math.round(v * 1e5) / 1e5
+    const bbox: Bbox = [r(p.lon - 0.05), r(p.lat - 0.05), r(p.lon + 0.05), r(p.lat + 0.05)]
+    const l: Lugar = {
+      id: `punto_${p.lat.toFixed(4)}_${p.lon.toFixed(4)}`,
+      name: t('places.point', { lat: p.lat.toFixed(4), lon: p.lon.toFixed(4) }),
+      bbox,
+      source: 'map-click',
+    }
+    setLugar(l)
+    setSemilla(l)
+    const z = zonas.find((x) => seTocan(x.bbox, bbox))
+    if (z) setZonaVeredictos(z.aoi)
+    setGranulosMundo([])
+    setElegidoMundo(null)
   }
 
   // Veredictos de todas las series. Se vuelven a pedir al cambiar de idioma: los textos llegan con `lang`.
@@ -315,7 +341,7 @@ function Contenido() {
       if (!current) return
       const items = rs.flatMap((r) => r.data ?? [])
       const fallidas = rs.filter((r) => !r.data).map((r) => r.id)
-      setTodos({ lang, status: fallidas.length === rs.length ? 'error' : 'ready', items, fallidas })
+      setTodos({ aoi, lang, status: fallidas.length === rs.length ? 'error' : 'ready', items, fallidas })
       setSeleccion((prev) => (prev && items.some((v) => claveVeredicto(v) === prev) ? prev : (() => {
         const d = defaultPair(items, series)
         return d && claveVeredicto(d)
@@ -327,7 +353,9 @@ function Contenido() {
   }, [aoi, series, lang])
 
   // Mientras llega la respuesta en otro idioma, el mapa y la lista siguen con la anterior (tapados).
-  const cargando = !todos || todos.lang !== lang
+  // Al cambiar de zona, los veredictos de la anterior no se enseñan en Hallazgos mientras llegan los nuevos.
+  const deOtraZona = Boolean(todos && todos.aoi !== aoi)
+  const cargando = !todos || todos.lang !== lang || deOtraZona
   const items = useMemo(() => todos?.items ?? [], [todos])
   const porClave = useMemo(() => new Map(items.map((v) => [claveVeredicto(v), v])), [items])
   const resultados = useMemo(() => buscar(items, filtro), [items, filtro])
@@ -543,7 +571,6 @@ function Contenido() {
                     ))}
                   </div>
                 )}
-                <ProcesadoZona lugar={lugar} onListo={zonaProcesada} />
                 <Mundo
                   zona={lugar}
                   elegido={elegidoMundo}
@@ -618,6 +645,7 @@ function Contenido() {
               mundo={mundoMapa}
               volar={volarMundo}
               onVista={setVistaMapa}
+              onPunto={irAPunto}
             />
           )}
         </div>
@@ -630,13 +658,19 @@ function Contenido() {
                 <BotonRecoger lado="der" abierta nombre={t('layout.tabs.hallazgos')} controla="panel-der" onCambiar={abrirDer} />
               </CabeceraPanel>
               <div className="panel-cuerpo" aria-busy={cargando}>
-                {state.status === 'error' && <p role="alert">{t('series.error')}</p>}
-                {todos?.fallidas.length ? <p role="alert">{t('picker.error')}</p> : null}
-                {!cargando && items.length === 0 && todos?.status === 'ready' && <p>{t('picker.empty')}</p>}
-                {!verdict && state.status !== 'error' && (
+                {/* Zona sin veredictos (buscada o punto del mapa): Hallazgos es el procesado en línea con su avance. */}
+                {modoMundo && lugar && <ProcesadoZona lugar={lugar} onListo={zonaProcesada} autoIniciar={!esPunto && lugar.id !== 'vista'} />}
+                {!modoMundo && state.status === 'error' && <p role="alert">{t('series.error')}</p>}
+                {!modoMundo && todos?.fallidas.length ? <p role="alert">{t('picker.error')}</p> : null}
+                {!modoMundo && !cargando && items.length === 0 && todos?.status === 'ready' && <p>{t('picker.empty')}</p>}
+                {/* Recién procesada: el resumen del manifiesto se ve mientras llegan los veredictos completos. */}
+                {!modoMundo && resumenOnline && resumenOnline.aoi === aoi && (cargando || !verdict) && (
+                  <ResumenPares resumen={resumenOnline.resumen} />
+                )}
+                {!modoMundo && (!verdict || deOtraZona) && state.status !== 'error' && (
                   <Esqueleto etiqueta={t('picker.loading')} variante="tarjeta" filas={5} />
                 )}
-                {verdict && (
+                {!modoMundo && verdict && !deOtraZona && (
                   <>
                     <VerdictCard verdict={verdict} />
                     <Evidencia verdict={verdict} explicar />

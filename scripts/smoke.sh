@@ -139,7 +139,8 @@ if [ "$AUTH_ENABLED" = "1" ]; then
 else
   # Sin validación, el token no se mira y todo es public; las rutas de auth dicen que el acceso está apagado.
   test "$code" = "200" || fail "con AUTH_ENABLED=0, una ruta actual con token respondió $code"
-  test "$code_auth" = "503" || fail "con AUTH_ENABLED=0, /api/auth/health respondió $code_auth, se esperaba 503"
+  test "$code_auth" = "200" || fail "con AUTH_ENABLED=0, /api/auth/health respondió $code_auth, se esperaba 200"
+  curl -s "$BASE/api/auth/health" | grep -q '"auth_enabled":false' || fail "con AUTH_ENABLED=0, /api/auth/health no dice auth_enabled: false"
 fi
 
 # --- Catalog (Antena) -------------------------------------------------------

@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
+import { act, fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, beforeEach, vi } from 'vitest'
 import App from '../App'
@@ -161,13 +161,19 @@ interface Opciones {
   auth?: 'off' | 'on'
   /** Sesión abierta al cargar (la cookie de renovación), con este perfil. Implica auth on. */
   perfil?: 'student' | 'researcher'
+  /** Estado final del procesado en línea de la zona buscada. */
+  online?: 'no_processable_series' | 'done'
+  /** Sin EARTHDATA_TOKEN, online/health lo dice y la interfaz no pide el procesado. */
+  sinToken?: boolean
 }
 
 function token(role: string) {
   return { access_token: 'tok', token_type: 'Bearer', expires_in: 900, role, email_verified: false }
 }
 
-function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil }: Opciones = {}) {
+function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil, online = 'no_processable_series', sinToken = false }: Opciones = {}) {
+  // Con online 'done', la zona procesada aparece en verdicts y sus veredictos no llegan: así se ve el resumen ligero.
+  let zonaLista = false
   if (perfil) auth = 'on'
   // La app solo pide /refresh al arrancar si el navegador tiene la marca de una sesión anterior (SesionProvider).
   if (perfil) localStorage.setItem('sesion-posible', '1')
@@ -181,6 +187,8 @@ function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil }: 
     if (path.startsWith('/api/auth/')) {
       const body = request.method === 'GET' ? null : await request.clone().text().then((t) => (t ? JSON.parse(t) : null))
       enviados.push({ path, method: request.method, body, authorization: request.headers.get('Authorization') })
+      // Con el acceso apagado, el gateway responde 200 en /health con auth_enabled: false (2026-11-15) y 503 en el resto.
+      if (auth === 'off' && path.endsWith('/health')) return json({ status: 'ok', auth_enabled: false })
       if (auth === 'off') return json({ detail: 'El acceso con cuenta está desactivado' }, 503)
       if (path.endsWith('/refresh')) return perfil ? json(token(perfil)) : json({ detail: 'Sin sesión' }, 401)
       if (path.endsWith('/logout')) return new Response(null, { status: 204 })
@@ -194,7 +202,18 @@ function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil }: 
     if (path.endsWith('/api/research/research/R-zona/status'))
       return json({ id: 'R-zona', job: { id: 'J', state: 'done', step: null, error: null }, story_ids: ['S-zona'] })
     if (path.endsWith('/api/research/stories/S-zona')) return json({ ...HISTORIA_ZONA, data_kind: kind === 'synthetic' ? 'synthetic' : 'real_or_catalog' })
+    if (path.endsWith('/api/online/health')) return json({ status: 'ok', earthdata_token: !sinToken })
     if (path.endsWith('/api/online/zones') && request.method === 'POST') return json({ id: 'z-prueba' }, 202)
+    if (path.endsWith('/api/online/zones/z-prueba') && online === 'done') {
+      zonaLista = true
+      return json({ id: 'z-prueba', state: 'done', step: null, bbox: [-105.5, 28.1, -105.4, 28.2], max_dates: 4, aoi: 'z-prueba',
+        steps: { zone: 'done (0 s)', series: 'done (1 s)', process: 'done (155 s)' },
+        series: { id: 'T048A-F016', polarization: 'DHDH', dates: 9 }, series_found: [], log: [], error: null,
+        summary: { series: 'T048A-F016', data_kind: 'synthetic', dates: ['2026-09-09', '2026-09-21'],
+          rules: { min_observed_fraction: 0.5, min_changed_fraction: 0.05, calibrated: false },
+          pairs: [{ id: 'SYNTH-p1', from: '2026-09-09', to: '2026-09-21', kind: 'consecutive', interval_days: 12,
+            state: 'change_probable', cause: null, observed_fraction: 0.97, changed_fraction: 0.0964 }] } })
+    }
     if (path.endsWith('/api/online/zones/z-prueba'))
       return json({ id: 'z-prueba', state: 'no_processable_series', step: null, bbox: [-38.6, 66.25, -38.0, 66.5], max_dates: 4,
         steps: { zone: 'done (0 s)', series: 'failed (0 s)', fetch: 'pending', dem: 'pending', process: 'pending' },
@@ -205,7 +224,10 @@ function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil }: 
     }
     if (path.endsWith('/api/catalog/search/world')) return json(pasadasMundo(url.searchParams.get('bbox') ?? ''))
     if (path.endsWith('/api/catalog/aois')) return json([{ id: 'parral', name: 'Hidalgo del Parral, Chihuahua', bbox: [-105.95, 26.7, -105.4, 27.15] }])
-    if (path.endsWith('/api/verdicts/aois')) return json(['parral'])
+    if (path.endsWith('/api/verdicts/aois')) return json(zonaLista ? ['parral', 'z-prueba'] : ['parral'])
+    if (path.endsWith('/api/verdicts/aois/z-prueba/series'))
+      return json([{ id: 'T048A-F016', bbox: [-105.5, 28.1, -105.4, 28.2], data_kind: 'synthetic', dates: ['2026-09-09', '2026-09-21'], maturity: 'PROVISIONAL' }])
+    if (path.includes('/api/verdicts/aois/z-prueba/series/')) return new Promise<Response>(() => {})
     if (path.endsWith('/api/verdicts/aois/parral/series')) return json(seriesList(kind))
     const m = path.match(/\/series\/([^/]+)\/verdicts$/)
     if (m) {
@@ -337,7 +359,7 @@ test('los botones de acción solo llevan icono, con nombre accesible y descripci
     screen.getByRole('tab', { name: 'Comunidad' }),
     screen.getByRole('button', { name: 'Guardar historia' }),
     screen.getByRole('button', { name: 'Recoger Filtros' }),
-    screen.getByRole('button', { name: 'Volver a encuadrar la zona' }),
+    screen.getByRole('button', { name: 'Ver la Tierra desde el espacio' }),
     screen.getByRole('button', { name: 'Capas del radar' }),
   ]
   for (const b of acciones) {
@@ -786,8 +808,103 @@ test('un lugar sin serie con HH y HV lo dice y deja ver las pasadas', async () =
   await screen.findByRole('heading', { name: 'Buscar veredictos' })
   await user.type(screen.getByRole('combobox', { name: 'Buscar un lugar' }), 'Helheim')
   await user.click(await screen.findByRole('option', { name: /Glaciar Helheim/ }))
+  // El procesado en línea vive en Hallazgos, que se abre al elegir la ciudad; Filtros sigue con las pasadas.
+  const hallazgos = within(screen.getByRole('tabpanel', { name: 'Hallazgos' }))
+  expect(screen.getByRole('tab', { name: 'Hallazgos' })).toHaveAttribute('aria-selected', 'true')
+  expect(await hallazgos.findByText(/no tiene una serie con HH y HV/)).toBeInTheDocument()
+  expect(hallazgos.getByText(/T126D-F055-7700-SHNA-P05023/)).toBeInTheDocument()
+  // Ya no se enseña el último veredicto de Parral.
+  expect(hallazgos.queryByRole('heading', { name: /Cambio probable/ })).not.toBeInTheDocument()
   const filtros = within(screen.getByRole('complementary', { name: 'Filtros' }))
-  expect(await filtros.findByText(/no tiene una serie con HH y HV/)).toBeInTheDocument()
-  expect(filtros.getByText(/T126D-F055-7700-SHNA-P05023/)).toBeInTheDocument()
   expect(await filtros.findByRole('button', { name: /T012A-F020 · 2/ })).toBeInTheDocument()
+})
+
+test('al terminar el procesado en línea, Hallazgos enseña enseguida el resumen por par del manifiesto', async () => {
+  const user = userEvent.setup()
+  const fetch = stubApi({ online: 'done' })
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await user.type(screen.getByRole('combobox', { name: 'Buscar un lugar' }), 'Helheim')
+  await user.click(await screen.findByRole('option', { name: /Glaciar Helheim/ }))
+  // Una ciudad buscada se procesa sola, sin botón.
+  await waitFor(() => expect(fetch.mock.calls.some(([r, init]) => String(typeof r === 'string' ? r : r.url).endsWith('/api/online/zones') && (init?.method ?? (r as Request).method) === 'POST')).toBe(true))
+  const hallazgos = within(screen.getByRole('tabpanel', { name: 'Hallazgos' }))
+  const resumen = await hallazgos.findByRole('region', { name: 'Resumen rápido de los pares' })
+  expect(within(resumen).getByText('2026-09-09 → 2026-09-21')).toBeInTheDocument()
+  expect(within(resumen).getByText(/Cambio probable · 9,64/)).toBeInTheDocument()
+  expect(within(resumen).getByText(/Datos sintéticos/)).toBeInTheDocument()
+})
+
+test('un clic en el mapa cambia la zona de Filtros a ese punto sin mover el mapa, y se procesa con un botón', async () => {
+  const user = userEvent.setup()
+  const fetch = stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  const m = crearMapa.mock.results.at(-1)!.value
+  const opciones = (crearMapa.mock.calls.at(-1) as unknown as [unknown, { onPointSelected: (p: { lon: number; lat: number }) => void }])[1]
+  act(() => opciones.onPointSelected({ lon: 10.5, lat: 45.25 }))
+  const filtros = within(screen.getByRole('complementary', { name: 'Filtros' }))
+  expect(await filtros.findByRole('heading', { name: 'Punto 45.2500, 10.5000' })).toBeInTheDocument()
+  expect(m.volarA).not.toHaveBeenCalled()
+  // Las pasadas se buscan en la caja de ±0,05° alrededor del clic.
+  await waitFor(() =>
+    expect(fetch.mock.calls.some(([r]) => String(typeof r === 'string' ? r : r.url).includes('bbox=10.4500%2C45.2000%2C10.5500%2C45.3000'))).toBe(true),
+  )
+  // Un punto no se procesa solo: Hallazgos (abierta al cargar) ofrece el botón.
+  const hallazgos = within(screen.getByRole('tabpanel', { name: 'Hallazgos' }))
+  const postOnline = () => fetch.mock.calls.filter(([r, init]) => String(typeof r === 'string' ? r : r.url).endsWith('/api/online/zones') && (init?.method ?? (r as Request).method) === 'POST')
+  expect(postOnline()).toHaveLength(0)
+  await user.click(hallazgos.getByRole('button', { name: 'Procesar veredictos de este punto' }))
+  await waitFor(() => expect(postOnline()).toHaveLength(1))
+  expect(JSON.parse(String(postOnline()[0][1]!.body))).toEqual({ name: 'Punto 45.2500, 10.5000', bbox: [10.45, 45.2, 10.55, 45.3] })
+  // La historia es la del punto: research investiga su caja.
+  await user.click(screen.getByRole('tab', { name: 'Historia de la zona' }))
+  await waitFor(() => {
+    const pedida = fetch.mock.calls.filter(([r, init]) => String(typeof r === 'string' ? r : r.url).endsWith('/api/research/research') && init?.body).at(-1)
+    expect(JSON.parse(String(pedida![1]!.body)).areas).toEqual([{ id: 'punto_45.2500_10.5000', name: 'Punto 45.2500, 10.5000', bbox: [10.45, 45.2, 10.55, 45.3] }])
+  })
+})
+
+test('la línea de tiempo de pasadas se maneja con el teclado', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await user.type(screen.getByRole('combobox', { name: 'Buscar un lugar' }), 'Helheim')
+  await user.click(await screen.findByRole('option', { name: /Glaciar Helheim/ }))
+  const filtros = within(screen.getByRole('complementary', { name: 'Filtros' }))
+  const linea = within(await filtros.findByRole('region', { name: 'Pasadas en el tiempo' }))
+  expect(linea.getByText(/Más antigua posible:/)).toBeInTheDocument()
+  expect(linea.getByText(/Más nueva posible:/)).toBeInTheDocument()
+  const inicio = linea.getByRole('slider', { name: 'Inicio del periodo' })
+  const fin = linea.getByRole('slider', { name: 'Fin del periodo' })
+  const antes = Number(inicio.getAttribute('value'))
+  // jsdom no mueve un range con las flechas: se comprueba que cada asa es un control propio con foco y fecha leída.
+  await user.tab()
+  inicio.focus()
+  expect(inicio).toHaveFocus()
+  expect(inicio).toHaveAttribute('aria-valuetext')
+  fireEvent.change(inicio, { target: { value: String(antes + 30) } })
+  expect(Number(inicio.getAttribute('value'))).toBe(antes + 30)
+  // El fin no puede quedar antes del inicio.
+  fireEvent.change(fin, { target: { value: String(antes) } })
+  expect(Number(fin.getAttribute('value'))).toBe(antes + 30)
+  // Pulsar una órbita la deja sola (botón con estado pulsado), también con Enter.
+  const orbita = linea.getByRole('button', { name: /T012A-F020 · 2/ })
+  orbita.focus()
+  await user.keyboard('{Enter}')
+  expect(orbita).toHaveAttribute('aria-pressed', 'true')
+})
+
+test('sin EARTHDATA_TOKEN, Hallazgos lo explica y no pide el procesado (sin error 503 en la consola)', async () => {
+  const user = userEvent.setup()
+  const fetch = stubApi({ sinToken: true })
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await user.type(screen.getByRole('combobox', { name: 'Buscar un lugar' }), 'Helheim')
+  await user.click(await screen.findByRole('option', { name: /Glaciar Helheim/ }))
+  const hallazgos = within(screen.getByRole('tabpanel', { name: 'Hallazgos' }))
+  expect(await hallazgos.findByText(/no tiene EARTHDATA_TOKEN/)).toBeInTheDocument()
+  const urls = fetch.mock.calls.map(([r, init]) => `${init?.method ?? (typeof r === 'string' ? 'GET' : r.method)} ${typeof r === 'string' ? r : r.url}`)
+  expect(urls.some((u) => u.startsWith('POST') && u.endsWith('/api/online/zones'))).toBe(false)
 })

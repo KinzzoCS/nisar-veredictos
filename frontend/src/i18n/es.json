@@ -411,7 +411,7 @@
     "none": "No hay pasadas de NISAR en esta área y estas fechas. Amplía el área o el periodo.",
     "frame": "marco",
     "newTab": "se abre en otra pestaña",
-    "note": "La vista previa de ASF se coloca en la caja de la huella: su posición es aproximada. Descargar el producto completo (unos 7 GB) pide una cuenta de Earthdata; un veredicto para esta zona necesita procesarla antes, y eso aún no se hace desde aquí.",
+    "note": "La vista previa de ASF se coloca por su contenido sobre la huella: su posición es aproximada. Descargar el producto completo (unos 7 GB) pide una cuenta de Earthdata. Los veredictos de esta zona se calculan en línea desde la pestaña Hallazgos, sin guardar recortes.",
     "sources": "Fuentes: NASA CMR (Earthdata Search) y vistas previas de ASF DAAC (Vertex), recursos oficiales del reto.",
     "wholeWorld": "todo el mundo"
   },
@@ -472,7 +472,8 @@
     "thisViewSource": "Busca pasadas en la vista actual",
     "searching": "Buscando lugares…",
     "error": "El buscador de lugares no respondió.",
-    "none": "Ningún lugar con ese nombre."
+    "none": "Ningún lugar con ese nombre.",
+    "point": "Punto {{lat}}, {{lon}}"
   },
   "zone": {
     "passesOnly": "Aquí no hay veredictos procesados todavía: estas son las pasadas reales del radar NISAR sobre la zona, con su vista previa. Los filtros salen de lo que hay.",
@@ -502,7 +503,7 @@
     "cancel": "Cancelar el procesado",
     "state": {
       "queued": "En cola: se procesa una zona a la vez.",
-      "running": "Leyendo de NASA en memoria solo la zona (sin guardar recortes). Tarda alrededor de un minuto por fecha.",
+      "running": "Leyendo de NASA en memoria solo la zona (sin guardar recortes). Tarda varios minutos por fecha: unos 35 s en una zona de 0,1° y casi 4 min en una de 0,3°.",
       "done": "Listo: la zona ya tiene veredictos.",
       "failed": "El procesado falló.",
       "cancelled": "Procesado cancelado.",
@@ -518,6 +519,32 @@
       "running": "en curso…",
       "done": "hecho",
       "failed": "falló"
-    }
+    },
+    "pointIntro": "Este punto no tiene veredictos todavía. Se pueden calcular en línea: se lee de NASA solo la ventana del punto (unos 0,1°) y no se guarda ningún recorte, solo el resultado.",
+    "processPoint": "Procesar veredictos de este punto",
+    "summary": {
+      "heading": "Resumen rápido de los pares",
+      "days_one": "{{count}} día",
+      "days_other": "{{count}} días",
+      "state": {
+        "change_probable": "Cambio probable",
+        "no_detectable_change": "Sin cambio detectable",
+        "not_observable": "No observable"
+      },
+      "changed": "{{pct}} de lo observable cambió",
+      "observed": "solo {{pct}} observable",
+      "note": "Calculado del manifiesto con la regla del veredicto (cambio probable desde el {{pct}}, umbral sin calibrar). El veredicto completo, con su evidencia, aparece en cuanto se carga.",
+      "synthetic": "Datos sintéticos: este resumen no describe observaciones reales."
+    },
+    "noToken": "Esta instalación no tiene EARTHDATA_TOKEN en su .env, así que no puede leer los gránulos de NASA para calcular veredictos aquí. Las pasadas de la zona se ven igual en Filtros."
+  },
+  "timeline": {
+    "heading": "Pasadas en el tiempo",
+    "help": "Cada carril es una órbita y cada punto, una pasada. Pulsa el nombre de una órbita para verla sola (o junto a otras) y mueve las dos asas para fijar el periodo; con el teclado, las flechas mueven un día y Re Pág/Av Pág, más.",
+    "oldest": "Más antigua posible: {{date}}",
+    "newest": "Más nueva posible: {{date}}",
+    "empty": "Ninguna órbita de NISAR pasa por esta zona en este periodo.",
+    "from": "Inicio del periodo",
+    "to": "Fin del periodo"
   }
 }

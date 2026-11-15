@@ -411,7 +411,7 @@
     "none": "No NISAR passes in this area and these dates. Widen the area or the period.",
     "frame": "frame",
     "newTab": "opens in a new tab",
-    "note": "The ASF preview is placed on the footprint box: its position is approximate. Downloading the full product (about 7 GB) needs an Earthdata account; a verdict for this area needs processing first, which is not done from here yet.",
+    "note": "The ASF preview is placed on the footprint by its content: its position is approximate. Downloading the full product (about 7 GB) needs an Earthdata account. Verdicts for this area are computed online from the Findings tab, without storing subsets.",
     "sources": "Sources: NASA CMR (Earthdata Search) and ASF DAAC (Vertex) previews, official challenge resources.",
     "wholeWorld": "the whole world"
   },
@@ -472,7 +472,8 @@
     "thisViewSource": "Search passes in the current view",
     "searching": "Searching places…",
     "error": "The place search did not respond.",
-    "none": "No place with that name."
+    "none": "No place with that name.",
+    "point": "Point {{lat}}, {{lon}}"
   },
   "zone": {
     "passesOnly": "There are no processed verdicts here yet: these are the real NISAR radar passes over the area, with their preview. The filters come from what is available.",
@@ -502,7 +503,7 @@
     "cancel": "Cancel processing",
     "state": {
       "queued": "Queued: one area is processed at a time.",
-      "running": "Reading only the area from NASA in memory (no subsets saved). About a minute per date.",
+      "running": "Reading only the area from NASA in memory (no subsets stored). It takes several minutes per date: about 35 s for a 0.1° area and almost 4 min for a 0.3° one.",
       "done": "Done: the area now has verdicts.",
       "failed": "Processing failed.",
       "cancelled": "Processing cancelled.",
@@ -518,6 +519,32 @@
       "running": "running…",
       "done": "done",
       "failed": "failed"
-    }
+    },
+    "pointIntro": "This point has no verdicts yet. They can be computed online: only the window around the point (about 0.1°) is read from NASA and no subset is stored, only the result.",
+    "processPoint": "Process verdicts for this point",
+    "summary": {
+      "heading": "Quick summary of the pairs",
+      "days_one": "{{count}} day",
+      "days_other": "{{count}} days",
+      "state": {
+        "change_probable": "Probable change",
+        "no_detectable_change": "No detectable change",
+        "not_observable": "Not observable"
+      },
+      "changed": "{{pct}} of the observable area changed",
+      "observed": "only {{pct}} observable",
+      "note": "Computed from the manifest with the verdict rule (probable change from {{pct}}, uncalibrated threshold). The full verdict, with its evidence, appears as soon as it loads.",
+      "synthetic": "Synthetic data: this summary does not describe real observations."
+    },
+    "noToken": "This installation has no EARTHDATA_TOKEN in its .env, so it cannot read NASA granules to compute verdicts here. The passes over the area are still shown in Filters."
+  },
+  "timeline": {
+    "heading": "Passes over time",
+    "help": "Each lane is an orbit and each dot a pass. Press an orbit name to show it alone (or with others) and move the two handles to set the period; with the keyboard, arrows move one day and Page Up/Page Down move more.",
+    "oldest": "Oldest possible: {{date}}",
+    "newest": "Newest possible: {{date}}",
+    "empty": "No NISAR orbit passes over this area in this period.",
+    "from": "Start of the period",
+    "to": "End of the period"
   }
 }

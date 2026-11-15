@@ -118,8 +118,10 @@ export function Espacio() {
     function prepararCielo() {
       // Memoria: el cielo es difuso, 1,25 píxeles por píxel CSS bastan.
       dpr = Math.min(window.devicePixelRatio || 1, 1.25)
-      w = window.innerWidth
-      h = window.innerHeight
+      // Con la ventana a 0 × 0 (pestaña oculta o panel recogido) la nebulosa dividía entre Math.hypot(0, 0) y
+      // createRadialGradient recibía NaN, lo que tumbaba toda la app (2026-11-15): como mínimo, 1 píxel.
+      w = Math.max(1, window.innerWidth)
+      h = Math.max(1, window.innerHeight)
       canvas!.width = Math.round(w * dpr)
       canvas!.height = Math.round(h * dpr)
       bloom.width = Math.max(1, Math.round(w / 4))
