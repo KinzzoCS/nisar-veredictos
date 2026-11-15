@@ -410,6 +410,9 @@ class Index:
     text: TextIndex | None = None
     # Serie de cada fila en catalog: (track, dirección, marco), para buscar su huella.
     series_keys: dict[tuple[str, str], tuple[int, str, int]] = field(default_factory=dict)
+    # Caja de la zona de cada serie (bbox del manifiesto) y veredicto completo de cada fila, para exportar.
+    series_bbox: dict[tuple[str, str], list[float]] = field(default_factory=dict)
+    verdicts: dict = field(default_factory=dict)
     # Ruta relativa del GeoJSON de celdas de cada par (T-ECO-12); falta si el manifiesto no lo trae.
     cells_paths: dict[Key, str] = field(default_factory=dict)
 
@@ -553,6 +556,8 @@ def apply(
                 continue
             if row.optical_max_cloud_cover > filters.max_cloud_cover:
                 continue
+        if not _noise_ok(row, filters, skip):
+            continue
         if text_hits is not None and row_key(row) not in text_hits:
             continue
         if filters.bbox is not None:
@@ -562,8 +567,6 @@ def apply(
                 continue
             if not any(bbox_meets_ring(filters.bbox, ring) for ring in found):
                 continue
-        if not _noise_ok(row, filters, skip):
-            continue
         if filters.water is not None:
             if row.water.summary == "not_available":
                 skip("water", *(row.water.reasons or ["not_compared"]))

@@ -11,6 +11,7 @@ from verdicts.main import app as public_app
 from verdicts.main import create_app
 
 SEARCH = "/search/verdicts"
+EXPORT = "/search/verdicts/export"
 STUDENT = {"X-Auth-Role": "student"}
 RESEARCHER = {"X-Auth-Role": "researcher"}
 SERIES = "parral/T048A-F015"
@@ -181,7 +182,9 @@ def test_contract_declares_profile_and_security():
     assert operation["x-required-role"] == "student" and operation["security"] == [{"bearerAuth": []}]
     assert "403" in operation["responses"]
     assert spec["components"]["securitySchemes"]["bearerAuth"]["scheme"] == "bearer"
-    assert all("security" not in ops["get"] for path, ops in spec["paths"].items() if path != SEARCH)
+    export = spec["paths"][EXPORT]["get"]
+    assert export["x-required-role"] == "researcher" and export["security"] == [{"bearerAuth": []}]
+    assert all("security" not in ops["get"] for path, ops in spec["paths"].items() if path not in (SEARCH, EXPORT))
 
 
 # --- Texto libre y área (T-BAL-17, RF-BUS-02 y 10) ----------------------------------------------------------------
@@ -287,6 +290,83 @@ def test_bbox_meets_ring_cases():
     assert not meets((11, 11, 12, 12), square)
     triangle = ((0, 0), (10, 0), (0, 10), (0, 0))
     assert not meets((8, 8, 9, 9), triangle)    # dentro de la caja del triángulo, fuera de él
+
+
+# --- Exportación (T-BAL-13, RF-BUS-06) -----------------------------------------------------------------------------
+
+import csv  # noqa: E402
+import io  # noqa: E402
+
+
+@pytest.mark.parametrize("headers", [{}, STUDENT])
+def test_export_is_for_researchers(client, headers):
+    response = client.get(EXPORT, headers=headers, params={"format": "csv"})
+    assert response.status_code == 403 and response.json()["required_role"] == "researcher"
+
+
+def test_export_csv_has_what_a_citation_needs(client):
+    response = client.get(EXPORT, headers=RESEARCHER, params={"format": "csv", "state": "change_probable"})
+    assert response.status_code == 200 and response.headers["content-type"].startswith("text/csv")
+    assert "attachment" in response.headers["content-disposition"]
+    rows = list(csv.DictReader(io.StringIO(response.content.decode("utf-8-sig"))))
+    full = {v["id"]: v for v in client.get("/aois/parral/series/T048A-F015/verdicts").json()}
+    assert sorted(row["pair_id"] for row in rows) == sorted(i for i, v in full.items() if v["state"] == "change_probable")
+    for row in rows:
+        verdict = full[row["pair_id"]]
+        assert row["data_kind"] == "synthetic" and row["interval_days"] == str(verdict["interval_days"])
+        assert [row["granule_from"], row["granule_to"]] == verdict["receipt"]["granules"]
+        assert float(row["min_changed_fraction"]) == verdict["evidence"]["decision_rule"]["min_changed_fraction"]
+        assert row["decision_calibrated"] == "false"
+        assert "min_changed_fraction=" in row["assumptions"] and "sin calibrar" in row["assumptions"]
+        assert row["verdict_path"].endswith(row["pair_id"])
+    assert response.headers["x-export-total"] == str(len(rows))
+    query = json.loads(response.headers["x-export-query"])
+    assert query["filters"] == {"state": ["change_probable"]} and query["role"] == "researcher"
+    assert response.headers["x-export-data-kinds"] == "synthetic"
+
+
+def test_export_json_matches_the_search_and_carries_metadata(client):
+    params = {"sort": "changed_fraction", "order": "asc"}
+    search_ids = _ids(client.get(SEARCH, headers=RESEARCHER, params={**params, "limit": 500}).json())
+    body = client.get(EXPORT, headers=RESEARCHER, params={**params, "format": "json"}).json()
+    assert [item["pair_id"] for item in body["results"]] == search_ids
+    meta = body["metadata"]
+    assert meta["total"] == len(search_ids) and meta["data_kinds"] == ["synthetic"]
+    assert meta["query"] == {"filters": {}, "sort": "changed_fraction", "order": "asc", "role": "researcher"}
+    assert "sintéticos" in meta["notice"]
+    first = body["results"][0]
+    names = {item["name"] for item in first["assumptions"]}
+    assert {"min_observed_fraction", "min_changed_fraction", "radar_water_hh_db_below"} <= names
+    assert all(item["calibrated"] is False for item in first["assumptions"])
+
+
+def test_export_geojson_uses_the_zone_box(client):
+    response = client.get(EXPORT, headers=RESEARCHER, params={"format": "geojson"})
+    assert response.headers["content-type"].startswith("application/geo+json")
+    body = response.json()
+    assert body["type"] == "FeatureCollection" and body["metadata"]["total"] == 4 == len(body["features"])
+    feature = body["features"][0]
+    assert feature["geometry"]["type"] == "Polygon"
+    ring = feature["geometry"]["coordinates"][0]
+    assert ring[0] == ring[-1] == [-105.95, 26.7]
+    assert feature["properties"]["data_kind"] == "synthetic"
+
+
+def test_export_empty_result_is_valid(client):
+    body = client.get(EXPORT, headers=RESEARCHER, params={"format": "json", "interval_min": 999}).json()
+    assert body["results"] == [] and body["metadata"]["total"] == 0
+    response = client.get(EXPORT, headers=RESEARCHER, params={"format": "csv", "interval_min": 999})
+    assert len(list(csv.reader(io.StringIO(response.content.decode("utf-8-sig"))))) == 1
+
+
+def test_export_counts_rows_it_could_not_evaluate(client):
+    meta = client.get(EXPORT, headers=RESEARCHER, params={"format": "json", "water": "agree"}).json()["metadata"]
+    assert meta["total"] == 0 and meta["not_evaluated"]["water"]["count"] == 4
+
+
+def test_export_needs_a_known_format(client):
+    assert client.get(EXPORT, headers=RESEARCHER).status_code == 422
+    assert client.get(EXPORT, headers=RESEARCHER, params={"format": "xlsx"}).status_code == 422
 
 
 # --- Fracción de cambio dentro del rectángulo (T-BAL-18, RF-BUS-10 P2) ------------------------------------------------

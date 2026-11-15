@@ -2960,6 +2960,36 @@
         "operationId": "search_verdicts_search_verdicts_get",
         "parameters": [
           {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 500,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "description": "next_cursor de la página anterior, con la misma consulta.",
+            "in": "query",
+            "name": "cursor",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "next_cursor de la página anterior, con la misma consulta.",
+              "title": "Cursor"
+            }
+          },
+          {
             "description": "Zona.",
             "in": "query",
             "name": "aoi",
@@ -3462,36 +3492,6 @@
               "title": "Order",
               "type": "string"
             }
-          },
-          {
-            "in": "query",
-            "name": "limit",
-            "required": false,
-            "schema": {
-              "default": 50,
-              "maximum": 500,
-              "minimum": 1,
-              "title": "Limit",
-              "type": "integer"
-            }
-          },
-          {
-            "description": "next_cursor de la página anterior, con la misma consulta.",
-            "in": "query",
-            "name": "cursor",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "description": "next_cursor de la página anterior, con la misma consulta.",
-              "title": "Cursor"
-            }
           }
         ],
         "responses": {
@@ -3529,6 +3529,566 @@
         ],
         "summary": "Búsqueda de veredictos (student y researcher)",
         "x-required-role": "student"
+      }
+    },
+    "/search/verdicts/export": {
+      "get": {
+        "description": "Los mismos filtros y orden que /search/verdicts, sin paginar (RF-BUS-06). Cada fila copia el veredicto completo: data_kind, los dos granule_id, interval_days, la regla de decisión con sus umbrales y calibrated, y los supuestos declarados (assumptions, todos sin calibrar salvo que digan lo contrario). La consulta, el perfil, la hora y el total van en metadata (JSON y GeoJSON) y en las cabeceras X-Export-*.",
+        "operationId": "export_verdicts_search_verdicts_export_get",
+        "parameters": [
+          {
+            "description": "csv, geojson o json.",
+            "in": "query",
+            "name": "format",
+            "required": true,
+            "schema": {
+              "description": "csv, geojson o json.",
+              "enum": [
+                "csv",
+                "geojson",
+                "json"
+              ],
+              "title": "Format",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Zona.",
+            "in": "query",
+            "name": "aoi",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Zona.",
+              "title": "Aoi"
+            }
+          },
+          {
+            "description": "Serie, p. ej. T048A-F015.",
+            "in": "query",
+            "name": "series_id",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Serie, p. ej. T048A-F015.",
+              "title": "Series Id"
+            }
+          },
+          {
+            "description": "Dirección de la órbita.",
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "A",
+                    "D"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Dirección de la órbita.",
+              "title": "Direction"
+            }
+          },
+          {
+            "in": "query",
+            "name": "kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "consecutive",
+                    "full_window"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Kind"
+            }
+          },
+          {
+            "description": "from_date del par igual o posterior.",
+            "in": "query",
+            "name": "date_from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "from_date del par igual o posterior.",
+              "title": "Date From"
+            }
+          },
+          {
+            "description": "to_date del par igual o anterior.",
+            "in": "query",
+            "name": "date_to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "to_date del par igual o anterior.",
+              "title": "Date To"
+            }
+          },
+          {
+            "description": "interval_days mínimo.",
+            "in": "query",
+            "name": "interval_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "interval_days mínimo.",
+              "title": "Interval Min"
+            }
+          },
+          {
+            "description": "interval_days máximo.",
+            "in": "query",
+            "name": "interval_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "integer"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "interval_days máximo.",
+              "title": "Interval Max"
+            }
+          },
+          {
+            "description": "Uno o varios estados.",
+            "in": "query",
+            "name": "state",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "enum": [
+                      "change_probable",
+                      "no_detectable_change",
+                      "not_observable"
+                    ],
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Uno o varios estados.",
+              "title": "State"
+            }
+          },
+          {
+            "description": "Una o varias causas de not_observable.",
+            "in": "query",
+            "name": "cause",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "items": {
+                    "type": "string"
+                  },
+                  "type": "array"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Una o varias causas de not_observable.",
+              "title": "Cause"
+            }
+          },
+          {
+            "description": "changed_fraction mínima (0 a 1).",
+            "in": "query",
+            "name": "changed_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "changed_fraction mínima (0 a 1).",
+              "title": "Changed Min"
+            }
+          },
+          {
+            "description": "changed_fraction máxima (0 a 1).",
+            "in": "query",
+            "name": "changed_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 1,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "changed_fraction máxima (0 a 1).",
+              "title": "Changed Max"
+            }
+          },
+          {
+            "description": "Desplazamiento de la escena sobre el umbral. Las filas sin desplazamiento no se evalúan.",
+            "in": "query",
+            "name": "scene_shift_exceeds",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Desplazamiento de la escena sobre el umbral. Las filas sin desplazamiento no se evalúan.",
+              "title": "Scene Shift Exceeds"
+            }
+          },
+          {
+            "description": "Solo researcher. true: alguna fecha con radiometric_outlier; false: ninguna.",
+            "in": "query",
+            "name": "quality_flag",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "boolean"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. true: alguna fecha con radiometric_outlier; false: ninguna.",
+              "title": "Quality Flag"
+            }
+          },
+          {
+            "description": "Contraste con OPERA. Las filas con water not_available quedan fuera y se cuentan en query.not_evaluated.",
+            "in": "query",
+            "name": "water",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "agree",
+                    "disagree"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Contraste con OPERA. Las filas con water not_available quedan fuera y se cuentan en query.not_evaluated.",
+              "title": "Water"
+            }
+          },
+          {
+            "description": "Nubosidad máxima por tesela de las dos escenas ópticas, en %.",
+            "in": "query",
+            "name": "max_cloud_cover",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maximum": 100,
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Nubosidad máxima por tesela de las dos escenas ópticas, en %.",
+              "title": "Max Cloud Cover"
+            }
+          },
+          {
+            "description": "Solo researcher. evidence.noise.hh_db mínima, en dB. Las filas sin ruido no se evalúan y se cuentan en query.not_evaluated.",
+            "in": "query",
+            "name": "noise_hh_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hh_db mínima, en dB. Las filas sin ruido no se evalúan y se cuentan en query.not_evaluated.",
+              "title": "Noise Hh Min"
+            }
+          },
+          {
+            "description": "Solo researcher. evidence.noise.hh_db máxima, en dB.",
+            "in": "query",
+            "name": "noise_hh_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hh_db máxima, en dB.",
+              "title": "Noise Hh Max"
+            }
+          },
+          {
+            "description": "Solo researcher. evidence.noise.hv_db mínima, en dB.",
+            "in": "query",
+            "name": "noise_hv_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hv_db mínima, en dB.",
+              "title": "Noise Hv Min"
+            }
+          },
+          {
+            "description": "Solo researcher. evidence.noise.hv_db máxima, en dB.",
+            "in": "query",
+            "name": "noise_hv_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hv_db máxima, en dB.",
+              "title": "Noise Hv Max"
+            }
+          },
+          {
+            "in": "query",
+            "name": "data_kind",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "real",
+                    "synthetic"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Data Kind"
+            }
+          },
+          {
+            "description": "Texto libre sobre los textos del veredicto (summary, hipótesis, causa), su identificador y los granule_id, en el idioma de lang (RF-BUS-02). Cada palabra cuenta como prefijo, todas deben aparecer, sin distinguir mayúsculas ni acentos. Sin palabras, no hay resultados.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Texto libre sobre los textos del veredicto (summary, hipótesis, causa), su identificador y los granule_id, en el idioma de lang (RF-BUS-02). Cada palabra cuenta como prefijo, todas deben aparecer, sin distinguir mayúsculas ni acentos. Sin palabras, no hay resultados.",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Idioma de los textos en los que busca q.",
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "es",
+              "description": "Idioma de los textos en los que busca q.",
+              "enum": [
+                "es",
+                "en"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Rectángulo WGS84 'oeste,sur,este,norte' (RF-BUS-10): series cuya huella de catalog (T-ANT-17) toca el rectángulo. Si no hay huella, la fila no se evalúa y se cuenta en query.not_evaluated. Dice qué series cubren el área, no que el veredicto hable de ella: el veredicto sigue siendo de toda la zona.",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Rectángulo WGS84 'oeste,sur,este,norte' (RF-BUS-10): series cuya huella de catalog (T-ANT-17) toca el rectángulo. Si no hay huella, la fila no se evalúa y se cuenta en query.not_evaluated. Dice qué series cubren el área, no que el veredicto hable de ella: el veredicto sigue siendo de toda la zona.",
+              "examples": [
+                "-105.8,26.85,-105.6,27.0"
+              ],
+              "title": "Bbox"
+            }
+          },
+          {
+            "description": "date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas sin ruido van al final en los dos sentidos.",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "date",
+              "description": "date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas sin ruido van al final en los dos sentidos.",
+              "enum": [
+                "date",
+                "interval",
+                "changed_fraction",
+                "noise_hh",
+                "noise_hv"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "order",
+            "required": false,
+            "schema": {
+              "default": "desc",
+              "enum": [
+                "asc",
+                "desc"
+              ],
+              "title": "Order",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/geo+json": {},
+              "application/json": {
+                "schema": {}
+              },
+              "text/csv": {}
+            },
+            "description": "Archivo en streaming. CSV: una fila por veredicto, la consulta en las cabeceras X-Export-*. JSON: {metadata, results}. GeoJSON: FeatureCollection con metadata y la caja de la zona como geometría de cada Feature."
+          },
+          "403": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccessDenied"
+                }
+              }
+            },
+            "description": "Solo researcher; required_role dice cuál hace falta."
+          },
+          "422": {
+            "description": "Parámetro no válido, p. ej. un bbox mal formado."
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Exportación de la búsqueda de veredictos (researcher)",
+        "x-required-role": "researcher"
       }
     }
   }
