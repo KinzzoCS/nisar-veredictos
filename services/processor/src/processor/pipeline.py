@@ -16,7 +16,16 @@ from .change import STATE_CODES, STATE_NODATA, Params, compare, smooth, observab
 from .gcov import GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from .qa import finalize_qa, scene_stats
 from .multitemporal import MultitemporalFilter
-from .terrain import DEM_ATTRIBUTION, DEM_SOURCE, DEM_VERTICAL_DATUM, dem_for_aoi, terrain_mask
+from .terrain import (
+    DEM_ATTRIBUTION,
+    DEM_SOURCE,
+    DEM_VERTICAL_DATUM,
+    SYNTHETIC_DEM_ATTRIBUTION,
+    SYNTHETIC_DEM_SOURCE,
+    dem_for_aoi,
+    dem_kind,
+    terrain_mask,
+)
 
 DATA_GAP = (date(2026, 7, 27), date(2026, 8, 10))
 BASE_NOTICES = [
@@ -35,7 +44,7 @@ QA_NOTICE = (
 )
 GDAL_CACHE_MB = 128
 TERRAIN_NOTICE = (
-    "Layover y sombra (estado terrain) calculados con el DEM Copernicus GLO-30 y la geometría radarGrid de la "
+    "Layover y sombra (estado terrain) calculados con el {dem} y la geometría radarGrid de la "
     "primera fecha ({detail}), con un criterio local por pendiente: no incluye sombras proyectadas por crestas."
 )
 NO_TERRAIN_NOTICE = "Layover y sombra no se marcaron: {reason}. Las laderas empinadas pueden aparecer como cambio o sin cambio."
@@ -154,7 +163,20 @@ def _date_in_name(name: str) -> str:
     return "-".join(found.groups()) if found else name
 
 
-def _publish_dem(dem_sources, aoi: dict, artifact_root: Path) -> dict | None:
+def _usable_dem(dem_sources, data_kind: str) -> tuple[list, str]:
+    """Las fuentes de DEM que se pueden usar con esta serie y si son sintéticas.
+
+    Un DEM sintético (T-ECO-13) solo acompaña a gránulos sintéticos: con datos reales se descarta, para no
+    marcar layover ni dibujar relieve inventado sobre una zona real.
+    """
+    kinds = {source: dem_kind(source) for source in dem_sources or []}
+    if data_kind != "synthetic":
+        return [source for source, kind in kinds.items() if kind != "synthetic"], "real"
+    synthetic = [source for source, kind in kinds.items() if kind == "synthetic"]
+    return (synthetic, "synthetic") if synthetic else (list(kinds), "real")
+
+
+def _publish_dem(dem_sources, dem_kind_: str, aoi: dict, artifact_root: Path) -> dict | None:
     """Publica el DEM de la zona como COG para el relieve de la interfaz (T-ECO-10); None si no hay DEM útil."""
     found = dem_for_aoi(list(dem_sources), aoi["bbox"]) if dem_sources else None
     if found is None:
@@ -162,13 +184,15 @@ def _publish_dem(dem_sources, aoi: dict, artifact_root: Path) -> dict | None:
     data, transform, crs = found
     relative = f"{aoi['id']}/dem.tif"
     _write_cog_grid(artifact_root / relative, data, crs, transform, float("nan"), "average")
+    synthetic = dem_kind_ == "synthetic"
     return {
         "layer": relative,
-        "source": DEM_SOURCE,
+        "data_kind": dem_kind_,
+        "source": SYNTHETIC_DEM_SOURCE if synthetic else DEM_SOURCE,
         "crs": crs,
-        "vertical_datum": DEM_VERTICAL_DATUM,
+        "vertical_datum": "none" if synthetic else DEM_VERTICAL_DATUM,
         "units": "m",
-        "attribution": DEM_ATTRIBUTION,
+        "attribution": SYNTHETIC_DEM_ATTRIBUTION if synthetic else DEM_ATTRIBUTION,
     }
 
 
@@ -206,6 +230,7 @@ def process_series(
     reference = ordered[0][0]
     for meta, _ in ordered[1:]:
         _check_comparable(reference, meta)
+    dem_sources, dem_data_kind = _usable_dem(dem_sources, reference.data_kind)
 
     prefix = f"{aoi['id']}/{series_id}"
     target = artifact_root / aoi["id"] / series_id
@@ -244,7 +269,10 @@ def process_series(
         + BASE_NOTICES
         + ([SHIFT_NOTICE] if params.correct_scene_shift else [])
         + [
-            TERRAIN_NOTICE.format(detail=terrain_detail)
+            TERRAIN_NOTICE.format(
+                detail=terrain_detail,
+                dem="DEM sintético" if dem_data_kind == "synthetic" else "DEM Copernicus GLO-30",
+            )
             if terrain is not None
             else NO_TERRAIN_NOTICE.format(reason=terrain_detail)
         ]
@@ -256,7 +284,7 @@ def process_series(
             else []
         )
     )
-    dem = _publish_dem(dem_sources, aoi, artifact_root)
+    dem = _publish_dem(dem_sources, dem_data_kind, aoi, artifact_root)
     manifest = {
         "schema_version": 1,
         "aoi": aoi["id"],

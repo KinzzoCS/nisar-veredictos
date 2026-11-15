@@ -335,6 +335,22 @@
         "title": "PersonalTokenOut",
         "type": "object"
       },
+      "RatingIn": {
+        "properties": {
+          "stars": {
+            "description": "De 1 a 5.",
+            "maximum": 5.0,
+            "minimum": 1.0,
+            "title": "Stars",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stars"
+        ],
+        "title": "RatingIn",
+        "type": "object"
+      },
       "RegisterIn": {
         "properties": {
           "email": {
@@ -366,6 +382,275 @@
           "role"
         ],
         "title": "RegisterIn",
+        "type": "object"
+      },
+      "Stars": {
+        "properties": {
+          "average": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Promedio de 1 a 5 con dos decimales, o null sin valoraciones.",
+            "title": "Average"
+          },
+          "count": {
+            "description": "Cuántas valoraciones hay.",
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "average"
+        ],
+        "title": "Stars",
+        "type": "object"
+      },
+      "StarsByRole": {
+        "properties": {
+          "researcher": {
+            "$ref": "#/components/schemas/Stars"
+          },
+          "student": {
+            "$ref": "#/components/schemas/Stars"
+          }
+        },
+        "required": [
+          "student",
+          "researcher"
+        ],
+        "title": "StarsByRole",
+        "type": "object"
+      },
+      "StoryIn": {
+        "properties": {
+          "aoi": {
+            "description": "Zona, p. ej. parral.",
+            "title": "Aoi",
+            "type": "string"
+          },
+          "from_date": {
+            "description": "Inicio del rango de fechas de la búsqueda.",
+            "format": "date",
+            "title": "From Date",
+            "type": "string"
+          },
+          "notes": {
+            "default": "",
+            "description": "Hasta 800 caracteres. Notas de quien escribió la historia. No son texto de la API ni están comprobadas: se muestran y se descargan aparte de los veredictos (RF-ACC-16).",
+            "title": "Notes",
+            "type": "string"
+          },
+          "pairs": {
+            "description": "Veredictos de la historia, de 1 a 24, sin repetir.",
+            "items": {
+              "$ref": "#/components/schemas/StoryPair"
+            },
+            "title": "Pairs",
+            "type": "array"
+          },
+          "series": {
+            "description": "Serie de la búsqueda, o 'all' si abarca todas.",
+            "title": "Series",
+            "type": "string"
+          },
+          "title": {
+            "description": "De 3 a 120 caracteres.",
+            "title": "Title",
+            "type": "string"
+          },
+          "to_date": {
+            "description": "Fin del rango de fechas de la búsqueda.",
+            "format": "date",
+            "title": "To Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title",
+          "aoi",
+          "series",
+          "from_date",
+          "to_date",
+          "pairs"
+        ],
+        "title": "StoryIn",
+        "type": "object"
+      },
+      "StoryList": {
+        "properties": {
+          "stories": {
+            "items": {
+              "$ref": "#/components/schemas/StoryOut"
+            },
+            "title": "Stories",
+            "type": "array"
+          },
+          "total": {
+            "description": "Historias que cumplen el filtro, sin paginar.",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "stories",
+          "total"
+        ],
+        "title": "StoryList",
+        "type": "object"
+      },
+      "StoryOut": {
+        "properties": {
+          "aoi": {
+            "title": "Aoi",
+            "type": "string"
+          },
+          "author_role": {
+            "description": "Perfil declarado de quien la escribió. Nunca se muestra el correo (RF-ACC-16).",
+            "enum": [
+              "student",
+              "researcher"
+            ],
+            "title": "Author Role",
+            "type": "string"
+          },
+          "created_at": {
+            "description": "Hora UTC de creación, ISO 8601.",
+            "title": "Created At",
+            "type": "string"
+          },
+          "downloads": {
+            "description": "Descargas hechas con sesión.",
+            "title": "Downloads",
+            "type": "integer"
+          },
+          "from_date": {
+            "title": "From Date",
+            "type": "string"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "is_mine": {
+            "description": "La escribió la cuenta del token. False sin token.",
+            "title": "Is Mine",
+            "type": "boolean"
+          },
+          "my_stars": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Estrellas que le dio la cuenta del token, o null.",
+            "title": "My Stars"
+          },
+          "notes": {
+            "description": "Notas de quien escribió la historia. No son texto de la API ni están comprobadas: se muestran y se descargan aparte de los veredictos (RF-ACC-16).",
+            "title": "Notes",
+            "type": "string"
+          },
+          "pairs": {
+            "items": {
+              "$ref": "#/components/schemas/StoryPair"
+            },
+            "title": "Pairs",
+            "type": "array"
+          },
+          "ratings": {
+            "$ref": "#/components/schemas/StoryRatings"
+          },
+          "series": {
+            "title": "Series",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "to_date": {
+            "title": "To Date",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "aoi",
+          "series",
+          "from_date",
+          "to_date",
+          "pairs",
+          "notes",
+          "author_role",
+          "created_at",
+          "downloads",
+          "ratings",
+          "is_mine",
+          "my_stars"
+        ],
+        "title": "StoryOut",
+        "type": "object"
+      },
+      "StoryPair": {
+        "properties": {
+          "pair": {
+            "description": "Identificador del par, AAAAMMDD_AAAAMMDD.",
+            "title": "Pair",
+            "type": "string"
+          },
+          "series": {
+            "description": "Serie del par, p. ej. T048A-F015.",
+            "title": "Series",
+            "type": "string"
+          }
+        },
+        "required": [
+          "series",
+          "pair"
+        ],
+        "title": "StoryPair",
+        "type": "object"
+      },
+      "StoryRatings": {
+        "properties": {
+          "average": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Promedio de 1 a 5 con dos decimales, o null sin valoraciones.",
+            "title": "Average"
+          },
+          "by_role": {
+            "$ref": "#/components/schemas/StarsByRole",
+            "description": "Desglose por perfil declarado de quien valoró (RF-ACC-15)."
+          },
+          "count": {
+            "description": "Cuántas valoraciones hay.",
+            "title": "Count",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "count",
+          "average",
+          "by_role"
+        ],
+        "title": "StoryRatings",
         "type": "object"
       },
       "TokenOut": {
@@ -673,6 +958,535 @@
           }
         },
         "summary": "Register"
+      }
+    },
+    "/stories": {
+      "get": {
+        "description": "Sin cuenta (RF-ACC-14). Con token, cada historia dice si es propia y cuántas estrellas le diste.",
+        "operationId": "list_stories_stories_get",
+        "parameters": [
+          {
+            "description": "Solo las de esta zona.",
+            "in": "query",
+            "name": "aoi",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo las de esta zona.",
+              "title": "Aoi"
+            }
+          },
+          {
+            "description": "Más nuevas o mejor valoradas.",
+            "in": "query",
+            "name": "sort",
+            "required": false,
+            "schema": {
+              "default": "recent",
+              "description": "Más nuevas o mejor valoradas.",
+              "enum": [
+                "recent",
+                "stars"
+              ],
+              "title": "Sort",
+              "type": "string"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 50,
+              "maximum": 100,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "query",
+            "name": "offset",
+            "required": false,
+            "schema": {
+              "default": 0,
+              "minimum": 0,
+              "title": "Offset",
+              "type": "integer"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryList"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Sin sesión o con un token no válido"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "List Stories",
+        "tags": [
+          "historias"
+        ]
+      },
+      "post": {
+        "description": "Guarda las referencias y las notas; nunca textos de veredictos (RF-ACC-13).",
+        "operationId": "create_story_stories_post",
+        "parameters": [
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/StoryIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Sin sesión o con un token no válido"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Create Story",
+        "tags": [
+          "historias"
+        ],
+        "x-required-role": "student"
+      }
+    },
+    "/stories/{story_id}": {
+      "delete": {
+        "operationId": "delete_story_stories__story_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "story_id",
+            "required": true,
+            "schema": {
+              "title": "Story Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Sin sesión o con un token no válido"
+          },
+          "403": {
+            "description": "La historia es de otra cuenta"
+          },
+          "404": {
+            "description": "No hay una historia con ese id"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Delete Story",
+        "tags": [
+          "historias"
+        ],
+        "x-required-role": "student"
+      },
+      "get": {
+        "operationId": "get_story_stories__story_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "story_id",
+            "required": true,
+            "schema": {
+              "title": "Story Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Sin sesión o con un token no válido"
+          },
+          "404": {
+            "description": "No hay una historia con ese id"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Story",
+        "tags": [
+          "historias"
+        ]
+      }
+    },
+    "/stories/{story_id}/download": {
+      "post": {
+        "description": "Cuenta la descarga y devuelve la historia. El archivo lo arma la interfaz con los veredictos actuales de la\nAPI y las notas aparte. No es una barrera de seguridad: los datos son públicos (constitución II.4).",
+        "operationId": "download_stories__story_id__download_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "story_id",
+            "required": true,
+            "schema": {
+              "title": "Story Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Sin sesión o con un token no válido"
+          },
+          "404": {
+            "description": "No hay una historia con ese id"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Download",
+        "tags": [
+          "historias"
+        ],
+        "x-required-role": "student"
+      }
+    },
+    "/stories/{story_id}/rating": {
+      "delete": {
+        "description": "Quita la valoración de la cuenta, si la había.",
+        "operationId": "unrate_stories__story_id__rating_delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "story_id",
+            "required": true,
+            "schema": {
+              "title": "Story Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Sin sesión o con un token no válido"
+          },
+          "404": {
+            "description": "No hay una historia con ese id"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Unrate",
+        "tags": [
+          "historias"
+        ],
+        "x-required-role": "student"
+      },
+      "post": {
+        "description": "De 1 a 5 estrellas, una por cuenta (valorar otra vez la cambia). Devuelve la historia con el promedio nuevo.",
+        "operationId": "rate_stories__story_id__rating_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "story_id",
+            "required": true,
+            "schema": {
+              "title": "Story Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "header",
+            "name": "authorization",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RatingIn"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/StoryOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "401": {
+            "description": "Sin sesión o con un token no válido"
+          },
+          "404": {
+            "description": "No hay una historia con ese id"
+          },
+          "409": {
+            "description": "No se puede valorar la historia propia"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "security": [
+          {
+            "bearerAuth": []
+          }
+        ],
+        "summary": "Rate",
+        "tags": [
+          "historias"
+        ],
+        "x-required-role": "student"
       }
     },
     "/tokens": {

@@ -7,10 +7,13 @@ from pathlib import Path
 
 import h5py
 import numpy as np
+import rasterio
+from rasterio.transform import from_origin
 from rasterio.warp import transform_bounds
 from scipy import ndimage
 
 from .gcov import GRID, IDENTIFICATION
+from .terrain import DEM_KIND_TAG
 
 POSTING_M = 200.0
 LOOKS = 20.0
@@ -97,6 +100,44 @@ def write_radar_grid(path: Path, x: np.ndarray, y: np.ndarray, direction: str, i
         group["losUnitVectorY"] = np.full(cube.shape, 0.15, np.float32)
         group["projection"] = np.uint32(EPSG)
         group["projection"].attrs["epsg_code"] = EPSG
+
+
+# Malla y margen como una tesela GLO-30 (1″ en EPSG:4326), para que la pila sintética pruebe lo mismo que la real.
+SYNTHETIC_DEM_STEP_DEG = 1 / 3600
+SYNTHETIC_DEM_MARGIN_DEG = 0.05
+
+
+def write_synthetic_dem(bbox: list[float], path: Path, seed: int = 11) -> Path:
+    """DEM sintético de la zona (T-ECO-13): colinas suaves y una sierra, de 1500 a 3000 m.
+
+    Lleva la etiqueta DATA_KIND=synthetic, que el pipeline lee para publicarlo como sintético y para no
+    usarlo nunca con gránulos reales. No describe ningún relieve real.
+    """
+    west, south, east, north = bbox
+    west, south = west - SYNTHETIC_DEM_MARGIN_DEG, south - SYNTHETIC_DEM_MARGIN_DEG
+    east, north = east + SYNTHETIC_DEM_MARGIN_DEG, north + SYNTHETIC_DEM_MARGIN_DEG
+    width = int(round((east - west) / SYNTHETIC_DEM_STEP_DEG))
+    height = int(round((north - south) / SYNTHETIC_DEM_STEP_DEG))
+    rng = np.random.default_rng(seed)
+    # Se genera grueso y se interpola: el relieve fino no aporta a la prueba y así cuesta poco.
+    coarse = ndimage.gaussian_filter(rng.normal(size=(height // 30 + 2, width // 30 + 2)), 3)
+    hills = ndimage.zoom(coarse / coarse.std(), (height / coarse.shape[0], width / coarse.shape[1]), order=1)
+    hills = np.pad(hills, ((0, max(0, height - hills.shape[0])), (0, max(0, width - hills.shape[1]))), mode="edge")
+    cols = np.linspace(0, 1, width)[None, :]
+    ridge = 900 * np.exp(-(((cols - 0.3) / 0.08) ** 2))  # sierra norte-sur al oeste de la zona
+    relief = 250 * hills[:height, :width] + ridge
+    # De 1500 a 3000 m, como el relieve de Parral (GLO-30 da de 1521 a 3041 m).
+    dem = (1500 + 1500 * (relief - relief.min()) / (relief.max() - relief.min())).astype(np.float32)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    profile = {
+        "driver": "GTiff", "width": width, "height": height, "count": 1, "dtype": "float32",
+        "crs": "EPSG:4326", "transform": from_origin(west, north, SYNTHETIC_DEM_STEP_DEG, SYNTHETIC_DEM_STEP_DEG),
+        "compress": "deflate", "tiled": True,
+    }
+    with rasterio.open(path, "w", **profile) as dataset:
+        dataset.write(dem, 1)
+        dataset.update_tags(**{DEM_KIND_TAG: "synthetic"})
+    return path
 
 
 def _speckle(rng: np.random.Generator, db: np.ndarray) -> np.ndarray:

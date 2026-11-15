@@ -24,7 +24,9 @@ from .store import (
     RefreshRejected,
     Store,
     TooManyPersonalTokens,
+    User,
 )
+from .stories import story_routes
 from .tokens import ACCESS_SECONDS, InvalidToken, Signer, load_or_create_key
 
 COOKIE = "refresh"
@@ -382,6 +384,19 @@ def create_app(
         if not store.revoke_personal_token(sub, token_id, now()):
             raise HTTPException(status.HTTP_404_NOT_FOUND, "No hay un token con ese id en la cuenta")
         return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+    def viewer_of(authorization: str | None) -> User | None:
+        """La cuenta del token (sesión o personal), None sin cabecera; 401 si el token no vale (RF-ACC-06)."""
+        token = bearer(authorization)
+        if token is None:
+            return None
+        sub, _, _ = identify(token)
+        user = store.user_by_id(sub)
+        if user is None:
+            raise unauthorized("La cuenta ya no existe")
+        return user
+
+    app.include_router(story_routes(store, viewer_of, now))
 
     @app.get("/.well-known/jwks.json", response_model=JwksOut)
     def jwks() -> dict:

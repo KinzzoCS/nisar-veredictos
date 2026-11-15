@@ -33,7 +33,7 @@ from processor.terrain import geometry_on_grid, glo30_tiles, layover_shadow, rea
 from processor.gcov import GRID, IDENTIFICATION, GranuleError, GranuleMeta, Scene, read_meta_path, read_scene
 from processor.pipeline import excluded_granules, process_series
 from processor.qa import RADIOMETRIC_OUTLIER, date_qa
-from processor.synthetic import SeriesSpec, generate_series
+from processor.synthetic import SeriesSpec, generate_series, write_synthetic_dem
 
 ROOT = Path(__file__).resolve().parents[3]
 BBOX = [-105.95, 26.70, -105.40, 27.15]
@@ -612,6 +612,43 @@ def test_pipeline_omits_the_dem_when_there_is_none_or_it_does_not_cover_the_aoi(
     far = tmp_path / "lejos.tif"
     _write_dem(far, [10.0, 10.0, 10.5, 10.5], ridge_lon=10.2)
     assert "dem" not in process_series(paths[:2], AOI, "T048A-F015", tmp_path / "c", "PROVISIONAL", dem_sources=[far])
+
+
+def test_synthetic_dem_is_published_as_synthetic_and_never_as_copernicus(series, tmp_path):
+    paths, _ = series
+    dem = write_synthetic_dem(BBOX, tmp_path / "dem" / "synthetic_dem.tif")
+    manifest = process_series(paths[:2], AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])
+    published = manifest["dem"]
+    assert published["data_kind"] == "synthetic" and "sintético" in published["source"]
+    assert "Copernicus" not in published["attribution"] and published["vertical_datum"] == "none"
+    with rasterio.open(tmp_path / "out" / published["layer"]) as cog:
+        assert cog.res == pytest.approx((1 / 3600, 1 / 3600))
+        values = cog.read(1)
+        assert np.isfinite(values).all() and values.min() >= 1499 and values.max() <= 3001
+    schema = json.loads((ROOT / "contracts" / "artifact-manifest.schema.json").read_text(encoding="utf-8"))
+    jsonschema.validate(manifest, schema)
+
+
+def test_real_dem_is_declared_real(series, tmp_path):
+    paths, _ = series
+    dem = tmp_path / "glo30.tif"
+    _write_dem(dem, BBOX, ridge_lon=-105.6)
+    published = process_series(paths[:2], AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])["dem"]
+    assert published["data_kind"] == "real" and published["vertical_datum"] == "EGM2008"
+
+
+def test_a_synthetic_dem_is_never_used_with_real_granules(tmp_path):
+    spec = SeriesSpec(48, "A", 15, ("20260617", "20260629"))
+    paths = generate_series(spec, BBOX, tmp_path / "raw", radar_grid=True)
+    for path in paths:  # se hacen pasar por reales: con radarGrid, un DEM real marcaría relieve
+        with h5py.File(path, "r+") as handle:
+            handle.attrs["data_kind"] = "real"
+    dem = write_synthetic_dem(BBOX, tmp_path / "dem" / "synthetic_dem.tif")
+    manifest = process_series(paths, AOI, "T048A-F015", tmp_path / "out", "PROVISIONAL", dem_sources=[dem])
+    assert manifest["data_kind"] == "real"
+    assert "dem" not in manifest and not (tmp_path / "out" / "parral" / "dem.tif").exists()
+    assert any("no se marcaron: no hay DEM" in notice for notice in manifest["notices"])
+    assert all(pair["stats"]["counts"]["terrain"] == 0 for pair in manifest["pairs"])
 
 
 SHIFT_2_DB = 10 ** (2 / 10)

@@ -316,6 +316,17 @@
             ],
             "title": "Mean Change Hv Db"
           },
+          "noise": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/NoiseOut"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Dispersión de la diferencia del par en HH y HV (RF-BUS-09, T-BAL-14). null si el manifiesto no trae stats.noise_* (artefactos anteriores a T-ECO-09). No es ruido del instrumento: ver caveat. No cambia el estado."
+          },
           "observed_fraction": {
             "title": "Observed Fraction",
             "type": "number"
@@ -492,6 +503,60 @@
           "change_hv"
         ],
         "title": "Layers",
+        "type": "object"
+      },
+      "NoiseOut": {
+        "description": "Dispersión de la diferencia del par (RF-BUS-09), copiada de stats.noise_* del manifiesto de Eco (T-ECO-09).",
+        "properties": {
+          "basis": {
+            "const": "pair_stats",
+            "default": "pair_stats",
+            "description": "Siempre pair_stats: stats.noise_hh_db y noise_hv_db del par en el manifiesto.",
+            "title": "Basis",
+            "type": "string"
+          },
+          "calibrated": {
+            "default": false,
+            "description": "Siempre false: no hay un umbral de ruido contrastado.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "caveat": {
+            "description": "Advertencia fija: no es ruido del instrumento. Incluye también cambio real repartido (humedad, vegetación) y textura, así que un valor alto no prueba que el cambio sea ruido.",
+            "title": "Caveat",
+            "type": "string"
+          },
+          "hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Desviación robusta de la diferencia HH (1,4826 · MAD alrededor de la mediana), en dB, sobre los píxeles observables, tras suavizar 5 × 5 y antes del umbral y del filtro de grupos. null si falta.",
+            "title": "Hh Db"
+          },
+          "hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Igual que hh_db, para HV.",
+            "title": "Hv Db"
+          }
+        },
+        "required": [
+          "hh_db",
+          "hv_db",
+          "caveat"
+        ],
+        "title": "NoiseOut",
         "type": "object"
       },
       "NotEvaluated": {
@@ -1359,7 +1424,9 @@
             "enum": [
               "date",
               "interval",
-              "changed_fraction"
+              "changed_fraction",
+              "noise_hh",
+              "noise_hv"
             ],
             "title": "Sort",
             "type": "string"
@@ -1455,6 +1522,30 @@
             ],
             "title": "Kind",
             "type": "string"
+          },
+          "noise_hh_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "evidence.noise.hh_db. null si el veredicto no trae ruido (manifiesto anterior a T-ECO-09).",
+            "title": "Noise Hh Db"
+          },
+          "noise_hv_db": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "evidence.noise.hv_db.",
+            "title": "Noise Hv Db"
           },
           "observed_fraction": {
             "title": "Observed Fraction",
@@ -1557,6 +1648,8 @@
           "scene_shift_exceeds_threshold",
           "flagged_dates",
           "optical_max_cloud_cover",
+          "noise_hh_db",
+          "noise_hv_db",
           "water",
           "granules",
           "verdict_path"
@@ -2712,7 +2805,7 @@
     },
     "/search/verdicts": {
       "get": {
-        "description": "Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin el filtro de calidad y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados devuelve una lista vacía con total 0, nunca 404.",
+        "description": "Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin los filtros de calidad y de ruido ni el orden por ruido, y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados devuelve una lista vacía con total 0, nunca 404.",
         "operationId": "search_verdicts_search_verdicts_get",
         "parameters": [
           {
@@ -3035,6 +3128,82 @@
             }
           },
           {
+            "description": "Solo researcher. evidence.noise.hh_db mínima, en dB. Las filas sin ruido no se evalúan y se cuentan en query.not_evaluated.",
+            "in": "query",
+            "name": "noise_hh_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hh_db mínima, en dB. Las filas sin ruido no se evalúan y se cuentan en query.not_evaluated.",
+              "title": "Noise Hh Min"
+            }
+          },
+          {
+            "description": "Solo researcher. evidence.noise.hh_db máxima, en dB.",
+            "in": "query",
+            "name": "noise_hh_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hh_db máxima, en dB.",
+              "title": "Noise Hh Max"
+            }
+          },
+          {
+            "description": "Solo researcher. evidence.noise.hv_db mínima, en dB.",
+            "in": "query",
+            "name": "noise_hv_min",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hv_db mínima, en dB.",
+              "title": "Noise Hv Min"
+            }
+          },
+          {
+            "description": "Solo researcher. evidence.noise.hv_db máxima, en dB.",
+            "in": "query",
+            "name": "noise_hv_max",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "minimum": 0,
+                  "type": "number"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Solo researcher. evidence.noise.hv_db máxima, en dB.",
+              "title": "Noise Hv Max"
+            }
+          },
+          {
             "in": "query",
             "name": "data_kind",
             "required": false,
@@ -3111,17 +3280,19 @@
             }
           },
           {
-            "description": "date ordena por to_date.",
+            "description": "date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas sin ruido van al final en los dos sentidos.",
             "in": "query",
             "name": "sort",
             "required": false,
             "schema": {
               "default": "date",
-              "description": "date ordena por to_date.",
+              "description": "date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas sin ruido van al final en los dos sentidos.",
               "enum": [
                 "date",
                 "interval",
-                "changed_fraction"
+                "changed_fraction",
+                "noise_hh",
+                "noise_hv"
               ],
               "title": "Sort",
               "type": "string"
