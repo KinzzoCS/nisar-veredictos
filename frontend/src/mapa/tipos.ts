@@ -1,6 +1,7 @@
 // Interfaz del mapa para Faro. Fuente: specs/04-atlas/plan.md y src/types/map.ts.
 import type { MapLayerName, MapProps } from "../types/map";
 import type { AvisoEscena } from "./escena";
+import type { Huellas } from "./huellas";
 import type { Idioma } from "./textos";
 
 /** Extensión en WGS84 (EPSG:4326): [oeste, sur, este, norte]. */
@@ -49,6 +50,13 @@ export interface OpcionesMapa
   control3d?: boolean;
   /** Se llama cuando la persona cambia entre 2D y 3D con el botón del mapa. */
   onModo3dChanged?: (modo3d: boolean) => void;
+  /**
+   * Huellas de las series de la zona (T-ATL-13, RF-INT-16): una Feature por serie, la de
+   * `series[i].footprint` de `GET /api/catalog/aois/{aoi}/series` sin tocar (las `null` se
+   * dejan fuera). El mapa las dibuja con su nombre y las lista para lectores de pantalla.
+   * Sin huellas, solo la caja de la zona.
+   */
+  huellas?: Huellas;
   /** Muestra el selector de capa y la opacidad dentro del mapa. Por defecto, true. */
   controlCapas?: boolean;
   /** Se llama cuando la persona cambia de capa con el selector del mapa. */
@@ -71,6 +79,7 @@ export type CambiosMapa = Partial<
     | "optical"
     | "compare"
     | "modo3d"
+    | "huellas"
   >
 >;
 

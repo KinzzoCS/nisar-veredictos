@@ -1,13 +1,13 @@
 /* Línea de tiempo (T-ATL-06). Tema claro, como el resto de la app (src/index.css). */
 .atlas-linea {
-  --linea-texto: #1f2328;
-  --linea-suave: #57606a;
-  --linea-pista: #d0d7de;
-  --linea-pasada: #1b1f3b;
-  --linea-excluida: #b42318;
-  --linea-evento: #c2410c;
-  --linea-foco: #0b5cad;
-  font-family: system-ui, sans-serif;
+  --linea-texto: #000000;
+  --linea-suave: #525252;
+  --linea-pista: #d4d4d4;
+  --linea-pasada: #000000;
+  --linea-excluida: #000000;
+  --linea-evento: #000000;
+  --linea-foco: #000000;
+  font-family: var(--fuente-texto, system-ui, sans-serif);
   color: var(--linea-texto);
   font-size: 14px;
 }
@@ -98,11 +98,11 @@
 }
 
 .atlas-linea-trama-fondo {
-  fill: #eaeef2;
+  fill: #f3f3f3;
 }
 
 .atlas-linea-trama-raya {
-  stroke: #6e7781;
+  stroke: #525252;
   stroke-width: 2;
 }
 
@@ -111,7 +111,7 @@
 }
 
 .atlas-linea-evento {
-  fill: rgba(194, 65, 12, 0.18);
+  fill: rgba(0, 0, 0, 0.12);
   stroke: var(--linea-evento);
   stroke-width: 1.5;
 }

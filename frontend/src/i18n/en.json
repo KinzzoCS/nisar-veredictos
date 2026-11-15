@@ -19,7 +19,11 @@
     "label": "Theme",
     "sistema": "System",
     "claro": "Light",
-    "oscuro": "Dark"
+    "oscuro": "Dark",
+    "to": {
+      "claro": "Switch to light theme",
+      "oscuro": "Switch to dark theme"
+    }
   },
   "public": {
     "question": "What happened in Parral?",
@@ -36,6 +40,165 @@
   "synthetic": {
     "banner": "Synthetic data: it shows how the application works and does not describe what happened in Parral.",
     "card": "This verdict uses synthetic data."
+  },
+  "layout": {
+    "left": "Search and parameters",
+    "center": "Views",
+    "right": "Save and community",
+    "switcher": "Panels",
+    "panels": {
+      "buscar": "Search",
+      "ver": "View",
+      "guardar": "Save"
+    },
+    "tabs": {
+      "mapa": "Map",
+      "historia": "Parral story",
+      "evento": "Could it see it?",
+      "interprete": "Interpreter",
+      "comunidad": "Community"
+    }
+  },
+  "search": {
+    "heading": "Search verdicts",
+    "allSeries": "All series",
+    "timeline": "Timeline",
+    "from": "From",
+    "to": "To",
+    "states": "States",
+    "fullWindows": "Include full windows",
+    "more": "More filters",
+    "results_one": "{{count}} verdict",
+    "results_other": "{{count}} verdicts"
+  },
+  "interpreter": {
+    "heading": "Story interpreter",
+    "intro": "Build a story from the verdicts in the search. The texts are the API's, unchanged; your notes are saved separately and labelled as yours.",
+    "title": "Title",
+    "defaultTitle": "Parral, {{series}}, {{from}} to {{to}}",
+    "fromApi": "What the API says",
+    "summary_one": "{{count}} pair: {{change}} probable change, {{nochange}} no detectable change and {{notobs}} not observable.",
+    "summary_other": "{{count}} pairs: {{change}} probable change, {{nochange}} no detectable change and {{notobs}} not observable.",
+    "empty": "The search has no verdicts with these filters. Widen the range or the states.",
+    "tooMany": "A story holds at most {{max}} pairs and there are {{count}}. Narrow the range or remove pairs.",
+    "include": "Include the pair from {{from}} to {{to}} of {{series}}",
+    "limits": "What it does not prove and what is missing",
+    "notes": "Your notes",
+    "notesHelp": "{{n}} of {{max}} characters. Shown separately from the API texts and not checked.",
+    "save": "Save story",
+    "saved": "Story saved. It is in the Community tab.",
+    "loginToSave": "Sign in to save and download stories.",
+    "reading": "Community story",
+    "authorNotes": "Notes by the author",
+    "notesDisclaimer": "They are not API text and have not been checked.",
+    "missingPair": "{{pair}}: this pair is no longer in the API or belongs to another area.",
+    "otherZone": "This story is about the {{aoi}} area; only pairs from the current area can be shown here.",
+    "backToDraft": "Back to the draft"
+  },
+  "community": {
+    "heading": "Community stories",
+    "sort": "Sort",
+    "sortRecent": "Newest",
+    "sortStars": "Best rated",
+    "loading": "Loading stories…",
+    "error": "The operation on stories could not be completed.",
+    "empty": "There are no stories for this area yet. Save the first one from the interpreter.",
+    "meta": "By a {{role}}, {{from}} to {{to}}",
+    "pairs_one": "{{count}} pair",
+    "pairs_other": "{{count}} pairs",
+    "downloads_one": "{{count}} download",
+    "downloads_other": "{{count}} downloads",
+    "stars": "Stars",
+    "votes_one": "({{count}} vote)",
+    "votes_other": "({{count}} votes)",
+    "notRated": "not rated",
+    "byRole": {
+      "student": "From students",
+      "researcher": "From researchers"
+    },
+    "role": {
+      "student": "student",
+      "researcher": "researcher"
+    },
+    "rate": "Your rating",
+    "starsN_one": "{{count}} star",
+    "starsN_other": "{{count}} stars",
+    "unrate": "Remove my rating",
+    "ownStory": "This is your story: you cannot rate it.",
+    "loginToRate": "Sign in to download and rate stories.",
+    "open": "Open",
+    "download": "Download",
+    "delete": "Delete",
+    "confirmDelete": "Delete the story “{{title}}”? Its ratings are deleted too.",
+    "file": {
+      "zone": "Area",
+      "series": "Series",
+      "range": "Date range",
+      "author": "Author (declared profile)",
+      "generated": "File generated on {{date}} UTC",
+      "apiHeading": "What the API says",
+      "apiNote": "Verdict texts as the API gives them at download time (language: {{lang}}). Each pair has its state, its three texts and its receipt.",
+      "missingPair": "This pair is no longer in the API or belongs to another area.",
+      "cause": "Why it could not be measured",
+      "notesHeading": "Notes by the author of the story",
+      "notesNote": "These notes are not API text and have not been checked.",
+      "noNotes": "No notes."
+    }
+  },
+  "session": {
+    "login": "Sign in",
+    "register": "Create account",
+    "logout": "Sign out",
+    "as": "Signed in as {{role}}",
+    "account": "Account: {{role}}",
+    "accountTitle": "Your account",
+    "viewFromRole": "The page adapts to your profile: what you see in addition are explanations and tools, never different data.",
+    "email": "Email",
+    "password": "Password (12 characters or more)",
+    "role": "Profile",
+    "declared": "You declare the profile and it is not checked: it adds tools, it never changes data.",
+    "toRegister": "I do not have an account",
+    "toLogin": "I already have an account",
+    "close": "Close",
+    "error": "It could not be completed. Check the email and password.",
+    "off": "Account access is off in this stack (AUTH_ENABLED=0). You can search, view and read without an account; to save, download or rate stories it has to be enabled in the .env."
+  },
+  "states": {
+    "label": "How to read each answer",
+    "change_probable": "The radar signal changed more than its noise over enough ground. It does not say why.",
+    "no_detectable_change": "The area could be observed and no change larger than the noise was seen.",
+    "not_observable": "The radar could not see it, and the reason is given."
+  },
+  "evidence": {
+    "heading": "Evidence",
+    "noData": "no data",
+    "db": "{{v}} dB",
+    "hhhv": "HH {{hh}}, HV {{hv}}",
+    "ofObserved": "{{v}} of the observed area",
+    "ofZone": "{{v}} of the area",
+    "ruleValue": "Probable change from {{change}} of the observed area; not observable if less than {{observed}} is observed.",
+    "notCalibrated": "Not checked against field data.",
+    "shiftExceeds": "Above the {{v}} dB threshold.",
+    "shiftBelow": "Below the {{v}} dB threshold.",
+    "shiftCorrected": "Already removed from the change.",
+    "shiftNotCorrected": "Not removed from the change.",
+    "json": "View this verdict's JSON in the API",
+    "rows": {
+      "changed": "Changed fraction",
+      "observed": "Observed fraction",
+      "rule": "Decision rule",
+      "threshold": "Per-pixel threshold",
+      "meanChange": "Mean change",
+      "sceneShift": "Whole-scene shift"
+    },
+    "explain": {
+      "changed": "Share of what the radar could see where the signal changed more than the threshold.",
+      "observed": "Share of the area the radar could see well on both dates.",
+      "rule": "The system sets these limits and states them; the person asking does not choose them.",
+      "threshold": "The decibel (dB) measures the signal returning to the radar: 3 dB is double or half. HH and HV are two polarizations: HH responds more to smooth water and buildings, HV to vegetation.",
+      "meanChange": "Average change over the whole observed area. Negative: the signal went down.",
+      "sceneShift": "If the whole scene goes up or down at once (for example, with wet soil), that general change is not local."
+    }
   },
   "story": {
     "heading": "The story of Parral in three scenes",

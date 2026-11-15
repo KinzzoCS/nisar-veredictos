@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { VerdictMapOptions } from '../api/mapOptions'
 import { crearMapa } from '../mapa/mapa'
+import { BotonIcono } from './Iconos'
 import type { MapaAtlas } from '../mapa/tipos'
 
 interface Props {
@@ -58,9 +59,7 @@ export function AtlasMap({ options, canCompare, busy, layerControls = true }: Pr
   return (
     <section className="atlas-map isla-clara" aria-label={t('map.label')}>
       {canCompare && (
-        <button type="button" aria-pressed={swipe} onClick={() => setCompare((c) => !c)}>
-          {t('map.compare')}
-        </button>
+        <BotonIcono icono="comparar" etiqueta={t('map.compare')} aria-pressed={swipe} onClick={() => setCompare((c) => !c)} />
       )}
       <div className="atlas-map-frame" aria-busy={busy}>
         <div ref={container} className="atlas-map-canvas" />
