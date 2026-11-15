@@ -1020,11 +1020,15 @@ def create_app(
         series_keys: dict[tuple[str, str], tuple[int, str, int]] = {}
         series_bbox: dict[tuple[str, str], list[float]] = {}
         full: dict[search.Key, Verdict] = {}
+        cells_paths: dict[search.Key, str] = {}
         for aoi in store.aois():
             for manifest in store.manifests(aoi):
                 info = manifest["series"]
                 series_keys[(manifest["aoi"], info["id"])] = (int(info["track"]), info["direction"], int(info["frame"]))
                 series_bbox[(manifest["aoi"], info["id"])] = list(manifest["bbox"])
+                for pair in manifest["pairs"]:
+                    if pair.get("cells"):
+                        cells_paths[(manifest["aoi"], info["id"], pair["id"])] = pair["cells"]
                 for lang in search.LANGS:
                     for verdict in series_verdicts(manifest, lang, include_water):
                         if lang == "es":
@@ -1037,7 +1041,7 @@ def create_app(
             generation = previous.generation + 1 if previous is not None else 1
             built = search.Index(
                 rows=rows, water_included=include_water, built_at=now(), generation=generation, text=text,
-                series_keys=series_keys, series_bbox=series_bbox, verdicts=full,
+                series_keys=series_keys, series_bbox=series_bbox, verdicts=full, cells_paths=cells_paths,
             )
             index_state["index"] = built
         log.info("Índice de búsqueda: %d veredictos, contraste con OPERA %s", len(rows),
@@ -1197,6 +1201,33 @@ def create_app(
         return PixelSeries(
             aoi=aoi, series=series_id, lon=lon, lat=lat, data_kind=manifest["data_kind"], values=values, changes=changes
         )
+
+    cells_cache: dict[str, list | None] = {}
+
+    def cells_for(relative: str | None) -> list | None:
+        """Celdas de 1 km de un par, leídas una vez. None si no hay archivo o no se puede leer."""
+        if relative is None:
+            return None
+        if relative not in cells_cache:
+            try:
+                path = (root / relative).resolve()
+                if root.resolve() not in path.parents:
+                    raise ValueError(f"ruta fuera de los artefactos: {relative}")
+                cells_cache[relative] = search.prepare_cells(json.loads(path.read_text(encoding="utf-8")))
+            except (OSError, ValueError, KeyError, TypeError, IndexError):
+                log.exception("No se pudieron leer las celdas %s", relative)
+                cells_cache[relative] = None
+        return cells_cache[relative]
+
+    def with_area(index: search.Index, rows: list[search.SearchResult], bbox) -> list[search.SearchResult]:
+        """Cada fila con su estado dentro del rectángulo (T-BAL-18). Las filas del índice no se modifican."""
+        return [
+            row.model_copy(update={"area": search.area_result(
+                bbox, cells_for(index.cells_paths.get(search.row_key(row))), rules.MIN_OBSERVED_FRACTION,
+                rules.MIN_CHANGED_FRACTION, rules.UNOBSERVABLE_CAUSES,
+            )})
+            for row in rows
+        ]
 
     def footprints_for(index: search.Index) -> dict[tuple[str, str], tuple | str]:
         """Por (zona, serie) de cada fila: los polígonos de su huella en catalog, o el motivo de que no haya."""
@@ -1362,7 +1393,8 @@ def create_app(
         following = offset + limit
         return search.SearchPage(
             total=len(ordered),
-            results=ordered[offset:following],
+            results=(ordered[offset:following] if filters.bbox is None
+                     else with_area(index, ordered[offset:following], filters.bbox)),
             next_cursor=search.encode_cursor(following, print_, index.generation) if following < len(ordered) else None,
             query=search.SearchQuery(
                 filters=filters.applied(), sort=sort, order=order, limit=limit, role=role,

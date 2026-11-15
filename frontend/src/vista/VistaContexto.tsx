@@ -1,13 +1,11 @@
-import { useCallback, useMemo, useState, type ReactNode } from 'react'
-import { ContextoVista, guardarVista, vistaGuardada, type Vista } from './vista'
+import { useMemo, type ReactNode } from 'react'
+import { useSesion } from '../sesion/sesion'
+import { ContextoVista, vistaDeSesion } from './vista'
 
-/** Da la vista a toda la app. Sin sesión (llega con T-FAR-16), empieza en la guardada o en Público. */
+/** Da la vista a toda la app a partir de la sesión. Va dentro de <SesionProvider>. */
 export function VistaProvider({ children }: { children: ReactNode }) {
-  const [vista, setVista] = useState<Vista>(vistaGuardada)
-  const cambiarVista = useCallback((v: Vista) => {
-    setVista(v)
-    guardarVista(v)
-  }, [])
-  const valor = useMemo(() => ({ vista, cambiarVista }), [vista, cambiarVista])
+  const { sesion } = useSesion()
+  const vista = vistaDeSesion(sesion)
+  const valor = useMemo(() => ({ vista }), [vista])
   return <ContextoVista.Provider value={valor}>{children}</ContextoVista.Provider>
 }

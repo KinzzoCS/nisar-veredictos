@@ -62,6 +62,42 @@ class WaterRow(BaseModel):
     after: WaterSideRow | None
 
 
+class AreaRule(BaseModel):
+    min_observed_fraction: float
+    min_changed_fraction: float
+    calibrated: bool = Field(False, description="Siempre false, como en evidence.decision_rule.")
+
+
+class AreaResult(BaseModel):
+    """Estado del par dentro del rectángulo con las celdas de 1 km de Eco (RF-BUS-10, P2; T-BAL-18)."""
+
+    status: Literal["computed", "no_cells", "no_cells_in_bbox"] = Field(
+        description="computed: hay celdas que tocan el rectángulo. no_cells: el manifiesto del par no trae celdas "
+        "(artefactos anteriores a T-ECO-12 o malla no métrica). no_cells_in_bbox: ninguna celda del par toca el "
+        "rectángulo."
+    )
+    basis: Literal["cells_touching_bbox"] = Field(
+        "cells_touching_bbox", description="Se cuentan enteras las celdas de 1 km que tocan el rectángulo: el área "
+        "evaluada es cells_bbox, que puede ser mayor que el rectángulo pedido."
+    )
+    state: Literal["change_probable", "no_detectable_change", "not_observable"] | None = Field(
+        description="Misma regla que el veredicto, sobre las celdas. null si no hay celdas."
+    )
+    cause: str | None = Field(
+        description="Con not_observable, la causa con más píxeles no observados entre las celdas que la declaran; "
+        "null si ninguna la declara."
+    )
+    observed_fraction: float | None = Field(description="Píxeles observados entre píxeles de las celdas.")
+    changed_fraction: float | None = Field(
+        description="Píxeles con cambio entre píxeles observados: la fracción de cada celda ponderada por sus "
+        "píxeles observados (pixels · observed_fraction)."
+    )
+    cells: int = Field(description="Celdas que tocan el rectángulo.")
+    pixels: int = Field(description="Píxeles de esas celdas.")
+    cells_bbox: list[float] | None = Field(description="Caja [oeste, sur, este, norte] de las celdas usadas.")
+    decision_rule: AreaRule
+
+
 class SearchResult(BaseModel):
     aoi: str
     series_id: str
@@ -96,6 +132,12 @@ class SearchResult(BaseModel):
     granules: list[str] = Field(description="granule_id de las dos fechas, como en receipt.granules.")
     verdict_path: str = Field(
         description="Ruta del veredicto completo en esta API. Por el gateway lleva delante /api/verdicts."
+    )
+    area: AreaResult | None = Field(
+        None,
+        description="Solo con bbox: el par dentro del rectángulo con las celdas de 1 km de Eco (T-BAL-18). Es un "
+        "cálculo aparte del veredicto, que sigue siendo de toda la zona; state y los filtros de la búsqueda miran "
+        "el veredicto, no area.",
     )
 
 
@@ -154,13 +196,13 @@ class Filters:
     water: str | None = None
     max_cloud_cover: float | None = None
     data_kind: str | None = None
+    q: str | None = None
+    lang: str | None = None
+    bbox: tuple[float, float, float, float] | None = None
     noise_hh_min: float | None = None
     noise_hh_max: float | None = None
     noise_hv_min: float | None = None
     noise_hv_max: float | None = None
-    q: str | None = None
-    lang: str | None = None
-    bbox: tuple[float, float, float, float] | None = None
 
     def applied(self) -> dict[str, object]:
         result: dict[str, object] = {}
@@ -297,6 +339,67 @@ def bbox_meets_ring(bbox: BBox, ring) -> bool:
     return any(_segments_meet(a, b, c, d) for a, b in zip(ring, ring[1:]) for c, d in edges)
 
 
+def _cell_box(ring) -> BBox:
+    xs = [x for x, _ in ring]
+    ys = [y for _, y in ring]
+    return (min(xs), min(ys), max(xs), max(ys))
+
+
+def prepare_cells(collection: dict) -> list[tuple[BBox, tuple, dict]]:
+    """Celdas de un GeoJSON de Eco con su caja precalculada, para descartar rápido las lejanas."""
+    cells = []
+    for feature in collection.get("features", []):
+        ring = tuple(tuple(point[:2]) for point in feature["geometry"]["coordinates"][0])
+        cells.append((_cell_box(ring), ring, feature["properties"]))
+    return cells
+
+
+def _boxes_meet(a: BBox, b: BBox) -> bool:
+    return a[0] <= b[2] and b[0] <= a[2] and a[1] <= b[3] and b[1] <= a[3]
+
+
+def area_result(bbox: BBox, cells: list[tuple[BBox, tuple, dict]] | None, min_observed: float, min_changed: float,
+                causes: tuple[str, ...]) -> AreaResult:
+    """Estado dentro del rectángulo con la regla del veredicto, sumando píxeles de las celdas que lo tocan."""
+    rule = AreaRule(min_observed_fraction=min_observed, min_changed_fraction=min_changed)
+    empty = dict(state=None, cause=None, observed_fraction=None, changed_fraction=None, cells=0, pixels=0,
+                 cells_bbox=None, decision_rule=rule)
+    if cells is None:
+        return AreaResult(status="no_cells", **empty)
+    used = [(box, props) for box, ring, props in cells if _boxes_meet(box, bbox) and bbox_meets_ring(bbox, ring)]
+    if not used:
+        return AreaResult(status="no_cells_in_bbox", **empty)
+    pixels = sum(int(props["pixels"]) for _, props in used)
+    observed = sum(int(props["pixels"]) * float(props["observed_fraction"]) for _, props in used)
+    changed = sum(int(props["pixels"]) * float(props["observed_fraction"]) * float(props["changed_fraction"])
+                  for _, props in used)
+    observed_fraction = observed / pixels if pixels else 0.0
+    changed_fraction = changed / observed if observed else 0.0
+    cause = None
+    if observed_fraction < min_observed:
+        state = "not_observable"
+        missing: dict[str, float] = {}
+        for _, props in used:
+            if props.get("cause"):
+                missing[props["cause"]] = missing.get(props["cause"], 0.0) + int(props["pixels"]) * (
+                    1 - float(props["observed_fraction"]))
+        if missing:
+            order_of = {name: i for i, name in enumerate(causes)}
+            cause = max(missing, key=lambda name: (missing[name], -order_of.get(name, len(causes))))
+    elif changed_fraction >= min_changed:
+        state = "change_probable"
+    else:
+        state = "no_detectable_change"
+    boxes = [box for box, _ in used]
+    return AreaResult(
+        status="computed", state=state, cause=cause, observed_fraction=round(observed_fraction, 6),
+        changed_fraction=round(changed_fraction, 6), cells=len(used), pixels=pixels,
+        cells_bbox=[min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes),
+                    max(b[3] for b in boxes)],
+        decision_rule=rule,
+    )
+
+
 @dataclass
 class Index:
     rows: list[SearchResult]
@@ -310,6 +413,8 @@ class Index:
     # Caja de la zona de cada serie (bbox del manifiesto) y veredicto completo de cada fila, para exportar.
     series_bbox: dict[tuple[str, str], list[float]] = field(default_factory=dict)
     verdicts: dict = field(default_factory=dict)
+    # Ruta relativa del GeoJSON de celdas de cada par (T-ECO-12); falta si el manifiesto no lo trae.
+    cells_paths: dict[Key, str] = field(default_factory=dict)
 
 
 def water_row(evidence, included: bool) -> WaterRow:

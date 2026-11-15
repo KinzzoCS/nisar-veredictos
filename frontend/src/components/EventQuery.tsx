@@ -3,6 +3,9 @@ import { useTranslation } from 'react-i18next'
 import { fetchTimeline, verdictsApi, type EventVerdict, type Lang } from '../api/client'
 import type { LineaTiempoApi } from '../mapa/lineaTiempo'
 import { EVENT_TYPES, EXAMPLE, type Query } from '../story/data'
+import { Esqueleto } from './Esqueleto'
+import { BotonIcono } from './Iconos'
+import { Marca } from './Marca'
 import { PassTimeline } from './PassTimeline'
 import { SyntheticNotice } from './SyntheticBadge'
 
@@ -30,9 +33,7 @@ export function EventAnswer({
       {event.data_kind === 'synthetic' && <SyntheticNotice />}
       <header className="verdict-head">
         <h3 id={headingId} className="verdict-state" tabIndex={-1} ref={headingRef}>
-          <span className="verdict-icon" aria-hidden="true">
-            {observable ? '◉' : '⊘'}
-          </span>{' '}
+          <Marca estado={event.state} className="verdict-icon" />
           {t(`event.state.${event.state}`)}
         </h3>
         {!observable && event.cause_label && (
@@ -205,7 +206,7 @@ export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
         </div>
 
         <div className="form-actions">
-          <button type="submit">{t('event.submit')}</button>
+          <BotonIcono type="submit" icono="buscar" etiqueta={t('event.submit')} className="boton-principal" />
           <button
             type="button"
             onClick={() => {
@@ -218,7 +219,7 @@ export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
         </div>
       </form>
 
-      {loading && <p>{t('event.loading')}</p>}
+      {loading && <Esqueleto etiqueta={t('event.loading')} variante="tarjeta" filas={4} />}
       {shown?.status === 'error' && <p role="alert">{t('event.error')}</p>}
       {shown?.status === 'ready' && (
         <>

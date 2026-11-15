@@ -72,9 +72,11 @@ export function estiloMapaBase(proyeccion: "globe" | "mercator" = "mercator"): S
       },
     },
     layers: [
-      // Fondo claro mientras cargan las teselas, en lugar del negro del lienzo.
-      { id: "fondo", type: "background", paint: { "background-color": "#f2efe9" } },
-      { id: "osm", type: "raster", source: "osm" },
+      // Fondo blanco mientras cargan las teselas, en lugar del negro del lienzo.
+      { id: "fondo", type: "background", paint: { "background-color": "#ffffff" } },
+      // Mapa base en grises: el color queda para nada, y el relleno y la trama del estado
+      // se leen encima sin competir con los verdes y azules de OpenStreetMap.
+      { id: "osm", type: "raster", source: "osm", paint: { "raster-saturation": -1 } },
     ],
   };
 }

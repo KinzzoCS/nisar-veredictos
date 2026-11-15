@@ -12,7 +12,7 @@ import yaml
 from .change import Params
 from .gcov import GranuleError
 from .pipeline import excluded_granules, process_series
-from .synthetic import PARRAL_SERIES, generate_series
+from .synthetic import PARRAL_SERIES, generate_series, write_synthetic_dem
 from .terrain import glo30_tiles
 
 
@@ -30,6 +30,8 @@ def series_id_for(spec) -> str:
 def seed_synthetic(args: argparse.Namespace) -> int:
     aoi = load_aoi(args.aoi_dir, "parral")
     artifacts = args.data_dir / "artifacts"
+    # DEM sintético (T-ECO-13): da relieve a la pila sintética sin bajar GLO-30. Va marcado como sintético.
+    dem = write_synthetic_dem(aoi["bbox"], args.data_dir / "raw" / "synthetic" / "dem" / "parral" / "synthetic_dem.tif")
     for spec in PARRAL_SERIES:
         series_id = series_id_for(spec)
         if (artifacts / "parral" / series_id / "manifest.json").exists() and not args.force:
@@ -38,7 +40,7 @@ def seed_synthetic(args: argparse.Namespace) -> int:
         raw = args.data_dir / "raw" / "synthetic" / series_id
         shutil.rmtree(raw, ignore_errors=True)
         paths = generate_series(spec, aoi["bbox"], raw)
-        manifest = process_series(paths, aoi, series_id, artifacts, aoi["maturity"])
+        manifest = process_series(paths, aoi, series_id, artifacts, aoi["maturity"], dem_sources=[dem])
         print(f"{series_id}: {len(manifest['pairs'])} pares sintéticos")
     return 0
 

@@ -9,10 +9,11 @@ beforeEach(async () => {
   await i18n.changeLanguage('es')
 })
 
-test('muestra siempre los tres textos juntos, con el estado en texto e icono', () => {
-  render(<VerdictCard verdict={makeVerdict()} />)
+test('muestra siempre los tres textos juntos, con el estado en texto y marca', () => {
+  const { container } = render(<VerdictCard verdict={makeVerdict()} />)
   expect(screen.getByRole('heading', { name: /Cambio probable/ })).toBeInTheDocument()
-  expect(screen.getByText('◆')).toHaveAttribute('aria-hidden', 'true')
+  // La marca (relleno) es decorativa: el estado ya está en el texto del título.
+  expect(container.querySelector('h3 .marca-change_probable')).toHaveAttribute('aria-hidden', 'true')
   expect(screen.getByText('del 2026-06-17 al 2026-06-29 · 12 días')).toBeInTheDocument()
   for (const label of ['Qué detectamos', 'Qué no prueba', 'Qué falta']) {
     expect(screen.getByText(label)).toBeVisible()
@@ -44,12 +45,13 @@ test('no observable tiene su propio estilo, icono y causa, distinto de sin cambi
   expect(screen.getByRole('heading', { name: /No observable/ })).toBeInTheDocument()
   expect(screen.getByText('Motivo de que no se pudiera medir: la zona queda fuera de la pasada')).toBeInTheDocument()
   expect(container.querySelector('article')).toHaveClass('verdict-not_observable')
+  expect(container.querySelector('h3 .marca-not_observable')).toBeInTheDocument()
 
   rerender(<VerdictCard verdict={makeVerdict({ state: 'no_detectable_change', hypotheses: [] })} />)
   expect(screen.getByRole('heading', { name: /Sin cambio detectable/ })).toBeInTheDocument()
   expect(screen.queryByText(/Motivo de que no se pudiera medir/)).not.toBeInTheDocument()
   expect(container.querySelector('article')).toHaveClass('verdict-no_detectable_change')
-  expect(screen.getByText('○')).toBeInTheDocument()
+  expect(container.querySelector('h3 .marca-no_detectable_change')).toBeInTheDocument()
 })
 
 // jsdom no abre `details` con Enter; en el navegador lo hace el elemento nativo (se comprobó a mano).

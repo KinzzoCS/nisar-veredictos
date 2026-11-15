@@ -4,6 +4,7 @@ import { RDBU } from "./leyenda";
 import { avisoEscena, type DesplazamientoEscenaApi } from "./escena";
 import { crearMapa } from "./mapa";
 import { ErrorHttp, registrarCargador } from "./protocolo";
+import type { Huella, Huellas } from "./huellas";
 import type { Bbox, CapaRadar, MapaAtlas } from "./tipos";
 import type { EstadoOptico, VistaOptica } from "../types/map";
 
@@ -74,6 +75,47 @@ async function json<T>(ruta: string): Promise<T> {
   return r.json();
 }
 
+/** Huellas de `GET /api/catalog/aois/parral/series` (T-ANT-17). Sin catálogo, ninguna. */
+async function huellasCatalogo(): Promise<Huellas | undefined> {
+  try {
+    const series = await json<{ footprint?: Huella | null }[]>("/api/catalog/aois/parral/series");
+    const features = series.flatMap((s) => (s.footprint ? [s.footprint] : []));
+    return features.length ? { type: "FeatureCollection", features } : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+// Huella de PRUEBA para el modo sin API: un marco inventado alrededor de la zona, no de CMR.
+const HUELLAS_PRUEBA: Huellas = {
+  type: "FeatureCollection",
+  features: [
+    {
+      type: "Feature",
+      properties: {
+        series: "PRUEBA-T048A-F015",
+        track: 48,
+        direction: "A",
+        frame: 15,
+        granule_id: "PRUEBA",
+        basis: "latest_granule",
+      },
+      geometry: {
+        type: "Polygon",
+        coordinates: [
+          [
+            [-106.9, 26.0],
+            [-104.6, 26.4],
+            [-104.2, 28.4],
+            [-106.5, 28.0],
+            [-106.9, 26.0],
+          ],
+        ],
+      },
+    },
+  ],
+};
+
 async function main() {
   const aviso = document.getElementById("aviso")!;
   try {
@@ -81,6 +123,7 @@ async function main() {
     const [v] = await json<VeredictoApi[]>(
       `/api/verdicts/aois/parral/series/${serie.id}/verdicts?lang=es`,
     );
+    const huellas = await huellasCatalogo();
     const layers = Object.fromEntries(
       Object.entries(v.layers).map(([k, t]) => [k, GATEWAY + t]),
     ) as Record<CapaRadar, string>;
@@ -99,6 +142,7 @@ async function main() {
       optical: optica && { before: vistaDesdeApi(optica.before), after: vistaDesdeApi(optica.after) },
       compare: CON_COMPARADOR ? "swipe" : "off",
       modo3d: MODO_3D,
+      huellas,
       onPointSelected: (p) => console.debug("onPointSelected", p),
       onViewChanged: (vista) => console.debug("onViewChanged", vista),
       onLayerChanged: (c) => console.debug("onLayerChanged", c),
@@ -112,6 +156,7 @@ async function main() {
       aoi: BBOX_RESPALDO,
       nombreZona: "Hidalgo del Parral",
       dataKind: "synthetic",
+      huellas: HUELLAS_PRUEBA,
       layers: {
         state: "atlas-prueba://{z}/{x}/{y}",
         change_hh: "atlas-prueba-cambio://{z}/{x}/{y}?rescale=-10,10",
