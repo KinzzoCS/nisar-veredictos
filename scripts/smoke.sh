@@ -18,9 +18,9 @@
 # falsificada y que los tres perfiles reciben cuerpos idénticos. Los tokens
 # caducados o de otra audiencia se firman dentro del contenedor auth con
 # $SMOKE_COMPOSE (por omisión "docker compose" con el compose de este
-# repositorio). Mientras no haya cuotas (T-BAL-12), no recibir 429 es un aviso;
-# SMOKE_REQUIRE_QUOTAS=1 lo convierte en fallo. Las cuotas de login y register
-# son por minuto: repetir la prueba antes de un minuto puede dar 429 al registrar.
+# repositorio). Las cuotas (T-BAL-12) deben dar 429; SMOKE_REQUIRE_QUOTAS=0 lo
+# deja en aviso. Agota la cuota de public y la de login desde tu IP: repetir la
+# prueba antes de un minuto puede dar 429 al registrar o al entrar.
 # Con contraseñas AUTH_TEST_* (entorno o .env) prueba también las cuentas de
 # seed-accounts; SMOKE_REQUIRE_SEED=1 las exige. Los tokens personales se crean,
 # se usan y se revocan (401 después).
@@ -28,7 +28,7 @@ set -euo pipefail
 
 BASE="${BASE:-http://localhost:8080}"
 REQUIRE_NETWORK="${SMOKE_REQUIRE_NETWORK:-0}"
-REQUIRE_QUOTAS="${SMOKE_REQUIRE_QUOTAS:-0}"
+REQUIRE_QUOTAS="${SMOKE_REQUIRE_QUOTAS:-1}"
 ROOT=$(cd "$(dirname "$0")/.." && pwd)
 SMOKE_COMPOSE="${SMOKE_COMPOSE:-docker compose -f $ROOT/docker-compose.yml}"
 TMP=$(mktemp -d)
@@ -418,10 +418,11 @@ field() {
   "$PY" -c "import json,sys; print(json.load(open(sys.argv[1], encoding='utf-8'))[sys.argv[2]])" "$TMP/$1.json" "$2"
 }
 
-# Sin cuotas todavía (T-BAL-12) es un aviso; con SMOKE_REQUIRE_QUOTAS=1, un fallo.
+# Desde T-BAL-12 el gateway tiene cuotas: no recibir 429 es un fallo. SMOKE_REQUIRE_QUOTAS=0 lo deja en aviso, para
+# probar un gateway anterior.
 quota_missing() {
   test "$REQUIRE_QUOTAS" = "1" && fail "$1"
-  WARNINGS+=("$1 (cuotas pendientes de T-BAL-12; SMOKE_REQUIRE_QUOTAS=1 lo vuelve fallo)")
+  WARNINGS+=("$1 (SMOKE_REQUIRE_QUOTAS=0: se avisa en lugar de fallar)")
 }
 
 if [ "$AUTH_ENABLED" = "1" ]; then
@@ -716,6 +717,48 @@ assert mine[0]['status'] == 'revoked' and mine[0]['revoked_at'], mine
     || fail "DELETE de un token inexistente no respondió 404"
   covered auth "/tokens/{token_id}"
 
+  # Historias de la comunidad (T-ANT-20, RF-ACC-12 a 17): leer sin cuenta; guardar, valorar y descargar con sesión.
+  story_body="{\"title\":\"humo $RUN\",\"aoi\":\"$AOI\",\"series\":\"$SERIES\",\"from_date\":\"2026-06-01\",\"to_date\":\"2026-09-30\",\"pairs\":[{\"series\":\"$SERIES\",\"pair\":\"$pair_id\"}],\"notes\":\"Notas de la prueba de humo.\"}"
+  test "$(call st_anon -X POST "${JSON[@]}" --data "$story_body" "$BASE/api/auth/stories")" = "401" \
+    || fail "POST /api/auth/stories sin sesión no respondió 401"
+  code=$(bearer st_create "$STUDENT" -X POST "${JSON[@]}" --data "$story_body" "$BASE/api/auth/stories")
+  test "$code" = "201" || fail "POST /api/auth/stories respondió $code: $(head -c 300 "$TMP/st_create.json")"
+  check "auth: historia creada" st_create "
+assert d['is_mine'] is True and d['author_role'] == 'student' and d['downloads'] == 0, d
+assert 'email' not in d and d['pairs'] == [{'series': '$SERIES', 'pair': '$pair_id'}], d
+"
+  STORY=$(field st_create id)
+  test "$(call st_list "$BASE/api/auth/stories?aoi=$AOI&sort=recent")" = "200" || fail "GET /api/auth/stories sin cuenta"
+  check "auth: lista de historias sin cuenta" st_list "
+mine = [s for s in d['stories'] if s['id'] == '$STORY']
+assert len(mine) == 1 and mine[0]['is_mine'] is False and mine[0]['my_stars'] is None, mine
+"
+  covered auth /stories
+  test "$(call st_get "$BASE/api/auth/stories/$STORY")" = "200" || fail "GET /api/auth/stories/{id} sin cuenta"
+  test "$(call st_missing "$BASE/api/auth/stories/no-existe-$RUN")" = "404" || fail "historia inexistente no dio 404"
+  # Valorar: la propia no (409); otra cuenta sí, y quitar la valoración la deja sin estrellas.
+  test "$(bearer st_rate_own "$STUDENT" -X POST "${JSON[@]}" --data '{"stars":5}' "$BASE/api/auth/stories/$STORY/rating")" = "409" \
+    || fail "se pudo valorar la historia propia"
+  test "$(bearer st_rate "$RESEARCHER" -X POST "${JSON[@]}" --data '{"stars":4}' "$BASE/api/auth/stories/$STORY/rating")" = "200" \
+    || fail "POST /api/auth/stories/{id}/rating"
+  check "auth: valoración" st_rate "assert d['my_stars'] == 4 and d['ratings']['count'] == 1 and d['ratings']['average'] == 4, d['ratings']"
+  test "$(bearer st_unrate "$RESEARCHER" -X DELETE "$BASE/api/auth/stories/$STORY/rating")" = "200" \
+    || fail "DELETE /api/auth/stories/{id}/rating"
+  check "auth: valoración quitada" st_unrate "assert d['my_stars'] is None and d['ratings']['count'] == 0, d['ratings']"
+  covered auth "/stories/{story_id}/rating"
+  test "$(call st_dl_anon -X POST "$BASE/api/auth/stories/$STORY/download")" = "401" || fail "descarga sin sesión no dio 401"
+  test "$(bearer st_dl "$RESEARCHER" -X POST "$BASE/api/auth/stories/$STORY/download")" = "200" \
+    || fail "POST /api/auth/stories/{id}/download"
+  check "auth: descarga contada" st_dl "assert d['downloads'] == 1, d['downloads']"
+  covered auth "/stories/{story_id}/download"
+  # Borrar: solo quien la escribió (403 para otra cuenta, 204 para la suya).
+  test "$(bearer st_del_other "$RESEARCHER" -X DELETE "$BASE/api/auth/stories/$STORY")" = "403" \
+    || fail "otra cuenta borró la historia"
+  test "$(bearer st_del "$STUDENT" -X DELETE "$BASE/api/auth/stories/$STORY")" = "204" \
+    || fail "DELETE /api/auth/stories/{id} no respondió 204"
+  test "$(call st_gone "$BASE/api/auth/stories/$STORY")" = "404" || fail "la historia borrada sigue respondiendo"
+  covered auth "/stories/{story_id}"
+
   # Cabeceras falsificadas: con token de student, X-Auth-Role y X-Auth-Sub del cliente no cuentan (RF-ACC-05).
   forged=(-H "X-Auth-Role: researcher" -H "X-Auth-Sub: otra-persona")
   test "$(search s_forged "$STUDENT" "quality_flag=false" "${forged[@]}")" = "403" || fail "X-Auth-Role falsificada dio paso"
@@ -762,23 +805,27 @@ assert mine[0]['status'] == 'revoked' and mine[0]['revoked_at'], mine
   done
   test "$(search s_after "$STUDENT" "state=change_probable")" = "200" || fail "student no busca tras la cuota de public"
 
-  # Cuota estricta por IP en login (5/min): el sexto intento en un minuto da 429 con Retry-After. Va al final
-  # porque deja la IP sin poder entrar durante un minuto.
+  # Cuota estricta por IP en login (5/min, T-BAL-12): seis intentos seguidos dan 429 con Retry-After como tarde en
+  # el sexto. El cubo se vacía a un intento cada 12 s, así que los logins de arriba, repartidos en la prueba, solo
+  # adelantan el 429. Va al final porque deja la IP sin poder entrar hasta un minuto.
   got=""
-  while [ "$LOGINS" -lt 6 ]; do
+  for i in $(seq 1 6); do
     login login_quota "nadie-$RUN@example.org" "otra-contrasena-larga"
-    LOGINS=$((LOGINS + 1))
     if [ "$LOGIN_CODE" = "429" ]; then
-      got=$LOGINS
+      got=$i
       break
     fi
     test "$LOGIN_CODE" = "401" || fail "login respondió $LOGIN_CODE durante la prueba de cuota"
   done
   if [ -n "$got" ]; then
     test -n "$(header login_quota retry-after)" || fail "429 de login sin Retry-After"
-    echo "Cuota de login: 429 en el login $got ($LOGIN_ATTEMPTS intentos de login y register)"
+    check "auth: 429 de login" login_quota "assert d['retry_after_seconds'] > 0 and d['detail'], d"
+    test "$(header login_quota access-control-allow-origin)" = "$ORIGIN" || fail "429 de login sin CORS del frontend"
+    echo "Cuota de login: 429 en el intento seguido $got ($LOGIN_ATTEMPTS intentos de login y register en total)"
+    # La cuota de login es solo de login y register: las rutas actuales siguen dando 200 desde la misma IP.
+    test "$(call after_login_quota "$BASE/api/verdicts/aois")" = "200" || fail "una ruta actual cayó con la cuota de login"
   else
-    quota_missing "6 intentos de login en un minuto no dieron 429"
+    quota_missing "6 intentos de login seguidos no dieron 429"
   fi
 fi
 
