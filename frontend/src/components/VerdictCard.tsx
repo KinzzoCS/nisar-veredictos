@@ -1,16 +1,9 @@
 import { useTranslation } from 'react-i18next'
 import type { Verdict } from '../api/client'
+import { Marca } from './Marca'
 import { SyntheticNotice } from './SyntheticBadge'
 
-type State = Verdict['state']
 type PassFreshness = Verdict['receipt']['freshness']['before']
-
-/** Icono distinto por estado: el estado nunca se comunica solo con color (WCAG 1.4.1). */
-const ICONS: Record<State, string> = {
-  change_probable: '◆',
-  no_detectable_change: '○',
-  not_observable: '⊘',
-}
 
 function Pass({ label, pass }: { label: string; pass: PassFreshness }) {
   const { t, i18n } = useTranslation()
@@ -116,9 +109,8 @@ export function VerdictCard({ verdict }: { verdict: Verdict }) {
       {verdict.receipt.data_kind === 'synthetic' && <SyntheticNotice />}
       <header className="verdict-head">
         <h3 id={headingId} className="verdict-state">
-          <span className="verdict-icon" aria-hidden="true">
-            {ICONS[verdict.state]}
-          </span>{' '}
+          {/* La marca (relleno, contorno o trama) lleva el estado sin depender del color (WCAG 1.4.1). */}
+          <Marca estado={verdict.state} className="verdict-icon" />
           {t(`verdict.state.${verdict.state}`)}
         </h3>
         {verdict.state === 'not_observable' && verdict.cause_label && (

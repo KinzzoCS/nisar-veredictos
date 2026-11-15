@@ -69,6 +69,8 @@ interface Textos {
   sinEscala: string;
   /** Teclas para girar, inclinar y volver al norte en 3D (RF-INT-15). */
   teclas3d: string;
+  /** Lista de huellas de las series en el globo, para lectores de pantalla (RF-INT-16). */
+  huellas: string;
   /** Igual que CAUSES de services/verdicts/src/verdicts/narrative.py. */
   causas: Record<string, string>;
 }
@@ -165,6 +167,7 @@ export const TEXTOS: Record<Idioma, Textos> = {
     sinEscala:
       "Sin barra de escala: en perspectiva o sobre el globo, las distancias cambian de un punto a otro de la pantalla.",
     teclas3d: "En 3D: Mayús + ← → gira, Mayús + ↑ ↓ inclina y N vuelve al norte.",
+    huellas: "Huellas de las series en el mapa",
     causas: CAUSAS_ES,
   },
   en: {
@@ -239,6 +242,7 @@ export const TEXTOS: Record<Idioma, Textos> = {
     sinEscala:
       "No scale bar: in perspective or on the globe, distances change from one point of the screen to another.",
     teclas3d: "In 3D: Shift + ← → rotates, Shift + ↑ ↓ tilts and N resets north.",
+    huellas: "Series footprints on the map",
     causas: CAUSAS_EN,
   },
 };
