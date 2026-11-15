@@ -411,12 +411,66 @@ class Verdict(BaseModel):
     receipt: Receipt
 
 
+# Relieve (T-BAL-15, RF-INT-12): TiTiler codifica el DEM como Terrain-RGB de Mapbox, que MapLibre lee como
+# raster-dem con encoding "mapbox": altura = -10000 + (R * 65536 + G * 256 + B) * 0,1 m.
+RELIEF_QUERY = "algorithm=terrainrgb&resampling=bilinear"
+RELIEF_EXAGGERATION = 1.0
+
+
+class ReliefOut(BaseModel):
+    """Plantilla de teselas de relieve con el DEM de la zona que publica Eco (T-ECO-10)."""
+
+    tiles: str = Field(
+        description="Plantilla XYZ por el gateway, con algorithm=terrainrgb. Se pide como fuente raster-dem de MapLibre "
+        "con encoding mapbox y tileSize 256."
+    )
+    encoding: Literal["mapbox"] = Field(
+        "mapbox", description="Terrain-RGB: altura = -10000 + (R * 65536 + G * 256 + B) * 0,1 m."
+    )
+    data_kind: Literal["real", "synthetic"] = Field(
+        description="dem.data_kind del manifiesto (T-ECO-13); real si falta. synthetic: DEM inventado de la pila "
+        "sintética, que no describe ningún relieve real; la interfaz debe decirlo y no atribuirlo a Copernicus."
+    )
+    tile_size: int = Field(256, description="Píxeles por lado de cada tesela.")
+    exaggeration: float = Field(
+        RELIEF_EXAGGERATION, description="Exageración vertical por omisión (RF-INT-12): 1, sin exagerar. Si la "
+        "interfaz la cambia, debe mostrar el factor en pantalla."
+    )
+    source: str = Field(description="Fuente del DEM, del manifiesto (dem.source).")
+    crs: str = Field(description="CRS del COG del DEM, que no es el del radar.")
+    vertical_datum: str = Field(description="Referencia de las alturas. EGM2008: sobre el geoide, no el elipsoide.")
+    units: Literal["m"] = "m"
+    attribution: str = Field(description="Texto de atribución que exige la licencia; la interfaz lo muestra junto al relieve.")
+
+
+def relief_from_manifest(manifest: dict) -> ReliefOut | None:
+    """relief si el manifiesto trae dem (T-ECO-10); null si no (artefactos anteriores o sin DEM)."""
+    dem = manifest.get("dem")
+    if not dem:
+        return None
+    return ReliefOut(
+        tiles=_tile_url(dem["layer"], RELIEF_QUERY),
+        data_kind=dem.get("data_kind", "real"),
+        source=dem["source"],
+        crs=dem["crs"],
+        vertical_datum=dem["vertical_datum"],
+        units=dem["units"],
+        attribution=dem["attribution"],
+    )
+
+
 class SeriesInfo(BaseModel):
     id: str
     data_kind: Literal["real", "synthetic"]
     maturity: str
     bbox: list[float]
     dates: list[dt.date]
+    relief: ReliefOut | None = Field(
+        None,
+        description="Teselas de relieve con el DEM de la zona (RF-INT-12, T-BAL-15). null si el manifiesto no trae dem. "
+        "Es el mismo DEM para todas las series de la zona. Los datos del DEM son los de su fuente aunque el radar "
+        "de la serie sea sintético.",
+    )
 
 
 EventType = Literal["urban_storm", "river_flood", "wildfire"]
@@ -1090,6 +1144,7 @@ def create_app(
                 maturity=manifest["maturity"],
                 bbox=manifest["bbox"],
                 dates=[item["date"] for item in manifest["dates"]],
+                relief=relief_from_manifest(manifest),
             )
             for manifest in manifests_or_404(aoi)
         ]

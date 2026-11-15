@@ -136,6 +136,17 @@ server {
         if ($arg_url ~* "(\.\.|%2e%2e)") {
             return 403;
         }
+        # Algoritmos de TiTiler: solo terrainrgb, para el relieve (T-BAL-15, RF-INT-12). Otros (hillshade,
+        # contours...) cuestan más y no los usa la interfaz. Sin parámetros de algoritmo y sin repetir el nombre.
+        if ($arg_algorithm !~ "^(terrainrgb)?$") {
+            return 403;
+        }
+        if ($args ~* "(^|&)algorithm_params=") {
+            return 403;
+        }
+        if ($args ~* "(^|&)algorithm=.*&algorithm=") {
+            return 403;
+        }
         set $tiles http://tiles:8000;
         rewrite ^/tiles/cog/(.*)$ /cog/$1 break;
         proxy_pass $tiles;
