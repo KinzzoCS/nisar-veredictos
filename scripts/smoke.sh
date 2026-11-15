@@ -361,6 +361,18 @@ for verdict in d:
         assert excluded == [], verdict['id']
 "
 
+# T-BAL-14: dispersión de la diferencia en evidence.noise, con su advertencia. null si el manifiesto no trae
+# stats.noise_* (artefactos anteriores a T-ECO-09); el seed sintético ya los trae.
+check "ruido de la diferencia" verdicts "
+for verdict in d:
+    noise = verdict['evidence']['noise']
+    if verdict['receipt']['data_kind'] == 'synthetic':
+        assert noise is not None, verdict['id']
+    if noise is not None:
+        assert noise['calibrated'] is False and noise['caveat'] and noise['basis'] == 'pair_stats', verdict['id']
+        assert noise['hh_db'] is None or noise['hh_db'] >= 0, verdict['id']
+"
+
 # T-BAL-08: contraste con OPERA DSWx-S1. Con radar sintético se lista el producto pero nunca se compara.
 check "veredictos: contraste de agua" verdicts "
 for verdict in d:
