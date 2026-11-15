@@ -11,10 +11,11 @@ Una interfaz de primer nivel que cualquiera entiende a la primera (80/20: el 80 
 
 ## Vista y perfil: dos cosas distintas
 
-- La **vista** decide cuánto se enseña: `Público`, `Estudiante` o `Investigador`. Es solo presentación, porque todos los datos de la API pública ya son visibles para cualquiera. Cualquier persona puede cambiarla, también sin cuenta.
+- La **vista** decide cuánto se enseña: `Público`, `Estudiante` o `Investigador`. Es solo presentación, porque todos los datos de la API pública ya son visibles para cualquiera.
 - El **perfil** (`specs/06-acceso`) decide qué rutas de la API puede usar: búsqueda, exportación y cuotas.
-- Al entrar, la vista toma el perfil de la cuenta. Un investigador puede pasar a la vista Público para ver lo mismo que el público, algo útil para la demo ante el jurado.
-- Motivo: atar la profundidad a una cuenta obligaría a registrarse para ver números que la API ya da a todos, y sería contrario a la constitución II.4.
+- **Desde el 2026-11-14, la vista sale del perfil de la sesión** y no hay selector: sin sesión es `Público`; con sesión, la del perfil declarado (`student` o `researcher`). Decisión del usuario tras ver el diseño en blanco y negro: la cabecera solo lleva el idioma y el icono de la cuenta. Sustituye a la vista elegible por cualquiera.
+- Lo que no cambia: la tarjeta del veredicto (estado, los tres textos, el distintivo de datos sintéticos y el recibo con los gránulos) es idéntica en las tres vistas, y el JSON de cada veredicto sigue siendo público en la API. La sesión solo añade explicaciones y herramientas (constitución X: los perfiles cambian la profundidad, nunca la verdad).
+- El tema es por omisión el del sistema (`prefers-color-scheme`). Un botón de icono (luna o sol) lo alterna entre claro y oscuro con una transición y lo recuerda; con `prefers-reduced-motion`, cambia sin animar.
 
 ## Qué ve cada vista
 
@@ -43,7 +44,7 @@ Las tres vistas muestran siempre, juntos, el estado, "qué detectamos", "qué no
 | ID | Requisito | Prioridad |
 |---|---|---|
 | RF-INT-01 | Sistema de diseño con variables (color, tipografía, espaciado, radios, elevación) en tema claro y oscuro; contraste AA comprobado en cada par de colores | P0 |
-| RF-INT-02 | Selector de vista Público / Estudiante / Investigador, visible y usable con teclado, que se recuerda en el navegador | P0 |
+| RF-INT-02 | La vista sale del perfil de la sesión (`Público` sin sesión) y se anuncia junto al icono de la cuenta; sin selector de vista. El tema se alterna con un botón de icono, con transición (cambio del 2026-11-14) | P0 |
 | RF-INT-03 | Vista Público 80/20: una pregunta, una respuesta y un mapa; ninguna sigla sin explicar; acciones avanzadas fuera de la primera pantalla | P0 |
 | RF-INT-04 | Vista Estudiante: explicación de cada campo de la evidencia, con textos en `src/i18n/` que pasan la prueba de lenguaje | P1 |
 | RF-INT-05 | Vista Investigador: panel denso con toda la evidencia, atajos de teclado documentados y enlace al JSON de cada veredicto | P1 |
@@ -51,6 +52,8 @@ Las tres vistas muestran siempre, juntos, el estado, "qué detectamos", "qué no
 | RF-INT-07 | Pantalla de búsqueda sobre `specs/07-busqueda`: filtros, resultados en tabla con `data_kind` por fila, exportación para `researcher` y, ante un 403, qué perfil hace falta | P1 |
 | RF-INT-08 | Presupuesto de rendimiento: la primera respuesta legible en menos de 2,5 s en un móvil medio con 4G simulado; el mapa se carga de forma diferida | P1 |
 | RF-INT-09 | Movimiento reducido: con `prefers-reduced-motion`, sin vuelos ni animaciones; mismo contenido | P0 |
+| RF-INT-21 | Botones solo con icono de línea, con nombre accesible (`aria-label`) y descripción emergente (`title`); texto solo donde hace falta (idioma con su código, escenas de la historia, el ejemplo de la consulta de evento, cambiar entre entrar y crear cuenta) | P1 |
+| RF-INT-22 | Esqueletos en las cargas (la forma de lo que llega, con un brillo que se detiene con movimiento reducido), con el aviso de carga para el lector de pantalla | P1 |
 
 ### Mapa (Atlas)
 

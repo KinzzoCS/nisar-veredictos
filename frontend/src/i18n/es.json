@@ -19,7 +19,11 @@
     "label": "Tema",
     "sistema": "Del sistema",
     "claro": "Claro",
-    "oscuro": "Oscuro"
+    "oscuro": "Oscuro",
+    "to": {
+      "claro": "Cambiar a tema claro",
+      "oscuro": "Cambiar a tema oscuro"
+    }
   },
   "public": {
     "question": "¿Qué pasó en Parral?",
@@ -36,6 +40,165 @@
   "synthetic": {
     "banner": "Datos sintéticos: sirven para mostrar cómo funciona la aplicación y no describen lo que pasó en Parral.",
     "card": "Este veredicto usa datos sintéticos."
+  },
+  "layout": {
+    "left": "Búsqueda y parámetros",
+    "center": "Vistas",
+    "right": "Guardar y comunidad",
+    "switcher": "Paneles",
+    "panels": {
+      "buscar": "Buscar",
+      "ver": "Ver",
+      "guardar": "Guardar"
+    },
+    "tabs": {
+      "mapa": "Mapa",
+      "historia": "Historia de Parral",
+      "evento": "¿Pudo verlo?",
+      "interprete": "Intérprete",
+      "comunidad": "Comunidad"
+    }
+  },
+  "search": {
+    "heading": "Buscar veredictos",
+    "allSeries": "Todas las series",
+    "timeline": "Línea de tiempo",
+    "from": "Desde",
+    "to": "Hasta",
+    "states": "Estados",
+    "fullWindows": "Incluir ventanas completas",
+    "more": "Más filtros",
+    "results_one": "{{count}} veredicto",
+    "results_other": "{{count}} veredictos"
+  },
+  "interpreter": {
+    "heading": "Intérprete de historias",
+    "intro": "Arma una historia con los veredictos del buscador. Los textos son los de la API, tal cual; tus notas se guardan aparte y rotuladas como tuyas.",
+    "title": "Título",
+    "defaultTitle": "Parral, {{series}}, del {{from}} al {{to}}",
+    "fromApi": "Lo que dice la API",
+    "summary_one": "{{count}} par: {{change}} con cambio probable, {{nochange}} sin cambio detectable y {{notobs}} sin poder observarse.",
+    "summary_other": "{{count}} pares: {{change}} con cambio probable, {{nochange}} sin cambio detectable y {{notobs}} sin poder observarse.",
+    "empty": "El buscador no tiene veredictos con estos filtros. Amplía el rango o los estados.",
+    "tooMany": "Una historia lleva como máximo {{max}} pares y hay {{count}}. Acota el rango o quita pares.",
+    "include": "Incluir el par del {{from}} al {{to}} de {{series}}",
+    "limits": "Qué no prueba y qué falta",
+    "notes": "Tus notas",
+    "notesHelp": "{{n}} de {{max}} caracteres. Se muestran aparte de los textos de la API y no se comprueban.",
+    "save": "Guardar historia",
+    "saved": "Historia guardada. Está en la pestaña Comunidad.",
+    "loginToSave": "Inicia sesión para guardar y descargar historias.",
+    "reading": "Historia de la comunidad",
+    "authorNotes": "Notas de quien la escribió",
+    "notesDisclaimer": "No son texto de la API ni están comprobadas.",
+    "missingPair": "{{pair}}: este par ya no está en la API o es de otra zona.",
+    "otherZone": "Esta historia es de la zona {{aoi}}; aquí solo se pueden mostrar los pares de la zona actual.",
+    "backToDraft": "Volver al borrador"
+  },
+  "community": {
+    "heading": "Historias de la comunidad",
+    "sort": "Ordenar",
+    "sortRecent": "Más nuevas",
+    "sortStars": "Mejor valoradas",
+    "loading": "Cargando historias…",
+    "error": "No se pudo completar la operación con las historias.",
+    "empty": "Todavía no hay historias de esta zona. Guarda la primera desde el intérprete.",
+    "meta": "Por {{role}}, del {{from}} al {{to}}",
+    "pairs_one": "{{count}} par",
+    "pairs_other": "{{count}} pares",
+    "downloads_one": "{{count}} descarga",
+    "downloads_other": "{{count}} descargas",
+    "stars": "Estrellas",
+    "votes_one": "({{count}} voto)",
+    "votes_other": "({{count}} votos)",
+    "notRated": "sin valorar",
+    "byRole": {
+      "student": "De estudiantes",
+      "researcher": "De investigación"
+    },
+    "role": {
+      "student": "estudiante",
+      "researcher": "investigador o investigadora"
+    },
+    "rate": "Tu valoración",
+    "starsN_one": "{{count}} estrella",
+    "starsN_other": "{{count}} estrellas",
+    "unrate": "Quitar mi valoración",
+    "ownStory": "Es tu historia: no puedes valorarla.",
+    "loginToRate": "Inicia sesión para descargar y valorar historias.",
+    "open": "Abrir",
+    "download": "Descargar",
+    "delete": "Borrar",
+    "confirmDelete": "¿Borrar la historia «{{title}}»? Se borran también sus valoraciones.",
+    "file": {
+      "zone": "Zona",
+      "series": "Serie",
+      "range": "Rango de fechas",
+      "author": "Autoría (perfil declarado)",
+      "generated": "Archivo generado el {{date}} UTC",
+      "apiHeading": "Lo que dice la API",
+      "apiNote": "Textos de los veredictos tal como los da la API en el momento de la descarga (idioma: {{lang}}). Cada par lleva su estado, sus tres textos y su recibo.",
+      "missingPair": "Este par ya no está en la API o es de otra zona.",
+      "cause": "Motivo de que no se pudiera medir",
+      "notesHeading": "Notas de quien escribió la historia",
+      "notesNote": "Estas notas no son texto de la API ni están comprobadas.",
+      "noNotes": "Sin notas."
+    }
+  },
+  "session": {
+    "login": "Iniciar sesión",
+    "register": "Crear cuenta",
+    "logout": "Salir",
+    "as": "Sesión de {{role}}",
+    "account": "Cuenta: {{role}}",
+    "accountTitle": "Tu cuenta",
+    "viewFromRole": "La página se adapta a tu perfil: lo que ves de más son explicaciones y herramientas, nunca otros datos.",
+    "email": "Correo",
+    "password": "Contraseña (12 caracteres o más)",
+    "role": "Perfil",
+    "declared": "El perfil lo declaras tú y no se comprueba: amplía herramientas, nunca cambia un dato.",
+    "toRegister": "No tengo cuenta",
+    "toLogin": "Ya tengo cuenta",
+    "close": "Cerrar",
+    "error": "No se pudo completar. Revisa el correo y la contraseña.",
+    "off": "El acceso con cuenta está apagado en esta pila (AUTH_ENABLED=0). Puedes buscar, ver y leer sin cuenta; para guardar, descargar o valorar historias hay que activarlo en el .env."
+  },
+  "states": {
+    "label": "Cómo se lee cada respuesta",
+    "change_probable": "La señal del radar cambió más que su ruido en suficiente terreno. No dice por qué.",
+    "no_detectable_change": "Se pudo observar y no se vio un cambio mayor que el ruido.",
+    "not_observable": "El radar no pudo verlo, y se dice por qué."
+  },
+  "evidence": {
+    "heading": "Evidencia",
+    "noData": "sin dato",
+    "db": "{{v}} dB",
+    "hhhv": "HH {{hh}}, HV {{hv}}",
+    "ofObserved": "{{v}} de lo observado",
+    "ofZone": "{{v}} de la zona",
+    "ruleValue": "Cambio probable desde el {{change}} de lo observado; no observable si se observa menos del {{observed}}.",
+    "notCalibrated": "Sin contrastar con datos de campo.",
+    "shiftExceeds": "Supera el umbral de {{v}} dB.",
+    "shiftBelow": "Por debajo del umbral de {{v}} dB.",
+    "shiftCorrected": "Ya se descontó del cambio.",
+    "shiftNotCorrected": "No se descontó del cambio.",
+    "json": "Ver el JSON de este veredicto en la API",
+    "rows": {
+      "changed": "Fracción con cambio",
+      "observed": "Fracción observada",
+      "rule": "Regla de decisión",
+      "threshold": "Umbral por píxel",
+      "meanChange": "Cambio medio",
+      "sceneShift": "Desplazamiento de toda la escena"
+    },
+    "explain": {
+      "changed": "Parte de lo que el radar pudo ver donde la señal cambió más que el umbral.",
+      "observed": "Parte de la zona que el radar pudo ver bien en las dos fechas.",
+      "rule": "El sistema fija estos límites y los declara; no los elige quien consulta.",
+      "threshold": "El decibelio (dB) mide la señal que vuelve al radar: 3 dB es el doble o la mitad. HH y HV son dos polarizaciones: HH responde más al agua lisa y a los edificios, HV a la vegetación.",
+      "meanChange": "Promedio del cambio en toda la zona observada. Negativo: la señal bajó.",
+      "sceneShift": "Si toda la escena sube o baja a la vez (por ejemplo, con el suelo húmedo), ese cambio general no es local."
+    }
   },
   "story": {
     "heading": "La historia de Parral en tres escenas",

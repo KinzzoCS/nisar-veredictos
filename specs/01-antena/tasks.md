@@ -16,6 +16,7 @@
 | T-ANT-12 | Cerrar los criterios de horas UTC en ISO 8601 y de 502 ante fallos externos | P1 | — | hecha |
 | T-ANT-13 | Sacar la caja de cada tesela OPERA (`bbox`) en `/references/opera`, para que Atlas sitúe `browse_url` en el mapa | P1 | T-ANT-06 | hecha |
 | T-ANT-19 | Sacar la caja de los datos de cada tesela Sentinel-2 (`bbox`) en `/references/optical`, para que Atlas la use como `bounds` y no pida teselas fuera de su huella (T-ATL-08); Balanza la pasa a `OpticalTileOut` | P2 | T-ANT-05 | hecha |
+| T-ANT-20 | Historias de la comunidad en `auth`: crear, listar, leer, borrar las propias, estrellas de 1 a 5 con desglose por perfil y descarga con sesión (RF-ACC-13 a 17) | P2 | T-ANT-14 | hecha (2026-11-14): `services/auth/src/auth/stories.py` con rutas en `/stories` (sin `PUT`), tablas `stories` y `story_ratings`, 14 pruebas nuevas (65 en total, una comprueba que la historia más grande cabe en 4 KB) y contrato regenerado. Probado con la pila de Docker en `AUTH_ENABLED=1`: crear, listar sin cuenta, valorar con desglose por perfil y guardar desde la interfaz |
 
 ## Ola 2: acceso, búsqueda e interfaz
 
