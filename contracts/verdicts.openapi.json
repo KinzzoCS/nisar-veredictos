@@ -3224,6 +3224,62 @@
             }
           },
           {
+            "description": "Texto libre sobre los textos del veredicto (summary, hipótesis, causa), su identificador y los granule_id, en el idioma de lang (RF-BUS-02). Cada palabra cuenta como prefijo, todas deben aparecer, sin distinguir mayúsculas ni acentos. Sin palabras, no hay resultados.",
+            "in": "query",
+            "name": "q",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "maxLength": 200,
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Texto libre sobre los textos del veredicto (summary, hipótesis, causa), su identificador y los granule_id, en el idioma de lang (RF-BUS-02). Cada palabra cuenta como prefijo, todas deben aparecer, sin distinguir mayúsculas ni acentos. Sin palabras, no hay resultados.",
+              "title": "Q"
+            }
+          },
+          {
+            "description": "Idioma de los textos en los que busca q.",
+            "in": "query",
+            "name": "lang",
+            "required": false,
+            "schema": {
+              "default": "es",
+              "description": "Idioma de los textos en los que busca q.",
+              "enum": [
+                "es",
+                "en"
+              ],
+              "title": "Lang",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Rectángulo WGS84 'oeste,sur,este,norte' (RF-BUS-10): series cuya huella de catalog (T-ANT-17) toca el rectángulo. Si no hay huella, la fila no se evalúa y se cuenta en query.not_evaluated. Dice qué series cubren el área, no que el veredicto hable de ella: el veredicto sigue siendo de toda la zona.",
+            "in": "query",
+            "name": "bbox",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Rectángulo WGS84 'oeste,sur,este,norte' (RF-BUS-10): series cuya huella de catalog (T-ANT-17) toca el rectángulo. Si no hay huella, la fila no se evalúa y se cuenta en query.not_evaluated. Dice qué series cubren el área, no que el veredicto hable de ella: el veredicto sigue siendo de toda la zona.",
+              "examples": [
+                "-105.8,26.85,-105.6,27.0"
+              ],
+              "title": "Bbox"
+            }
+          },
+          {
             "description": "date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas sin ruido van al final en los dos sentidos.",
             "in": "query",
             "name": "sort",
@@ -3312,14 +3368,7 @@
             "description": "Perfil insuficiente; required_role dice cuál hace falta."
           },
           "422": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            },
-            "description": "Validation Error"
+            "description": "Parámetro no válido, p. ej. un bbox mal formado."
           }
         },
         "security": [
