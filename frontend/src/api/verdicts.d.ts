@@ -132,9 +132,29 @@ export interface paths {
         };
         /**
          * Búsqueda de veredictos (student y researcher)
-         * @description Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin el filtro de calidad y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados devuelve una lista vacía con total 0, nunca 404.
+         * @description Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin los filtros de calidad y de ruido ni el orden por ruido, y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados devuelve una lista vacía con total 0, nunca 404.
          */
         get: operations["search_verdicts_search_verdicts_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/search/verdicts/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Exportación de la búsqueda de veredictos (researcher)
+         * @description Los mismos filtros y orden que /search/verdicts, sin paginar (RF-BUS-06). Cada fila copia el veredicto completo: data_kind, los dos granule_id, interval_days, la regla de decisión con sus umbrales y calibrated, y los supuestos declarados (assumptions, todos sin calibrar salvo que digan lo contrario). La consulta, el perfil, la hora y el total van en metadata (JSON y GeoJSON) y en las cabeceras X-Export-*.
+         */
+        get: operations["export_verdicts_search_verdicts_export_get"];
         put?: never;
         post?: never;
         delete?: never;
@@ -156,6 +176,74 @@ export interface components {
              * @enum {string}
              */
             required_role: "public" | "student" | "researcher";
+        };
+        /**
+         * AreaResult
+         * @description Estado del par dentro del rectángulo con las celdas de 1 km de Eco (RF-BUS-10, P2; T-BAL-18).
+         */
+        AreaResult: {
+            /**
+             * Basis
+             * @description Se cuentan enteras las celdas de 1 km que tocan el rectángulo: el área evaluada es cells_bbox, que puede ser mayor que el rectángulo pedido.
+             * @default cells_touching_bbox
+             * @constant
+             */
+            basis: "cells_touching_bbox";
+            /**
+             * Cause
+             * @description Con not_observable, la causa con más píxeles no observados entre las celdas que la declaran; null si ninguna la declara.
+             */
+            cause: string | null;
+            /**
+             * Cells
+             * @description Celdas que tocan el rectángulo.
+             */
+            cells: number;
+            /**
+             * Cells Bbox
+             * @description Caja [oeste, sur, este, norte] de las celdas usadas.
+             */
+            cells_bbox: number[] | null;
+            /**
+             * Changed Fraction
+             * @description Píxeles con cambio entre píxeles observados: la fracción de cada celda ponderada por sus píxeles observados (pixels · observed_fraction).
+             */
+            changed_fraction: number | null;
+            decision_rule: components["schemas"]["AreaRule"];
+            /**
+             * Observed Fraction
+             * @description Píxeles observados entre píxeles de las celdas.
+             */
+            observed_fraction: number | null;
+            /**
+             * Pixels
+             * @description Píxeles de esas celdas.
+             */
+            pixels: number;
+            /**
+             * State
+             * @description Misma regla que el veredicto, sobre las celdas. null si no hay celdas.
+             */
+            state: ("change_probable" | "no_detectable_change" | "not_observable") | null;
+            /**
+             * Status
+             * @description computed: hay celdas que tocan el rectángulo. no_cells: el manifiesto del par no trae celdas (artefactos anteriores a T-ECO-12 o malla no métrica). no_cells_in_bbox: ninguna celda del par toca el rectángulo.
+             * @enum {string}
+             */
+            status: "computed" | "no_cells" | "no_cells_in_bbox";
+        };
+        /** AreaRule */
+        AreaRule: {
+            /**
+             * Calibrated
+             * @description Siempre false, como en evidence.decision_rule.
+             * @default false
+             */
+            calibrated: boolean;
+            /** Min Changed Fraction */
+            min_changed_fraction: number;
+            /** Min Observed Fraction */
+            min_observed_fraction: number;
         };
         /** DateQuality */
         DateQuality: {
@@ -268,6 +356,8 @@ export interface components {
             mean_change_hh_db: number | null;
             /** Mean Change Hv Db */
             mean_change_hv_db: number | null;
+            /** @description Dispersión de la diferencia del par en HH y HV (RF-BUS-09, T-BAL-14). null si el manifiesto no trae stats.noise_* (artefactos anteriores a T-ECO-09). No es ruido del instrumento: ver caveat. No cambia el estado. */
+            noise?: components["schemas"]["NoiseOut"] | null;
             /** Observed Fraction */
             observed_fraction: number;
             optical: components["schemas"]["OpticalEvidence"];
@@ -343,6 +433,40 @@ export interface components {
             change_hv: string;
             /** State */
             state: string;
+        };
+        /**
+         * NoiseOut
+         * @description Dispersión de la diferencia del par (RF-BUS-09), copiada de stats.noise_* del manifiesto de Eco (T-ECO-09).
+         */
+        NoiseOut: {
+            /**
+             * Basis
+             * @description Siempre pair_stats: stats.noise_hh_db y noise_hv_db del par en el manifiesto.
+             * @default pair_stats
+             * @constant
+             */
+            basis: "pair_stats";
+            /**
+             * Calibrated
+             * @description Siempre false: no hay un umbral de ruido contrastado.
+             * @default false
+             */
+            calibrated: boolean;
+            /**
+             * Caveat
+             * @description Advertencia fija: no es ruido del instrumento. Incluye también cambio real repartido (humedad, vegetación) y textura, así que un valor alto no prueba que el cambio sea ruido.
+             */
+            caveat: string;
+            /**
+             * Hh Db
+             * @description Desviación robusta de la diferencia HH (1,4826 · MAD alrededor de la mediana), en dB, sobre los píxeles observables, tras suavizar 5 × 5 y antes del umbral y del filtro de grupos. null si falta.
+             */
+            hh_db: number | null;
+            /**
+             * Hv Db
+             * @description Igual que hh_db, para HV.
+             */
+            hv_db: number | null;
         };
         /** NotEvaluated */
         NotEvaluated: {
@@ -672,6 +796,68 @@ export interface components {
             /** Track */
             track: number;
         };
+        /**
+         * ReliefOut
+         * @description Plantilla de teselas de relieve con el DEM de la zona que publica Eco (T-ECO-10).
+         */
+        ReliefOut: {
+            /**
+             * Attribution
+             * @description Texto de atribución que exige la licencia; la interfaz lo muestra junto al relieve.
+             */
+            attribution: string;
+            /**
+             * Crs
+             * @description CRS del COG del DEM, que no es el del radar.
+             */
+            crs: string;
+            /**
+             * Data Kind
+             * @description dem.data_kind del manifiesto (T-ECO-13); real si falta. synthetic: DEM inventado de la pila sintética, que no describe ningún relieve real; la interfaz debe decirlo y no atribuirlo a Copernicus.
+             * @enum {string}
+             */
+            data_kind: "real" | "synthetic";
+            /**
+             * Encoding
+             * @description Terrain-RGB: altura = -10000 + (R * 65536 + G * 256 + B) * 0,1 m.
+             * @default mapbox
+             * @constant
+             */
+            encoding: "mapbox";
+            /**
+             * Exaggeration
+             * @description Exageración vertical por omisión (RF-INT-12): 1, sin exagerar. Si la interfaz la cambia, debe mostrar el factor en pantalla.
+             * @default 1
+             */
+            exaggeration: number;
+            /**
+             * Source
+             * @description Fuente del DEM, del manifiesto (dem.source).
+             */
+            source: string;
+            /**
+             * Tile Size
+             * @description Píxeles por lado de cada tesela.
+             * @default 256
+             */
+            tile_size: number;
+            /**
+             * Tiles
+             * @description Plantilla XYZ por el gateway, con algorithm=terrainrgb. Se pide como fuente raster-dem de MapLibre con encoding mapbox y tileSize 256.
+             */
+            tiles: string;
+            /**
+             * Units
+             * @default m
+             * @constant
+             */
+            units: "m";
+            /**
+             * Vertical Datum
+             * @description Referencia de las alturas. EGM2008: sobre el geoide, no el elipsoide.
+             */
+            vertical_datum: string;
+        };
         /** SceneShiftOut */
         SceneShiftOut: {
             /**
@@ -765,7 +951,7 @@ export interface components {
              * Sort
              * @enum {string}
              */
-            sort: "date" | "interval" | "changed_fraction";
+            sort: "date" | "interval" | "changed_fraction" | "noise_hh" | "noise_hv";
             /**
              * Water Contrast
              * @description pending: el índice aún no tiene el contraste con OPERA y todas las filas dicen not_available.
@@ -777,6 +963,8 @@ export interface components {
         SearchResult: {
             /** Aoi */
             aoi: string;
+            /** @description Solo con bbox: el par dentro del rectángulo con las celdas de 1 km de Eco (T-BAL-18). Es un cálculo aparte del veredicto, que sigue siendo de toda la zona; state y los filtros de la búsqueda miran el veredicto, no area. */
+            area?: components["schemas"]["AreaResult"] | null;
             /** Cause */
             cause: string | null;
             /** Changed Fraction */
@@ -814,6 +1002,16 @@ export interface components {
              * @enum {string}
              */
             kind: "consecutive" | "full_window";
+            /**
+             * Noise Hh Db
+             * @description evidence.noise.hh_db. null si el veredicto no trae ruido (manifiesto anterior a T-ECO-09).
+             */
+            noise_hh_db: number | null;
+            /**
+             * Noise Hv Db
+             * @description evidence.noise.hv_db.
+             */
+            noise_hv_db: number | null;
             /** Observed Fraction */
             observed_fraction: number;
             /**
@@ -869,6 +1067,8 @@ export interface components {
             id: string;
             /** Maturity */
             maturity: string;
+            /** @description Teselas de relieve con el DEM de la zona (RF-INT-12, T-BAL-15). null si el manifiesto no trae dem. Es el mismo DEM para todas las series de la zona. Los datos del DEM son los de su fuente aunque el radar de la serie sea sintético. */
+            relief?: components["schemas"]["ReliefOut"] | null;
         };
         /** Summary */
         Summary: {
@@ -1381,6 +1581,9 @@ export interface operations {
     search_verdicts_search_verdicts_get: {
         parameters: {
             query?: {
+                limit?: number;
+                /** @description next_cursor de la página anterior, con la misma consulta. */
+                cursor?: string | null;
                 /** @description Zona. */
                 aoi?: string | null;
                 /** @description Serie, p. ej. T048A-F015. */
@@ -1412,13 +1615,24 @@ export interface operations {
                 water?: ("agree" | "disagree") | null;
                 /** @description Nubosidad máxima por tesela de las dos escenas ópticas, en %. */
                 max_cloud_cover?: number | null;
+                /** @description Solo researcher. evidence.noise.hh_db mínima, en dB. Las filas sin ruido no se evalúan y se cuentan en query.not_evaluated. */
+                noise_hh_min?: number | null;
+                /** @description Solo researcher. evidence.noise.hh_db máxima, en dB. */
+                noise_hh_max?: number | null;
+                /** @description Solo researcher. evidence.noise.hv_db mínima, en dB. */
+                noise_hv_min?: number | null;
+                /** @description Solo researcher. evidence.noise.hv_db máxima, en dB. */
+                noise_hv_max?: number | null;
                 data_kind?: ("real" | "synthetic") | null;
-                /** @description date ordena por to_date. */
-                sort?: "date" | "interval" | "changed_fraction";
+                /** @description Texto libre sobre los textos del veredicto (summary, hipótesis, causa), su identificador y los granule_id, en el idioma de lang (RF-BUS-02). Cada palabra cuenta como prefijo, todas deben aparecer, sin distinguir mayúsculas ni acentos. Sin palabras, no hay resultados. */
+                q?: string | null;
+                /** @description Idioma de los textos en los que busca q. */
+                lang?: "es" | "en";
+                /** @description Rectángulo WGS84 'oeste,sur,este,norte' (RF-BUS-10): series cuya huella de catalog (T-ANT-17) toca el rectángulo. Si no hay huella, la fila no se evalúa y se cuenta en query.not_evaluated. Dice qué series cubren el área, no que el veredicto hable de ella: el veredicto sigue siendo de toda la zona. */
+                bbox?: string | null;
+                /** @description date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas sin ruido van al final en los dos sentidos. */
+                sort?: "date" | "interval" | "changed_fraction" | "noise_hh" | "noise_hv";
                 order?: "asc" | "desc";
-                limit?: number;
-                /** @description next_cursor de la página anterior, con la misma consulta. */
-                cursor?: string | null;
             };
             header?: never;
             path?: never;
@@ -1451,14 +1665,102 @@ export interface operations {
                     "application/json": components["schemas"]["AccessDenied"];
                 };
             };
-            /** @description Validation Error */
+            /** @description Parámetro no válido, p. ej. un bbox mal formado. */
             422: {
                 headers: {
                     [name: string]: unknown;
                 };
-                content: {
-                    "application/json": components["schemas"]["HTTPValidationError"];
+                content?: never;
+            };
+        };
+    };
+    export_verdicts_search_verdicts_export_get: {
+        parameters: {
+            query: {
+                /** @description csv, geojson o json. */
+                format: "csv" | "geojson" | "json";
+                /** @description Zona. */
+                aoi?: string | null;
+                /** @description Serie, p. ej. T048A-F015. */
+                series_id?: string | null;
+                /** @description Dirección de la órbita. */
+                direction?: ("A" | "D") | null;
+                kind?: ("consecutive" | "full_window") | null;
+                /** @description from_date del par igual o posterior. */
+                date_from?: string | null;
+                /** @description to_date del par igual o anterior. */
+                date_to?: string | null;
+                /** @description interval_days mínimo. */
+                interval_min?: number | null;
+                /** @description interval_days máximo. */
+                interval_max?: number | null;
+                /** @description Uno o varios estados. */
+                state?: ("change_probable" | "no_detectable_change" | "not_observable")[] | null;
+                /** @description Una o varias causas de not_observable. */
+                cause?: string[] | null;
+                /** @description changed_fraction mínima (0 a 1). */
+                changed_min?: number | null;
+                /** @description changed_fraction máxima (0 a 1). */
+                changed_max?: number | null;
+                /** @description Desplazamiento de la escena sobre el umbral. Las filas sin desplazamiento no se evalúan. */
+                scene_shift_exceeds?: boolean | null;
+                /** @description Solo researcher. true: alguna fecha con radiometric_outlier; false: ninguna. */
+                quality_flag?: boolean | null;
+                /** @description Contraste con OPERA. Las filas con water not_available quedan fuera y se cuentan en query.not_evaluated. */
+                water?: ("agree" | "disagree") | null;
+                /** @description Nubosidad máxima por tesela de las dos escenas ópticas, en %. */
+                max_cloud_cover?: number | null;
+                /** @description Solo researcher. evidence.noise.hh_db mínima, en dB. Las filas sin ruido no se evalúan y se cuentan en query.not_evaluated. */
+                noise_hh_min?: number | null;
+                /** @description Solo researcher. evidence.noise.hh_db máxima, en dB. */
+                noise_hh_max?: number | null;
+                /** @description Solo researcher. evidence.noise.hv_db mínima, en dB. */
+                noise_hv_min?: number | null;
+                /** @description Solo researcher. evidence.noise.hv_db máxima, en dB. */
+                noise_hv_max?: number | null;
+                data_kind?: ("real" | "synthetic") | null;
+                /** @description Texto libre sobre los textos del veredicto (summary, hipótesis, causa), su identificador y los granule_id, en el idioma de lang (RF-BUS-02). Cada palabra cuenta como prefijo, todas deben aparecer, sin distinguir mayúsculas ni acentos. Sin palabras, no hay resultados. */
+                q?: string | null;
+                /** @description Idioma de los textos en los que busca q. */
+                lang?: "es" | "en";
+                /** @description Rectángulo WGS84 'oeste,sur,este,norte' (RF-BUS-10): series cuya huella de catalog (T-ANT-17) toca el rectángulo. Si no hay huella, la fila no se evalúa y se cuenta en query.not_evaluated. Dice qué series cubren el área, no que el veredicto hable de ella: el veredicto sigue siendo de toda la zona. */
+                bbox?: string | null;
+                /** @description date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas sin ruido van al final en los dos sentidos. */
+                sort?: "date" | "interval" | "changed_fraction" | "noise_hh" | "noise_hv";
+                order?: "asc" | "desc";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Archivo en streaming. CSV: una fila por veredicto, la consulta en las cabeceras X-Export-*. JSON: {metadata, results}. GeoJSON: FeatureCollection con metadata y la caja de la zona como geometría de cada Feature. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
                 };
+                content: {
+                    "application/geo+json": unknown;
+                    "application/json": unknown;
+                    "text/csv": unknown;
+                };
+            };
+            /** @description Solo researcher; required_role dice cuál hace falta. */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccessDenied"];
+                };
+            };
+            /** @description Parámetro no válido, p. ej. un bbox mal formado. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
         };
     };
