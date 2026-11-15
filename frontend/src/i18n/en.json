@@ -473,7 +473,8 @@
     "searching": "Searching places…",
     "error": "The place search did not respond.",
     "none": "No place with that name.",
-    "point": "Point {{lat}}, {{lon}}"
+    "point": "Point {{lat}}, {{lon}}",
+    "pointNamed": "{{place}} ({{lat}}, {{lon}})"
   },
   "zone": {
     "passesOnly": "There are no processed verdicts here yet: these are the real NISAR radar passes over the area, with their preview. The filters come from what is available.",

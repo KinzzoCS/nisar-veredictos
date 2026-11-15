@@ -109,6 +109,8 @@ export interface MapaAtlas {
   encuadrar(): void;
   /** Buscador mundial: pinta (o quita, con null) las huellas y la vista previa del gránulo elegido. */
   mostrarMundo(m: MundoMapa | null): void;
+  /** Pone el nombre del lugar en la ventana del punto elegido, si sigue siendo ese punto (2026-11-15). */
+  rotularPunto(p: { lon: number; lat: number }, nombre: string): void;
   /** Lleva la cámara a una caja [oeste, sur, este, norte]. */
   volarA(bbox: Bbox): void;
   destruir(): void;

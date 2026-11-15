@@ -115,12 +115,52 @@ class Geocoder:
     (política de uso de Nominatim). Se activa con RESEARCH_GEOCODER=nominatim; sin ella, solo el nomenclátor."""
 
     URL = "https://nominatim.openstreetmap.org/search"
+    REVERSE_URL = "https://nominatim.openstreetmap.org/reverse"
 
     def __init__(self, enabled: bool | None = None, client: httpx.Client | None = None):
         self.enabled = (os.environ.get("RESEARCH_GEOCODER", "") == "nominatim") if enabled is None else enabled
         self.client = client
         self._cache: dict[str, list[dict]] = {}
+        self._reverse_cache: dict[str, dict | None] = {}
         self._last = 0.0
+
+    def _esperar(self):
+        # Nominatim pide como mucho una petición por segundo (política de uso).
+        wait = 1.0 - (time.monotonic() - self._last)
+        if wait > 0:
+            time.sleep(wait)
+        self._last = time.monotonic()
+
+    def reverse(self, lat: float, lon: float, lang: str = "es") -> dict | None:
+        """Nombre del lugar en un punto (2026-11-15), para rotular un punto elegido con un clic en el mapa. Usa la
+        misma fuente que `search` (Nominatim, ODbL), con caché por punto redondeado a 3 decimales (unos 100 m) y una
+        petición por segundo como mucho. Sin geocodificador, o sobre el mar sin nada cerca, devuelve None."""
+        if not self.enabled:
+            return None
+        key = f"{lat:.3f},{lon:.3f},{lang}"
+        if key in self._reverse_cache:
+            return self._reverse_cache[key]
+        self._esperar()
+        client = self.client or httpx.Client(timeout=10, headers={"User-Agent": "dancing-with-the-sar-research/0.1"})
+        r = client.get(self.REVERSE_URL, params={"lat": lat, "lon": lon, "zoom": 12, "format": "jsonv2",
+                                                 "accept-language": lang})
+        r.raise_for_status()
+        d = r.json()
+        if not isinstance(d, dict) or "error" in d:
+            self._reverse_cache[key] = None
+            return None
+        a = d.get("address") or {}
+        local = next((a[k] for k in ("city", "town", "village", "hamlet", "municipality", "suburb", "county") if a.get(k)), None)
+        region = a.get("state") or a.get("region")
+        partes = [x for x in (local, region, a.get("country")) if x]
+        out = {
+            "name": ", ".join(dict.fromkeys(partes)) or d.get("display_name"),
+            "display_name": d.get("display_name"),
+            "country": a.get("country"),
+            "source": "OpenStreetMap Nominatim (ODbL)",
+        }
+        self._reverse_cache[key] = out
+        return out
 
     def search(self, q: str, limit: int = 5) -> list[dict]:
         if not self.enabled or not q.strip():
@@ -128,10 +168,7 @@ class Geocoder:
         key = norm(q.strip())
         if key in self._cache:
             return self._cache[key]
-        wait = 1.0 - (time.monotonic() - self._last)
-        if wait > 0:
-            time.sleep(wait)
-        self._last = time.monotonic()
+        self._esperar()
         client = self.client or httpx.Client(timeout=10, headers={"User-Agent": "dancing-with-the-sar-research/0.1"})
         r = client.get(self.URL, params={"q": q, "format": "jsonv2", "limit": limit})
         r.raise_for_status()

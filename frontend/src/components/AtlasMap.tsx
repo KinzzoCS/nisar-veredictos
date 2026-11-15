@@ -31,6 +31,10 @@ interface Props {
   onVista?: (bbox: Bbox) => void
   /** Clic (o Intro) en el mapa: el punto elegido, en grados con 5 decimales. */
   onPunto?: (p: { lon: number; lat: number }) => void
+  /** Clic dentro de una huella del buscador mundial (2026-11-15). */
+  onHuella?: (id: string) => void
+  /** Nombre del lugar del punto elegido, para su ventana en el mapa (2026-11-15). */
+  rotulo?: { lon: number; lat: number; nombre: string } | null
 }
 
 /**
@@ -39,7 +43,7 @@ interface Props {
  * Las herramientas (3D, capas, opacidad, encuadre y comparador) viven en la barra inferior de la app, así que
  * el mapa se crea sin su botón 3D ni su selector de capas.
  */
-export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, opacity, reframe, mundo, volar, onVista, onPunto }: Props) {
+export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, opacity, reframe, mundo, volar, onVista, onPunto, onHuella, rotulo }: Props) {
   const { t } = useTranslation()
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MapaAtlas | null>(null)
@@ -54,6 +58,10 @@ export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, op
   useEffect(() => {
     puntoRef.current = onPunto
   }, [onPunto])
+  const huellaRef = useRef(onHuella)
+  useEffect(() => {
+    huellaRef.current = onHuella
+  }, [onHuella])
   useEffect(() => {
     vistaRef.current = onVista
   }, [onVista])
@@ -73,6 +81,7 @@ export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, op
       controlCapas: false,
       onViewChanged: (v) => vistaRef.current?.(v.bbox),
       onPointSelected: (p) => puntoRef.current?.(p),
+      onFootprintSelected: (id) => huellaRef.current?.(id),
     })
     created.fijarOpacidad(op)
     map.current = created
@@ -107,6 +116,10 @@ export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, op
   useEffect(() => {
     if (volar) map.current?.volarA(volar.bbox)
   }, [volar])
+
+  useEffect(() => {
+    if (rotulo) map.current?.rotularPunto({ lon: rotulo.lon, lat: rotulo.lat }, rotulo.nombre)
+  }, [rotulo])
 
   const primerEncuadre = useRef(reframe)
   useEffect(() => {

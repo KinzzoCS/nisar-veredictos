@@ -3,6 +3,7 @@ import json
 import time
 from pathlib import Path
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -306,3 +307,28 @@ def test_eodms_products_are_discovered_and_normalized():
 def test_eodms_without_source_is_unavailable_not_invented():
     d = discovery.discover(FakeCmr(), [BY_ID["radarsat1"]], {"id": "p", "bbox": [-106, 26, -105, 27]}, "1995-01-01", "2026-11-15")
     assert d["products"][0]["status"] == "unavailable" and d["acquisitions"] == []
+
+
+def test_reverse_place_names_a_clicked_point(client):
+    """Nombre del lugar de un punto: respuesta de Nominatim de prueba (sin red), caché y API sin geocodificador."""
+    calls = []
+
+    def handler(req):
+        calls.append(dict(req.url.params))
+        return httpx.Response(200, json={"display_name": "Tasiilaq, Sermersooq, Kalaallit Nunaat",
+                                         "address": {"town": "Tasiilaq", "state": "Sermersooq", "country": "Kalaallit Nunaat"}})
+
+    geo = places.Geocoder(enabled=True, client=httpx.Client(transport=httpx.MockTransport(handler)))
+    p = geo.reverse(65.6145, -37.6368, "es")
+    assert p["name"] == "Tasiilaq, Sermersooq, Kalaallit Nunaat" and p["source"].startswith("OpenStreetMap")
+    assert calls[0]["accept-language"] == "es" and calls[0]["zoom"] == "12"
+    # Un punto a menos de ~100 m sale de la caché, sin otra petición.
+    assert geo.reverse(65.61451, -37.63681, "es") == p and len(calls) == 1
+    # Sobre el mar Nominatim responde con error: no hay nombre.
+    mar = places.Geocoder(enabled=True, client=httpx.Client(transport=httpx.MockTransport(
+        lambda req: httpx.Response(200, json={"error": "Unable to geocode"}))))
+    assert mar.reverse(0.0, -30.0) is None
+    # La API sin geocodificador responde sin nombre, y valida el rango.
+    r = client.get("/places/reverse", params={"lat": 66.35, "lon": -38.17}).json()
+    assert r == {"lat": 66.35, "lon": -38.17, "place": None, "geocoder": "disabled"}
+    assert client.get("/places/reverse", params={"lat": 95, "lon": 0}).status_code == 422

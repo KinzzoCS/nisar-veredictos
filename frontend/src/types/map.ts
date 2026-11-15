@@ -50,5 +50,7 @@ export interface MapProps {
   dataKind: DataKind
   /** Clic o Enter sobre el mapa; coordenadas con 5 decimales. */
   onPointSelected?: (point: { lon: number; lat: number }) => void
+  /** Clic dentro de una huella del buscador mundial: su id (2026-11-15). Sustituye a onPointSelected en ese clic. */
+  onFootprintSelected?: (id: string) => void
   onViewChanged?: (view: { bbox: [number, number, number, number]; zoom: number }) => void
 }

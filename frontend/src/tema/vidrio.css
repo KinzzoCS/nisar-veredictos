@@ -3214,3 +3214,174 @@ body {
 .mundo-fuentes {
   font-size: 0.7rem;
 }
+
+/* ==========================================================================
+ * Ajustes del 2026-11-15 (pedido del usuario)
+ * ========================================================================== */
+
+/* Cierre animado: el panel se encoge hacia su botón mientras sigue a la vista (Barra.tsx, useCierreAnimado).
+   Gana a la animación de apertura de `:not([hidden])` por especificidad. */
+.app-vidrio .barra-contenido[data-cerrando],
+.app-vidrio .lateral-der-panel[data-cerrando] {
+  animation: gelatina-cierra 0.3s cubic-bezier(0.55, 0, 0.85, 0.35) both;
+  pointer-events: none;
+}
+
+.app-vidrio .barra-abajo .barra-contenido[data-cerrando],
+.app-vidrio .barra-arriba .barra-contenido[data-cerrando] {
+  animation-name: gelatina-cierra-ancha;
+}
+
+@keyframes gelatina-cierra {
+  0% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  30% {
+    opacity: 1;
+    scale: 1.025 0.97;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.3 0.15;
+  }
+}
+
+@keyframes gelatina-cierra-ancha {
+  0% {
+    opacity: 1;
+    scale: 1 1;
+  }
+  30% {
+    opacity: 1;
+    scale: 0.97 1.05;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.08 0.6;
+  }
+}
+
+/* Pestañas de la derecha sueltas: cada una es su propia gota de vidrio, sin la cápsula común. */
+.app-vidrio .pestanas-der {
+  padding: 0;
+  gap: 0.55rem;
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  animation: none;
+}
+
+.app-vidrio .pestanas-der [role='tab'] {
+  width: var(--boton-flotante);
+  height: var(--boton-flotante);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.16), transparent 60%),
+    var(--vidrio-boton);
+  -webkit-backdrop-filter: blur(4px) saturate(1.4) brightness(0.7);
+  backdrop-filter: blur(4px) saturate(1.4) brightness(0.7);
+  backdrop-filter: url(#vidrio-liquido) blur(3px) saturate(1.4) brightness(0.7);
+  box-shadow:
+    0 6px 18px rgba(0, 0, 0, 0.35),
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.28);
+  animation: gota-nace var(--gelatina) both;
+}
+
+.app-vidrio .pestanas-der [role='tab']:nth-child(2) { animation-delay: 0.05s; }
+.app-vidrio .pestanas-der [role='tab']:nth-child(3) { animation-delay: 0.1s; }
+.app-vidrio .pestanas-der [role='tab']:nth-child(4) { animation-delay: 0.15s; }
+.app-vidrio .pestanas-der [role='tab']:nth-child(5) { animation-delay: 0.2s; }
+
+.app-vidrio .pestanas-der [role='tab']:hover:not([aria-selected='true']) {
+  background:
+    radial-gradient(circle at 35% 25%, rgba(255, 255, 255, 0.24), transparent 60%),
+    var(--vidrio-boton);
+  scale: 1.08;
+}
+
+/* El botón para abrir Filtros, centrado en vertical en el borde izquierdo. */
+.app-vidrio .barra-izq .barra-pestana {
+  top: 50%;
+  translate: 0 -50%;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .app-vidrio .pestanas-der [role='tab'] {
+    animation: none;
+  }
+}
+
+/* Origen de las animaciones en el botón que abre cada panel (2026-11-15): el panel brota de él y vuelve a él. */
+.app-vidrio .barra-izq .barra-contenido {
+  /* El botón «Abrir Filtros» está centrado en vertical en el borde izquierdo de su columna. */
+  transform-origin: calc(var(--boton-flotante) / 2) 50%;
+}
+
+.app-vidrio .lateral-der-panel {
+  /* Centro de la pestaña activa, medido en App.tsx (--origen-x y --origen-y, en píxeles desde el panel). */
+  transform-origin: var(--origen-x, calc(100% + 1.5rem)) var(--origen-y, 50%);
+}
+
+.app-vidrio .barra-arriba .barra-contenido {
+  transform-origin: 50% calc(var(--boton-flotante) / 2);
+}
+
+.app-vidrio .barra-abajo .barra-contenido {
+  transform-origin: 50% calc(100% - var(--boton-flotante) / 2);
+}
+
+/* Los paneles laterales nacen casi del tamaño del botón y vuelven a él. */
+.app-vidrio .barra-izq .barra-contenido:not([hidden]),
+.app-vidrio .lateral-der-panel:not([hidden]) {
+  animation-name: gelatina-abre-boton;
+}
+
+.app-vidrio .barra-izq .barra-contenido[data-cerrando],
+.app-vidrio .lateral-der-panel[data-cerrando] {
+  animation-name: gelatina-cierra-boton;
+}
+
+@keyframes gelatina-abre-boton {
+  0% {
+    opacity: 0;
+    scale: 0.06;
+  }
+  20% {
+    opacity: 1;
+  }
+  45% {
+    scale: 1.035 1.045;
+  }
+  62% {
+    scale: 0.985 0.975;
+  }
+  78% {
+    scale: 1.008 1.01;
+  }
+  100% {
+    opacity: 1;
+    scale: 1;
+  }
+}
+
+@keyframes gelatina-cierra-boton {
+  0% {
+    opacity: 1;
+    scale: 1;
+  }
+  25% {
+    opacity: 1;
+    scale: 1.025 0.97;
+  }
+  85% {
+    opacity: 0.6;
+  }
+  100% {
+    opacity: 0;
+    scale: 0.06;
+  }
+}

@@ -100,3 +100,14 @@ export function centroZona(aoi: [number, number, number, number]): Feature<Point
   if (lon > 180) lon -= 360;
   return { type: "Feature", properties: {}, geometry: { type: "Point", coordinates: [lon, (s + n) / 2] } };
 }
+
+/** Punto dentro de un anillo lon/lat (regla par-impar). Las huellas de NISAR no cruzan el antimeridiano. */
+export function dentroDeAnillo(lon: number, lat: number, anillo: number[][]): boolean {
+  let dentro = false;
+  for (let i = 0, j = anillo.length - 1; i < anillo.length; j = i++) {
+    const [xi, yi] = anillo[i];
+    const [xj, yj] = anillo[j];
+    if (yi > lat !== yj > lat && lon < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) dentro = !dentro;
+  }
+  return dentro;
+}

@@ -90,6 +90,13 @@ export function Mundo({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clave])
 
+  // La pasada elegida (también con un clic en su huella del mapa) se lleva a la vista en la lista.
+  useEffect(() => {
+    if (!elegido) return
+    const li = document.querySelector(`.mundo-lista li[data-elegido='true']`)
+    if (li && typeof li.scrollIntoView === 'function') li.scrollIntoView({ block: 'nearest', behavior: 'smooth' })
+  }, [elegido])
+
   const granulos = useMemo(() => (estado.tipo === 'listo' ? estado.datos.granules : []), [estado])
   // Órbitas presentes en la zona, con su número de pasadas: los carriles salen de los datos, no de una lista fija.
   const series = useMemo(() => {

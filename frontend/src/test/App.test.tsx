@@ -8,7 +8,7 @@ import { makeVerdict } from './fixtures'
 
 // MapLibre necesita WebGL, que jsdom no tiene: el ciclo de vida del mapa se prueba en AtlasMap.test.
 const crearMapa = vi.hoisted(() =>
-  vi.fn(() => ({ actualizar: vi.fn(), destruir: vi.fn(), fijarOpacidad: vi.fn(), encuadrar: vi.fn(), mostrarMundo: vi.fn(), volarA: vi.fn() })),
+  vi.fn(() => ({ actualizar: vi.fn(), destruir: vi.fn(), fijarOpacidad: vi.fn(), encuadrar: vi.fn(), mostrarMundo: vi.fn(), volarA: vi.fn(), rotularPunto: vi.fn() })),
 )
 vi.mock('../mapa/mapa', () => ({ crearMapa }))
 
@@ -165,13 +165,15 @@ interface Opciones {
   online?: 'no_processable_series' | 'done'
   /** Sin EARTHDATA_TOKEN, online/health lo dice y la interfaz no pide el procesado. */
   sinToken?: boolean
+  /** Nombre que da la geocodificación inversa de research a un punto del mapa (sin él, 404). */
+  lugarInverso?: string
 }
 
 function token(role: string) {
   return { access_token: 'tok', token_type: 'Bearer', expires_in: 900, role, email_verified: false }
 }
 
-function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil, online = 'no_processable_series', sinToken = false }: Opciones = {}) {
+function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil, online = 'no_processable_series', sinToken = false, lugarInverso }: Opciones = {}) {
   // Con online 'done', la zona procesada aparece en verdicts y sus veredictos no llegan: así se ve el resumen ligero.
   let zonaLista = false
   if (perfil) auth = 'on'
@@ -218,6 +220,9 @@ function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil, on
       return json({ id: 'z-prueba', state: 'no_processable_series', step: null, bbox: [-38.6, 66.25, -38.0, 66.5], max_dates: 4,
         steps: { zone: 'done (0 s)', series: 'failed (0 s)', fetch: 'pending', dem: 'pending', process: 'pending' },
         series: null, series_found: [{ id: 'T126D-F055-7700-SHNA-P05023', polarization: 'SHNA', dates: 9 }], log: [], error: 'sin HH y HV' })
+    if (path.endsWith('/api/research/places/reverse') && lugarInverso)
+      return json({ lat: Number(url.searchParams.get('lat')), lon: Number(url.searchParams.get('lon')), geocoder: 'ok',
+        place: { name: lugarInverso, display_name: lugarInverso, country: null, source: 'OpenStreetMap Nominatim (ODbL)' } })
     if (path.endsWith('/api/research/places')) {
       const q = url.searchParams.get('q') ?? ''
       return json({ query: q, geocoder: 'ok', results: LUGARES.filter((l) => l.name.toLowerCase().includes(q.toLowerCase())) })
@@ -907,4 +912,41 @@ test('sin EARTHDATA_TOKEN, Hallazgos lo explica y no pide el procesado (sin erro
   expect(await hallazgos.findByText(/no tiene EARTHDATA_TOKEN/)).toBeInTheDocument()
   const urls = fetch.mock.calls.map(([r, init]) => `${init?.method ?? (typeof r === 'string' ? 'GET' : r.method)} ${typeof r === 'string' ? r : r.url}`)
   expect(urls.some((u) => u.startsWith('POST') && u.endsWith('/api/online/zones'))).toBe(false)
+})
+
+test('un clic en la huella de una pasada la elige en Filtros, y el clic fuera de las huellas elige un punto', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await user.type(screen.getByRole('combobox', { name: 'Buscar un lugar' }), 'Helheim')
+  await user.click(await screen.findByRole('option', { name: /Glaciar Helheim/ }))
+  const filtros = within(screen.getByRole('complementary', { name: 'Filtros' }))
+  await filtros.findByRole('region', { name: 'Pasadas en el tiempo' })
+  const opciones = (crearMapa.mock.calls.at(-1) as unknown as [unknown, { onFootprintSelected: (id: string) => void; onPointSelected: (p: { lon: number; lat: number }) => void }])[1]
+  // El mapa resuelve qué huella hay bajo el clic (dentroDeAnillo) y avisa con su id.
+  act(() => opciones.onFootprintSelected('G1'))
+  const elegidas = () => filtros.getAllByRole('button', { pressed: true }).filter((b) => b.classList.contains('mundo-tarjeta'))
+  await waitFor(() => expect(elegidas()).toHaveLength(1))
+  const m = crearMapa.mock.results.at(-1)!.value
+  await waitFor(() => expect(m.mostrarMundo).toHaveBeenLastCalledWith(expect.objectContaining({ elegido: 'G1' })))
+  // Un clic fuera de las huellas sigue cambiando la zona a ese punto.
+  act(() => opciones.onPointSelected({ lon: 10.5, lat: 45.25 }))
+  expect(await filtros.findByRole('heading', { name: 'Punto 45.2500, 10.5000' })).toBeInTheDocument()
+})
+
+test('el punto elegido con un clic lleva el nombre del lugar junto a sus coordenadas, en Filtros y en el mapa', async () => {
+  const fetch = stubApi({ lugarInverso: 'Lugar de prueba, Región de prueba' })
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  const opciones = (crearMapa.mock.calls.at(-1) as unknown as [unknown, { onPointSelected: (p: { lon: number; lat: number }) => void }])[1]
+  act(() => opciones.onPointSelected({ lon: 10.5, lat: 45.25 }))
+  const filtros = within(screen.getByRole('complementary', { name: 'Filtros' }))
+  // Primero solo las coordenadas; en cuanto llega el nombre, se añade.
+  expect(await filtros.findByRole('heading', { name: 'Lugar de prueba, Región de prueba (45.2500, 10.5000)' })).toBeInTheDocument()
+  const pedida = fetch.mock.calls.map(([r]) => String(typeof r === 'string' ? r : r.url)).find((u) => u.includes('/places/reverse'))
+  expect(pedida).toContain('lat=45.25')
+  expect(pedida).toContain('lang=es')
+  const m = crearMapa.mock.results.at(-1)!.value
+  await waitFor(() => expect(m.rotularPunto).toHaveBeenLastCalledWith({ lon: 10.5, lat: 45.25 }, 'Lugar de prueba, Región de prueba'))
 })

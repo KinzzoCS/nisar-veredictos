@@ -241,6 +241,15 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Nombre del lugar del punto (2026-11-15); vacío mientras llega la geocodificación inversa. */
+.atlas-serie-lugar {
+  font-weight: 700;
+}
+
+.atlas-serie-lugar:empty {
+  display: none;
+}
+
 .atlas-serie-nota {
   color: #525252;
 }

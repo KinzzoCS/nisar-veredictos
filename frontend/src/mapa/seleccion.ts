@@ -112,6 +112,8 @@ function cabecera(p: { lon: number; lat: number }, idioma: Idioma): HTMLElement 
   const raiz = el("div", "atlas-serie");
   raiz.append(
     el("h2", "", t.puntoSeleccionado),
+    // Nombre del lugar (2026-11-15): lo rellena `rotularPunto` cuando llega de la geocodificación inversa.
+    el("p", "atlas-serie-lugar", ""),
     el("p", "atlas-serie-coord", `${t.lon} ${String(p.lon).replace("-", "−")}° · ${t.lat} ${String(p.lat).replace("-", "−")}°`),
   );
   return raiz;

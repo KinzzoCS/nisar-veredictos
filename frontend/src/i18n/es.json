@@ -473,7 +473,8 @@
     "searching": "Buscando lugares…",
     "error": "El buscador de lugares no respondió.",
     "none": "Ningún lugar con ese nombre.",
-    "point": "Punto {{lat}}, {{lon}}"
+    "point": "Punto {{lat}}, {{lon}}",
+    "pointNamed": "{{place}} ({{lat}}, {{lon}})"
   },
   "zone": {
     "passesOnly": "Aquí no hay veredictos procesados todavía: estas son las pasadas reales del radar NISAR sobre la zona, con su vista previa. Los filtros salen de lo que hay.",

@@ -191,6 +191,17 @@ def create_app(store: Store | None = None, deps: Deps | None = None, geocoder: p
             remote, geo_status = [], f"unavailable: {type(e).__name__}"
         return {"query": q, "results": local + remote, "geocoder": geo_status}
 
+    @app.get("/places/reverse")
+    def reverse_place(lat: float = Query(..., ge=-90, le=90), lon: float = Query(..., ge=-180, le=180),
+                      lang: str = Query("es", pattern="^(es|en)$")):
+        """Nombre del lugar en un punto (Nominatim). `place` es null si no hay geocodificador o nada cerca."""
+        try:
+            place = geo.reverse(lat, lon, lang)
+            geo_status = "ok" if geo.enabled else "disabled"
+        except Exception as e:  # noqa: BLE001
+            place, geo_status = None, f"unavailable: {type(e).__name__}"
+        return {"lat": lat, "lon": lon, "place": place, "geocoder": geo_status}
+
     @app.get("/sources")
     def event_sources():
         """Proveedores de acontecimientos y capas: cuáles están activos y cuáles esperan una credencial."""

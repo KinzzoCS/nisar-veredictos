@@ -20,6 +20,7 @@ import {
   nombreCorto,
   puntoEtiqueta,
   type Huella,
+  dentroDeAnillo,
 } from "./huellas";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { ladoDisponible } from "./optico";
@@ -293,9 +294,33 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   const ventana = new maplibregl.Popup({ maxWidth: "300px", closeOnClick: false, focusAfterOpen: false });
   let peticion: AbortController | null = null;
 
+  /** Huellas del buscador mundial que contienen el punto, en el orden en que llegaron (las más recientes antes). */
+  function huellasEn(lng: number, lat: number): string[] {
+    return (mundo?.huellas.features ?? [])
+      .filter((f) => dentroDeAnillo(lng, lat, f.geometry.coordinates[0] ?? []))
+      .map((f) => f.properties.id);
+  }
+
+  // Nombre del punto elegido (rotularPunto); se vuelve a poner cada vez que cambia el contenido de la ventana.
+  let nombrePunto = "";
+  function mostrarVentana(p: { lon: number; lat: number }, contenido: HTMLElement) {
+    const lugar = contenido.querySelector(".atlas-serie-lugar");
+    if (lugar) lugar.textContent = nombrePunto;
+    ventana.setLngLat([p.lon, p.lat]).setDOMContent(contenido).addTo(map);
+  }
+
   async function seleccionar(lng: number, lat: number) {
+    // Clic dentro de una huella: se elige esa pasada (2026-11-15). Con varias encimadas, cada clic en el mismo sitio
+    // pasa a la siguiente. Fuera de las huellas, el clic sigue eligiendo un punto.
+    const debajo = opciones.onFootprintSelected ? huellasEn(lng, lat) : [];
+    if (debajo.length) {
+      const actual = mundo?.elegido ? debajo.indexOf(mundo.elegido) : -1;
+      opciones.onFootprintSelected!(debajo[(actual + 1) % debajo.length]);
+      return;
+    }
     const p = puntoSeleccionado(lng, lat);
     estado.punto = p;
+    nombrePunto = "";
     const t = TEXTOS[estado.idioma];
     marcador.setLngLat([p.lon, p.lat]).addTo(map);
     anuncio.textContent = `${t.puntoSeleccionado}: ${t.lon} ${p.lon}, ${t.lat} ${p.lat}`;
@@ -310,22 +335,22 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     const [oeste, sur, este, norte] = estado.aoi;
     const lonDentro = oeste <= este ? p.lon >= oeste && p.lon <= este : p.lon >= oeste || p.lon <= este;
     if (!(lonDentro && p.lat >= sur && p.lat <= norte)) {
-      ventana.setLngLat([p.lon, p.lat]).setDOMContent(contenidoError(p, t.fueraDeSerie, estado.idioma)).addTo(map);
+      mostrarVentana(p, contenidoError(p, t.fueraDeSerie, estado.idioma));
       return;
     }
     const control = new AbortController();
     peticion = control;
-    ventana.setLngLat([p.lon, p.lat]).setDOMContent(contenidoCargando(p, estado.idioma)).addTo(map);
+    mostrarVentana(p, contenidoCargando(p, estado.idioma));
     try {
       const r = await fetch(urlPixel(estado.pixelUrl, p), { signal: control.signal });
       if (r.status === 404) throw new Error(t.fueraDeSerie);
       if (!r.ok) throw new Error(`${t.errorSerie} (HTTP ${r.status})`);
       const serie = (await r.json()) as SeriePixel;
-      if (peticion === control) ventana.setDOMContent(contenidoSerie(serie, estado.idioma));
+      if (peticion === control) mostrarVentana(p, contenidoSerie(serie, estado.idioma));
     } catch (e) {
       if (control.signal.aborted) return;
       const msg = e instanceof TypeError ? t.errorSerie : (e as Error).message;
-      ventana.setDOMContent(contenidoError(p, msg, estado.idioma));
+      mostrarVentana(p, contenidoError(p, msg, estado.idioma));
     }
   }
 
@@ -337,6 +362,11 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   }
 
   map.on("click", (e) => seleccionar(e.lngLat.lng, e.lngLat.lat));
+  // Sobre una huella elegible, el puntero lo anuncia.
+  map.on("mousemove", (e) => {
+    if (!opciones.onFootprintSelected || !mundo) return;
+    map.getCanvas().style.cursor = huellasEn(e.lngLat.lng, e.lngLat.lat).length ? "pointer" : "";
+  });
 
   const canvas = map.getCanvas();
   canvas.addEventListener("keydown", (e) => {
@@ -565,16 +595,24 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     if (!cargado) return;
     if (!map.getSource("mundo")) {
       map.addSource("mundo", { type: "geojson", data: FC_VACIA });
-      map.addLayer(
-        { id: "mundo-relleno", type: "fill", source: "mundo", paint: { "fill-color": "#ffffff", "fill-opacity": 0.06 } },
-        "huellas-relleno",
-      );
+      // De abajo arriba (2026-11-15): los no elegidos solo con su contorno; encima, la vista previa del elegido (se
+      // inserta antes de "mundo-elegido-relleno"), su relleno tenue y su contorno grueso.
       map.addLayer(
         {
           id: "mundo-contorno",
           type: "line",
           source: "mundo",
           paint: { "line-color": "#ffffff", "line-width": 1.2, "line-opacity": 0.75, "line-dasharray": [2, 2] },
+        },
+        "huellas-relleno",
+      );
+      map.addLayer(
+        {
+          id: "mundo-elegido-relleno",
+          type: "fill",
+          source: "mundo",
+          filter: ["==", ["get", "id"], ""],
+          paint: { "fill-color": "#ffffff", "fill-opacity": 0.08 },
         },
         "huellas-relleno",
       );
@@ -590,7 +628,10 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       );
     }
     (map.getSource("mundo") as maplibregl.GeoJSONSource).setData(mundo?.huellas ?? FC_VACIA);
-    map.setFilter("mundo-elegido", ["==", ["get", "id"], mundo?.elegido ?? ""]);
+    const elegido = mundo?.elegido ?? "";
+    map.setFilter("mundo-contorno", ["!=", ["get", "id"], elegido]);
+    map.setFilter("mundo-elegido-relleno", ["==", ["get", "id"], elegido]);
+    map.setFilter("mundo-elegido", ["==", ["get", "id"], elegido]);
     const vista = mundo?.vista ?? null;
     const clave = vista ? `${vista.url}|${vista.bbox.join(",")}` : "";
     if (clave === vistaMundo) return;
@@ -608,7 +649,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       });
       map.addLayer(
         { id: "mundo-vista", type: "raster", source: "mundo-vista", paint: { "raster-opacity": 0.9, "raster-fade-duration": 300 } },
-        "mundo-relleno",
+        "mundo-elegido-relleno",
       );
     });
   }
@@ -717,6 +758,12 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       mundo = m;
       aplicarMundo();
     },
+    rotularPunto(p, nombre) {
+      if (!estado.punto || estado.punto.lon !== p.lon || estado.punto.lat !== p.lat) return;
+      nombrePunto = nombre;
+      const lugar = ventana.getElement()?.querySelector(".atlas-serie-lugar");
+      if (lugar) lugar.textContent = nombre;
+    },
     volarA(bbox) {
       const opciones = { padding: 48, maxZoom: 9 };
       if (sinAnimacion()) map.fitBounds(bbox, { ...opciones, animate: false });
@@ -787,6 +834,7 @@ function mapaSinWebgl(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtla
     fijarOpacidad: () => {},
     encuadrar: () => {},
     mostrarMundo: () => {},
+    rotularPunto: () => {},
     volarA: () => {},
     destruir: () => {
       contenedor.replaceChildren();

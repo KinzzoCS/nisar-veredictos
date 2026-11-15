@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { API_BASE, verdictJsonUrl, verdictsApi, type Lang, type SeriesInfo, type Verdict } from './api/client'
 import { hasOpticalScene, mapOptionsFor } from './api/mapOptions'
@@ -26,6 +26,7 @@ import { Interprete } from './components/Interprete'
 import { BuscadorLugares, type Lugar } from './components/BuscadorLugares'
 import { Investigacion } from './components/Investigacion'
 import { BarraRecogible, BotonRecoger, CabeceraPanel } from './components/Barra'
+import { useCierreAnimado } from './components/useCierreAnimado'
 import { Esqueleto } from './components/Esqueleto'
 import { BotonIcono, Icono, type NombreIcono } from './components/Iconos'
 import { LanguageSwitch } from './components/LanguageSwitch'
@@ -138,7 +139,7 @@ function PestanasDer({
     document.getElementById(`derecha-tab-${k}`)?.focus()
   }
   return (
-    <div role="tablist" aria-label={t('layout.right')} aria-orientation="vertical" className="pestanas-der vidrio" onKeyDown={teclas}>
+    <div role="tablist" aria-label={t('layout.right')} aria-orientation="vertical" className="pestanas-der" onKeyDown={teclas}>
       {PESTANAS_DER.map((k) => (
         <button
           key={k}
@@ -227,6 +228,20 @@ function Contenido() {
     setBarraDer(a)
     if (a && pantallaEstrecha()) setBarraIzq(false)
   }
+  // El panel derecho también se encoge al cerrarse (2026-11-15).
+  const cierreDer = useCierreAnimado(barraDer)
+  // El panel nace de la pestaña que se pulsa y vuelve a ella al cerrarse: su transform-origin es el centro de la
+  // pestaña activa. Se mide antes de pintar, con offset* (no les afecta la escala de la animación).
+  useLayoutEffect(() => {
+    const panel = document.getElementById('panel-der')
+    const tab = document.getElementById(`derecha-tab-${pestanaDer}`)
+    const lista = tab?.parentElement
+    if (!panel || !tab || !lista) return
+    const x = lista.offsetLeft + tab.offsetLeft + tab.offsetWidth / 2 - panel.offsetLeft
+    const y = lista.offsetTop + tab.offsetTop + tab.offsetHeight / 2 - panel.offsetTop
+    panel.style.setProperty('--origen-x', `${x}px`)
+    panel.style.setProperty('--origen-y', `${y}px`)
+  }, [pestanaDer, barraDer])
   function elegirPestanaDer(k: PestanaDer) {
     if (barraDer && k === pestanaDer) return abrirDer(false)
     setPestanaDer(k)
@@ -308,6 +323,10 @@ function Contenido() {
     abrirDer(true)
   }
 
+  // Nombre del lugar del último punto elegido (geocodificación inversa de research), para la ventana del mapa.
+  const [rotulo, setRotulo] = useState<{ lon: number; lat: number; nombre: string } | null>(null)
+  const pidiendoNombre = useRef<AbortController | null>(null)
+
   // Un clic en el mapa cambia la zona de Filtros a ese punto (caja de ±0,05°), sin mover el mapa.
   function irAPunto(p: { lon: number; lat: number }) {
     const r = (v: number) => Math.round(v * 1e5) / 1e5
@@ -320,6 +339,23 @@ function Contenido() {
     }
     setLugar(l)
     setSemilla(l)
+    setRotulo(null)
+    // El nombre del lugar llega después (Nominatim, a través de research) y se añade a las coordenadas. Si mientras
+    // tanto se elige otro punto, la respuesta vieja se descarta.
+    pidiendoNombre.current?.abort()
+    const control = new AbortController()
+    pidiendoNombre.current = control
+    const q = new URLSearchParams({ lat: String(p.lat), lon: String(p.lon), lang })
+    fetch(`${API_BASE}/api/research/places/reverse?${q}`, { signal: control.signal })
+      .then((r) => (r.ok ? (r.json() as Promise<{ place: { name: string } | null }>) : null))
+      .then((d) => {
+        if (control.signal.aborted || !d?.place?.name) return
+        const nombrado = { ...l, name: t('places.pointNamed', { place: d.place.name, lat: p.lat.toFixed(4), lon: p.lon.toFixed(4) }) }
+        setLugar((actual) => (actual?.id === l.id ? nombrado : actual))
+        setSemilla((actual) => (actual?.id === l.id ? nombrado : actual))
+        setRotulo({ lon: p.lon, lat: p.lat, nombre: d.place.name })
+      })
+      .catch(() => undefined)
     const z = zonas.find((x) => seTocan(x.bbox, bbox))
     if (z) setZonaVeredictos(z.aoi)
     setGranulosMundo([])
@@ -646,13 +682,25 @@ function Contenido() {
               volar={volarMundo}
               onVista={setVistaMapa}
               onPunto={irAPunto}
+              rotulo={rotulo}
+              onHuella={(id) => {
+                // Elegir una pasada con un clic en su huella: se resalta y se pone encima, sin mover el mapa.
+                setElegidoMundo(id)
+                abrirIzq(true)
+              }}
             />
           )}
         </div>
 
         {/* Barra derecha: un solo panel con cuatro pestañas verticales pegadas al borde (RF-INT-27). */}
         <div className="lateral-der" data-abierta={barraDer}>
-          <div id="panel-der" className="lateral-der-panel vidrio" hidden={!barraDer}>
+          <div
+            id="panel-der"
+            className="lateral-der-panel vidrio"
+            hidden={cierreDer.oculto}
+            inert={cierreDer.cerrando}
+            data-cerrando={cierreDer.cerrando || undefined}
+          >
             <PanelPestana clave="hallazgos" activa={pestanaDer}>
               <CabeceraPanel icono="hallazgos" titulo={t('layout.tabs.hallazgos')}>
                 <BotonRecoger lado="der" abierta nombre={t('layout.tabs.hallazgos')} controla="panel-der" onCambiar={abrirDer} />

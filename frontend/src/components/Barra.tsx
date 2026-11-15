@@ -1,6 +1,7 @@
 import { useEffect, useRef, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Icono, type NombreIcono } from './Iconos'
+import { useCierreAnimado } from './useCierreAnimado'
 
 export type Lado = 'arriba' | 'abajo' | 'izq' | 'der'
 
@@ -78,6 +79,7 @@ export function BarraRecogible({
 }) {
   // El foco no se pierde al abrir o recoger: si estaba en la barra, pasa a su contenido o a su pestaña.
   const caja = useRef<HTMLDivElement>(null)
+  const { oculto, cerrando } = useCierreAnimado(abierta)
   const antes = useRef(abierta)
   useEffect(() => {
     if (antes.current === abierta) return
@@ -107,7 +109,14 @@ export function BarraRecogible({
           className="barra-pestana boton-flotante"
         />
       )}
-      <div id={id} className={`barra-contenido${vidrio ? ' vidrio' : ''}`} hidden={!abierta} tabIndex={-1}>
+      <div
+        id={id}
+        className={`barra-contenido${vidrio ? ' vidrio' : ''}`}
+        hidden={oculto}
+        inert={cerrando}
+        data-cerrando={cerrando || undefined}
+        tabIndex={-1}
+      >
         {children}
       </div>
     </div>

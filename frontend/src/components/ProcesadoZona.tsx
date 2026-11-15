@@ -63,7 +63,9 @@ export function ProcesadoZona({
   // La pila no tiene EARTHDATA_TOKEN: se dice sin pedir el procesado, que respondería 503 (2026-11-15).
   const [sinToken, setSinToken] = useState(false)
   const [intento, setIntento] = useState(0)
-  const lugarClave = `${lugar.name}|${lugar.bbox.join(',')}`
+  // Por la caja y no por el nombre: el nombre de un punto llega después (geocodificación inversa) y no debe
+  // reiniciar el procesado ni volver a pedir el botón.
+  const lugarClave = lugar.bbox.join(',')
   // Lugar para el que se pulsó «Procesar»; con otro lugar vuelve a esperar al botón.
   const [pedido, setPedido] = useState<string | null>(null)
   const iniciado = autoIniciar || pedido === lugarClave
