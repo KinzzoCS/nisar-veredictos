@@ -51,6 +51,11 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 | RF-ACC-10 | `AUTH_ENABLED=0` deja el gateway como hoy (todo `public`, rutas nuevas con 403). Es el valor por omisión hasta que el equipo apruebe activarlo | P0 |
 | RF-ACC-11 | Tokens personales para scripts (`researcher`): se crean y revocan desde la cuenta, se muestran una sola vez y caducan como máximo a los 90 días | P2 |
 | RF-ACC-12 | Registro sin datos personales más allá de un correo y una contraseña; sin verificación de correo en esta ola, y se dice así | P1 |
+| RF-ACC-13 | Historias de la comunidad, guardadas en `auth` (`/api/auth/stories`): zona, serie, rango de fechas, pares elegidos, título y notas de quien la escribe. **No guardan textos de veredictos**: la interfaz los vuelve a pedir a la API al mostrar o descargar la historia, así que una historia nunca congela ni cambia lo que dice un veredicto | P2 |
+| RF-ACC-14 | Leer y listar historias no pide cuenta. Crearlas, borrar las propias, valorarlas y descargarlas pide sesión (o token personal) de `student` o `researcher`; sin ella, 401 | P2 |
+| RF-ACC-15 | Valoración con estrellas de 1 a 5: una por cuenta e historia (valorar otra vez la cambia), sin valorar la propia. Cada historia da el promedio general y el desglose por perfil declarado (`student` y `researcher`) | P2 |
+| RF-ACC-16 | Las notas de la persona se muestran y se descargan separadas de los textos de la API y rotuladas como suyas (constitución II). La autoría se muestra con el perfil declarado, nunca con el correo | P2 |
+| RF-ACC-17 | Cada historia cabe en los 4 KB que el gateway admite en `/api/auth/`: título de 3 a 120 caracteres, notas hasta 800, de 1 a 24 pares e identificadores de zona y serie de hasta 32 caracteres. Ninguna ruta nueva usa `PUT`, que el gateway no deja pasar | P2 |
 
 ## Matriz de acceso
 
@@ -61,23 +66,25 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 | Búsqueda de veredictos y de pasadas (`specs/07-busqueda`) | no | sí, con filtros básicos y 50 resultados por página | sí, con todos los filtros y paginación |
 | Exportar resultados con su recibo (CSV, GeoJSON, JSON) | no | no | sí |
 | Tokens personales para scripts | no | no | sí |
-| Cuota orientativa en las rutas nuevas (a calibrar en T-BAL-12) | 60 peticiones/min por IP | 120/min | 600/min |
+| Leer historias de la comunidad y sus estrellas | sí, sin cuenta | sí | sí |
+| Guardar, valorar con estrellas y descargar historias | no | sí | sí |
+| Cuota en las rutas nuevas (T-BAL-12, sin calibrar con uso real) | 60 peticiones/min por IP | 120/min | 600/min |
 | Cuota en las rutas actuales y las teselas | ninguna | ninguna | ninguna |
-| Cuota de `login` y `register` (a calibrar en T-BAL-12) | 5 intentos/min por IP, para todos | | |
+| Cuota de `login` y `register` (T-BAL-12, cuotas separadas) | 5 intentos/min por IP, para todos | | |
 
 ## Criterios de aceptación
 
-- [ ] Con `AUTH_ENABLED=1`, la misma petición a `/api/verdicts/aois/parral/series/T048A-F015/verdicts` devuelve un cuerpo idéntico sin token, con token de `student` y con token de `researcher` (prueba automática que compara los cuerpos).
+- [x] Con `AUTH_ENABLED=1`, la misma petición a `/api/verdicts/aois/parral/series/T048A-F015/verdicts` devuelve un cuerpo idéntico sin token, con token de `student` y con token de `researcher` (prueba automática que compara los cuerpos). `scripts/smoke.sh` compara byte a byte esa ruta y otras cinco actuales (T-BAL-16, 2026-11-14).
 - [x] Con `AUTH_ENABLED=0`, `bash scripts/smoke.sh` pasa sin cambios. Pila de Docker sintética, 2026-11-14 (T-BAL-10).
 - [x] Una petición con `X-Auth-Role: researcher` y sin token llega a los servicios como `public`. Con los dos valores de `AUTH_ENABLED`, `/search/verdicts` del PR 91 responde 403 con `required_role: student` (T-BAL-10, 2026-11-14).
-- [x] Un token caducado, con firma de otra clave o con `aud` distinto recibe 401, nunca 200 como `public`, también en una ruta actual. Probado a mano con `AUTH_ENABLED=1` en `/api/verdicts/aois` (T-BAL-10, 2026-11-14); la prueba automática es T-BAL-16.
-- [ ] Superar la cuota de `public` en una ruta nueva no cambia la respuesta de las rutas actuales: siguen dando 200 desde la misma IP.
-- [ ] El sexto intento de `POST /api/auth/login` en un minuto desde la misma IP recibe 429 con `Retry-After`.
+- [x] Un token caducado, con firma de otra clave o con `aud` distinto recibe 401, nunca 200 como `public`, también en una ruta actual. Probado a mano con `AUTH_ENABLED=1` en `/api/verdicts/aois` (T-BAL-10, 2026-11-14). Desde T-BAL-16, `scripts/smoke.sh` lo prueba en tres rutas actuales y en la búsqueda, también con un perfil inexistente, sin firma y con `Authorization: Basic`.
+- [x] Superar la cuota de `public` en una ruta nueva no cambia la respuesta de las rutas actuales: siguen dando 200 desde la misma IP. `scripts/smoke.sh` con `AUTH_ENABLED=1`: 429 en la búsqueda y después 200 en tres rutas actuales y en una tesela, y `student` sigue buscando (T-BAL-12, 2026-11-14).
+- [x] El sexto intento de `POST /api/auth/login` en un minuto desde la misma IP recibe 429 con `Retry-After`. Seis intentos seguidos dan 429 como tarde en el sexto (`scripts/smoke.sh`, T-BAL-12, 2026-11-14). La cuota es un cubo de nginx (`limit_req`): tras agotarla vuelve un intento cada 12 s, así que en un minuto entero caben hasta 10 si se reparten.
 - [x] Desde el origen del frontend (`http://localhost:3000`), una petición a `/api/` con `Authorization` pasa la comprobación previa de CORS del navegador. `scripts/smoke.sh` comprueba que `Access-Control-Allow-Headers` nombra `Authorization` (T-BAL-10); no se probó en un navegador.
 - [x] Reutilizar un token de renovación ya rotado revoca la sesión y obliga a entrar de nuevo. Prueba de `services/auth` y comprobado en Docker el 2026-11-14 (T-ANT-14).
 - [ ] Ningún servicio salvo el gateway publica un puerto en `docker-compose.yml` (hoy se cumple; la prueba lo vigila).
 - [x] El repositorio no contiene la clave privada ni contraseñas: la clave se genera al arrancar si falta, en un volumen fuera de git, o se lee del `.env`. `AUTH_DATA_DIR` (por omisión `data/auth`, ignorado por git) guarda la clave con permisos 600 (T-ANT-14).
-- [ ] La prueba de humo cubre las rutas de `auth` y comprueba 401, 403 y 429.
+- [x] La prueba de humo cubre las rutas de `auth` y comprueba 401, 403 y 429. Con `AUTH_ENABLED=1` (T-BAL-16 y T-BAL-12, 2026-11-14). La CI aún levanta la pila solo con `AUTH_ENABLED=0`.
 - [x] Las dependencias nuevas tienen licencia compatible con GPL-3.0 y se anotan en MEMORY (PyPI, 2026-11-14).
 
 ## Interfaces
@@ -90,6 +97,8 @@ Los perfiles cambian la profundidad, las herramientas y las cuotas; nunca la ver
 - Inicio de sesión con proveedores externos (Google, ORCID, Earthdata Login). ORCID sería la vía para verificar a investigadores en otra ola.
 - Verificación de correo, recuperación de contraseña por correo y doble factor.
 - Ocultar o recortar campos según el perfil: lo prohíbe el principio rector.
+- En las historias (RF-ACC-13): moderación, comentarios y edición. Para cambiar una historia se borra y se guarda otra.
+- Impedir de verdad que alguien sin sesión arme la descarga: los datos de una historia son públicos (constitución II.4). La descarga con sesión es una función de la comunidad, que además cuenta las descargas, no una barrera de seguridad.
 
 ## Preguntas abiertas
 

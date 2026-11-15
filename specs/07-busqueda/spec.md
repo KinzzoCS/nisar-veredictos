@@ -47,7 +47,7 @@ Hoy hay una zona, dos series y 18 veredictos reales. La búsqueda se diseña par
 - [ ] Mientras el contraste con OPERA no está calculado, o si `verdicts` no tiene token, cada fila lleva `water: not_available`. Sin filtro `water`, la fila no desaparece del resultado; con un filtro `water` (por ejemplo, `water=disagree`), queda fuera porque no se puede evaluar, y `query` dice cuántas filas quedaron sin evaluar y por qué.
 - [ ] `student` recibe 403 con `required_role: researcher` al pedir la exportación o un filtro de ruido; `public` recibe 403 en `/search/*`.
 - [ ] Ningún resultado afirma más que el veredicto completo: los textos son los mismos campos de la API (prueba de lenguaje incluida).
-- [ ] Los manifiestos sin `stats.noise_*` siguen siendo válidos y el veredicto sale sin `evidence.noise`.
+- [x] Los manifiestos sin `stats.noise_*` siguen siendo válidos y el veredicto sale sin `evidence.noise`. Sale con `evidence.noise: null`, y en la búsqueda esas filas quedan fuera de un filtro de ruido y se cuentan en `query.not_evaluated` con `no_noise_stats` (T-BAL-14, prueba de `verdicts`, 2026-11-14).
 - [ ] La prueba de humo cubre las rutas nuevas (lo exige ya T-BAL-05).
 
 ## Interfaces

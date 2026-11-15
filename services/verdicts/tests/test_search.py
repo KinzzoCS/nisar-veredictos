@@ -356,3 +356,69 @@ def test_area_does_not_change_the_verdict_or_the_filters(cells_root):
     row = next(row for row in body["results"] if row["pair_id"] == "20260629_20260711")
     assert row["state"] == "change_probable" and row["area"]["state"] == "not_observable"
     assert all(row["area"] is None for row in client.get(SEARCH, headers=STUDENT).json()["results"])
+
+
+# --- Ruido de la diferencia (T-BAL-14, RF-BUS-09) ---------------------------------------------------------------
+
+
+@pytest.fixture()
+def noisy(root):
+    """Ruido en tres de los cuatro pares; el cuarto, como un manifiesto anterior a T-ECO-09."""
+    path = root / SERIES / "manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    values = {"20260629_20260711": (0.8, 0.6), "20260711_20260723": (1.3, 0.9), "20260629_20260723": (1.1, None)}
+    for pair in manifest["pairs"]:
+        if pair["id"] in values:
+            hh, hv = values[pair["id"]]
+            pair["stats"] = {**pair["stats"], "noise_hh_db": hh, "noise_hv_db": hv}
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    return TestClient(create_app(root, clock=_clock, build_index=False))
+
+
+def test_verdict_exposes_noise_with_its_caveat(noisy):
+    verdict = noisy.get("/aois/parral/series/T048A-F015/verdicts/20260629_20260711").json()
+    noise = verdict["evidence"]["noise"]
+    assert noise["hh_db"] == 0.8 and noise["hv_db"] == 0.6 and noise["basis"] == "pair_stats"
+    assert noise["calibrated"] is False and "instrumento" in noise["caveat"]
+
+
+def test_manifest_without_noise_gives_null_noise(noisy):
+    verdict = noisy.get("/aois/parral/series/T048A-F015/verdicts/20260723_20260816").json()
+    assert verdict["evidence"]["noise"] is None
+
+
+def test_rows_copy_the_noise_of_the_verdict(noisy):
+    full = {v["id"]: v for v in noisy.get("/aois/parral/series/T048A-F015/verdicts").json()}
+    for row in noisy.get(SEARCH, headers=RESEARCHER).json()["results"]:
+        noise = full[row["pair_id"]]["evidence"]["noise"]
+        assert row["noise_hh_db"] == (noise["hh_db"] if noise else None)
+        assert row["noise_hv_db"] == (noise["hv_db"] if noise else None)
+
+
+def test_noise_filter_keeps_the_range_and_counts_rows_without_noise(noisy):
+    body = noisy.get(SEARCH, headers=RESEARCHER, params={"noise_hh_max": 1.2}).json()
+    assert sorted(_ids(body)) == ["20260629_20260711", "20260629_20260723"]
+    assert body["query"]["not_evaluated"]["noise_hh"] == {"count": 1, "reasons": {"no_noise_stats": 1}}
+    assert body["query"]["filters"] == {"noise_hh_max": 1.2}
+    body = noisy.get(SEARCH, headers=RESEARCHER, params={"noise_hv_min": 0.7}).json()
+    assert _ids(body) == ["20260711_20260723"]
+    assert body["query"]["not_evaluated"]["noise_hv"]["count"] == 2
+
+
+def test_change_probable_with_low_noise(noisy):
+    """Historia de usuario: pares change_probable con ruido en HH menor de 1 dB."""
+    body = noisy.get(SEARCH, headers=RESEARCHER, params={"state": "change_probable", "noise_hh_max": 1.0}).json()
+    assert _ids(body) == ["20260629_20260711"]
+
+
+@pytest.mark.parametrize("direction", ["asc", "desc"])
+def test_sort_by_noise_leaves_unknown_last(noisy, direction):
+    body = noisy.get(SEARCH, headers=RESEARCHER, params={"sort": "noise_hh", "order": direction}).json()
+    known = ["20260629_20260711", "20260629_20260723", "20260711_20260723"]
+    assert _ids(body) == (known if direction == "asc" else known[::-1]) + ["20260723_20260816"]
+
+
+@pytest.mark.parametrize("params", [{"noise_hh_max": 1}, {"noise_hv_min": 0.5}, {"sort": "noise_hv"}])
+def test_noise_filters_and_sort_are_for_researchers(noisy, params):
+    response = noisy.get(SEARCH, headers=STUDENT, params=params)
+    assert response.status_code == 403 and response.json()["required_role"] == "researcher"

@@ -1,9 +1,20 @@
-/* Estilos de la app. Las variables viven en src/tema/tokens.css (T-FAR-12). */
+/*
+ * Estilos de la app. Las variables viven en src/tema/tokens.css (T-FAR-12).
+ * Diseño en blanco y negro (2026-11-14): sin color, sin sombras ni degradados.
+ * Los tres estados se distinguen por la forma: relleno, contorno y trama (.marca).
+ * Puntos de corte: 40rem (móvil), 56rem (historia en dos columnas),
+ * 64rem (panel en dos columnas) y 84rem (panel en tres columnas).
+ */
 :root {
   font-family: var(--fuente-texto);
   font-size: 100%;
   line-height: var(--interlineado);
   color: var(--color-texto);
+  background: var(--color-fondo);
+}
+
+body {
+  margin: 0;
   background: var(--color-fondo);
 }
 
@@ -14,50 +25,48 @@ pre {
 
 a {
   color: var(--color-acento);
+  text-underline-offset: 0.18em;
+}
+
+a:hover {
+  text-decoration-thickness: 2px;
 }
 
 /*
  * Islas claras: el mapa y la línea de tiempo de Atlas (src/mapa/) tienen colores
- * pensados para fondo claro. Hasta que usen las variables, sus contenedores llevan
- * la clase isla-clara (src/tema/tokens.css) y quedan en tema claro también con el
- * tema oscuro, para no poner texto oscuro sobre fondo oscuro.
+ * pensados para fondo claro. Sus contenedores llevan la clase isla-clara
+ * (src/tema/tokens.css) y quedan en tema claro también con el tema oscuro.
  */
 .isla-clara {
   color: var(--color-texto);
   background: var(--color-fondo);
 }
 
-body {
-  margin: 0;
-}
-
 #root {
-  max-width: 72rem;
-  margin: 0 auto;
-  padding: var(--espacio-4) var(--espacio-5) 2rem;
+  min-height: 100vh;
 }
 
-.app-header {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: var(--espacio-4);
+h1,
+h2,
+h3,
+h4 {
+  line-height: 1.15;
 }
 
-h1 {
-  margin: 0;
-  font-size: var(--texto-xxl);
+h2 {
+  font-size: var(--texto-seccion);
+  letter-spacing: -0.015em;
+  margin: 0 0 var(--espacio-3);
 }
 
 .muted {
   color: var(--color-texto-suave);
 }
 
-/* Foco siempre visible (WCAG 2.4.7). */
+/* Foco siempre visible (WCAG 2.4.7): contorno en tinta separado del elemento. */
 :focus-visible {
-  outline: 3px solid var(--color-acento);
-  outline-offset: 2px;
+  outline: 2px solid var(--color-acento);
+  outline-offset: 3px;
 }
 
 /* Saltar al contenido (WCAG 2.4.1): fuera de la vista hasta que recibe el foco. */
@@ -65,13 +74,13 @@ h1 {
   position: absolute;
   left: 1rem;
   top: -100vh;
-  z-index: 20;
+  z-index: 30;
   padding: var(--espacio-2) var(--espacio-3);
+  border: var(--linea-control) solid var(--color-texto);
   border-radius: var(--radio-s);
   background: var(--color-fondo);
-  color: var(--color-acento);
+  color: var(--color-texto);
   font-weight: var(--peso-fuerte);
-  box-shadow: var(--elevacion-2);
 }
 
 .skip-link:focus {
@@ -83,79 +92,263 @@ main:focus {
   outline: none;
 }
 
+/* ---------- Marcas de estado ---------- */
+
+.marca {
+  display: inline-block;
+  flex: none;
+  width: 1em;
+  height: 1em;
+  box-sizing: border-box;
+  vertical-align: -0.12em;
+}
+
+.marca-change_probable {
+  background: var(--color-texto);
+}
+
+.marca-no_detectable_change {
+  background: var(--color-fondo);
+  box-shadow: inset 0 0 0 var(--linea-control) var(--color-texto);
+}
+
+.marca-not_observable {
+  background-color: var(--color-fondo);
+  background-image: repeating-linear-gradient(
+    135deg,
+    var(--color-texto) 0 1.5px,
+    transparent 1.5px 5px
+  );
+  box-shadow: inset 0 0 0 var(--linea-control) var(--color-texto);
+}
+
+/* Observable (consulta de evento): no afirma un cambio. Círculo en contorno. */
+.marca-observable {
+  border: var(--linea-control) solid var(--color-texto);
+  border-radius: 50%;
+}
+
+/* ---------- Controles ---------- */
+
 button {
   font: inherit;
-  padding: 0.35rem 0.75rem;
-  border: 1px solid var(--color-borde-control); /* 3:1 como mínimo (WCAG 1.4.11) */
+  min-height: 2.5rem;
+  padding: 0.35rem 0.85rem;
+  border: var(--linea-control) solid var(--color-borde-control);
   border-radius: var(--radio-s);
-  background: var(--color-superficie);
+  background: transparent;
   color: inherit;
   cursor: pointer;
 }
 
-/* El idioma activo se marca con borde y peso, no solo con color. */
+button:hover {
+  background: var(--color-superficie);
+}
+
+/* Lo activo se invierte: tinta sobre fondo. Además del color, cambia el peso. */
 button[aria-pressed='true'] {
-  border: 2px solid var(--color-texto);
+  background: var(--color-texto);
+  color: var(--color-fondo);
   font-weight: var(--peso-fuerte);
 }
 
+button:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+select,
+input[type='date'],
+input[type='time'] {
+  font: inherit;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  max-width: 100%;
+  padding: 0.3rem var(--espacio-2);
+  border: var(--linea-control) solid var(--color-borde-control);
+  border-radius: var(--radio-s);
+  background: var(--color-fondo);
+  color: inherit;
+}
+
+/* Grupos de botones contiguos (vista, idioma, tema). */
 .language-switch,
 .segmented {
-  display: flex;
+  display: inline-flex;
   flex-wrap: wrap;
-  gap: var(--espacio-2);
 }
 
-/* Vista, idioma y tema (T-FAR-13): una fila que se parte en pantallas estrechas. */
-.app-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--espacio-3) var(--espacio-4);
-  align-items: center;
-}
-
-/* Vista Público: la pregunta va primero (RF-INT-03). */
-.intro-publico h2 {
-  font-size: var(--texto-xxl);
-  margin-bottom: var(--espacio-2);
-}
-
-/* Pliegues de lo avanzado: cerrados en Público, abiertos en las otras vistas. */
-.pliegue {
-  margin-block: var(--espacio-3);
-}
-
-.pliegue > summary {
-  cursor: pointer;
-  font-weight: 700;
-  padding-block: var(--espacio-2);
-}
-
-footer {
-  margin-top: 2rem;
+.language-switch > button,
+.segmented > button {
+  border-radius: 0;
   font-size: var(--texto-s);
 }
 
-/* Distintivo de datos sintéticos (T-FAR-04): fijo arriba, sin botón de cerrar. */
+.language-switch > button + button,
+.segmented > button + button {
+  margin-left: calc(-1 * var(--linea-control));
+}
+
+.language-switch > button:first-child,
+.segmented > button:first-child {
+  border-radius: var(--radio-s) 0 0 var(--radio-s);
+}
+
+.language-switch > button:last-child,
+.segmented > button:last-child {
+  border-radius: 0 var(--radio-s) var(--radio-s) 0;
+}
+
+/* ---------- Cabecera ---------- */
+
+.app-header {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--espacio-3) var(--espacio-5);
+  padding-block: var(--espacio-4);
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.app-marca {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
+  min-width: 0;
+}
+
+.app-marcas {
+  display: inline-flex;
+  gap: 3px;
+  font-size: 0.8rem;
+}
+
+.app-header h1 {
+  margin: 0;
+  font-size: var(--texto-l);
+  letter-spacing: -0.01em;
+}
+
+.app-lema {
+  margin: 0;
+  font-size: var(--texto-s);
+  max-width: 34rem;
+}
+
+/* Vista, idioma y tema: una fila que se parte en pantallas estrechas. */
+.app-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2) var(--espacio-3);
+  align-items: center;
+}
+
+@media (max-width: 40rem) {
+  .app-lema {
+    display: none;
+  }
+
+  .app-controls {
+    width: 100%;
+  }
+}
+
+/* ---------- Distintivo de datos sintéticos (T-FAR-04): fijo arriba, sin botón de cerrar ---------- */
+
+.synthetic-banner,
+.synthetic-notice {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: flex-start;
+  font-weight: var(--peso-fuerte);
+}
+
+.synthetic-banner .marca,
+.synthetic-notice .marca {
+  margin-top: 0.15em;
+  font-size: 1.15em;
+}
+
 .synthetic-banner {
   position: sticky;
   top: 0;
   z-index: 10;
   margin: var(--espacio-3) 0 0;
   padding: var(--espacio-2) var(--espacio-3);
-  border: 2px solid var(--color-aviso-borde);
+  border: var(--linea-control) solid var(--color-aviso-borde);
   border-radius: var(--radio-s);
   background: var(--color-aviso-fondo);
-  box-shadow: var(--elevacion-1);
-  font-weight: var(--peso-fuerte);
 }
 
 .synthetic-notice {
   margin: 0 0 var(--espacio-3);
-  padding: var(--espacio-1) var(--espacio-2);
-  border-left: 4px solid var(--color-aviso-borde);
+  padding: var(--espacio-2) var(--espacio-3);
   background: var(--color-aviso-fondo);
+}
+
+/* ---------- Vista Público: la pregunta primero (RF-INT-03) ---------- */
+
+.intro-publico {
+  padding-block: clamp(2rem, 1rem + 4vw, 4.5rem) var(--espacio-5);
+}
+
+.intro-publico h2 {
+  font-size: var(--texto-titular);
+  line-height: 1.02;
+  letter-spacing: -0.03em;
+  max-width: 14em;
+  margin-bottom: var(--espacio-4);
+}
+
+.intro-lead {
+  font-size: clamp(1.05rem, 1rem + 0.35vw, 1.25rem);
+  line-height: 1.6;
+  max-width: 40rem;
+  margin: 0 0 var(--espacio-5);
+}
+
+.leyenda-estados {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--espacio-4) var(--espacio-5);
+  margin: 0;
+  padding: var(--espacio-4) 0 0;
+  list-style: none;
+  border-top: var(--linea-control) solid var(--color-texto);
+}
+
+.leyenda-estados li {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: flex-start;
+}
+
+.leyenda-estados .marca {
+  font-size: 2rem;
+}
+
+.leyenda-estados li > span:last-child {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: var(--texto-s);
+}
+
+.leyenda-estados strong {
+  font-size: var(--texto-m);
+}
+
+/* ---------- Pliegues de lo avanzado: cerrados en Público, abiertos en las otras vistas ---------- */
+
+.pliegue {
+  margin-block: 0 var(--espacio-3);
+}
+
+.pliegue > summary {
+  cursor: pointer;
   font-weight: var(--peso-fuerte);
+  padding-block: var(--espacio-2);
 }
 
 .picker {
@@ -166,47 +359,31 @@ footer {
   margin-bottom: var(--espacio-4);
 }
 
-select {
-  font: inherit;
-  padding: 0.3rem var(--espacio-2);
-  border: 1px solid var(--color-borde-control);
-  border-radius: var(--radio-s);
-  background: var(--color-fondo);
-  color: inherit;
-}
+/* ---------- Tarjeta de veredicto (T-FAR-02) ---------- */
 
-/* Tarjeta de veredicto (T-FAR-02). El estado lleva icono y texto; el color solo refuerza. */
 .verdict-card {
-  border: 2px solid var(--color-borde-control);
-  border-left-width: var(--espacio-2);
+  border: var(--linea-control) solid var(--color-texto);
   border-radius: var(--radio-m);
-  padding: var(--espacio-4) var(--texto-l);
+  padding: var(--espacio-4) var(--espacio-5);
   background: var(--color-fondo);
-  box-shadow: var(--elevacion-1);
 }
 
-.verdict-change_probable {
-  border-color: var(--color-cambio);
-}
-
-.verdict-no_detectable_change {
-  border-color: var(--color-sin-cambio);
-}
-
-/* No observable: borde discontinuo y trama, para que no se confunda con "sin cambio". */
-.verdict-not_observable {
-  border-color: var(--color-no-observable);
+/* No observable: borde discontinuo además de la trama de la marca. */
+.verdict-not_observable,
+.event-not_observable {
   border-style: dashed;
-  background-image: repeating-linear-gradient(
-    135deg,
-    transparent 0 12px,
-    var(--color-trama) 12px 14px
-  );
 }
 
 .verdict-head h3 {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
   margin: 0;
   font-size: var(--texto-xl);
+}
+
+.verdict-head .verdict-icon {
+  font-size: 1.6em;
 }
 
 .verdict-head p {
@@ -217,24 +394,15 @@ select {
   font-weight: var(--peso-fuerte);
 }
 
-.verdict-icon {
-  display: inline-block;
-  width: 1.25em;
-}
-
-.verdict-change_probable .verdict-icon {
-  color: var(--color-cambio);
-}
-
-.verdict-no_detectable_change .verdict-icon {
-  color: var(--color-sin-cambio);
+.verdict-state:focus-visible {
+  outline-offset: 4px;
 }
 
 .verdict-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-  gap: 1rem;
-  margin: 1rem 0;
+  gap: var(--espacio-4);
+  margin: var(--espacio-4) 0;
 }
 
 .verdict-summary dt,
@@ -254,8 +422,8 @@ select {
 }
 
 .receipt {
-  margin-top: 1rem;
-  border-top: 1px solid var(--color-borde);
+  margin-top: var(--espacio-4);
+  border-top: var(--linea-control) solid var(--color-texto);
   padding-top: var(--espacio-3);
 }
 
@@ -266,13 +434,14 @@ select {
 
 .receipt dl {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 0.35rem 1rem;
   margin: 0.75rem 0 0;
+  font-size: var(--texto-s);
 }
 
 .receipt dt {
-  font-weight: var(--peso-fuerte);
+  color: var(--color-texto-suave);
 }
 
 .receipt dd {
@@ -290,27 +459,75 @@ select {
   overflow-wrap: anywhere;
 }
 
-@media (max-width: 40rem) {
-  .picker,
-  .receipt dl {
-    grid-template-columns: 1fr;
-  }
+/* ---------- Evidencia (vistas Estudiante e Investigador) ---------- */
+
+.evidencia {
+  margin-top: var(--espacio-5);
+}
+
+.evidencia h3 {
+  margin: 0 0 var(--espacio-2);
+  font-size: var(--texto-l);
+}
+
+.evidencia table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--texto-s);
+}
+
+.evidencia th,
+.evidencia td {
+  text-align: left;
+  vertical-align: top;
+  padding: var(--espacio-2) 0;
+  border-top: 1px solid var(--color-borde);
+}
+
+.evidencia th {
+  width: 42%;
+  padding-right: var(--espacio-3);
+  font-weight: var(--peso-normal);
+  color: var(--color-texto-suave);
+}
+
+.evidencia-explica {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+.enlace-json {
+  margin: var(--espacio-4) 0 0;
+  font-size: var(--texto-s);
 }
 
 /* Mapa de Atlas (T-FAR-05). */
 .atlas-map {
-  margin-top: 1.5rem;
+  border: var(--linea-control) solid var(--color-texto);
+  border-radius: var(--radio-m);
+  overflow: hidden;
 }
 
 .atlas-map > button {
-  margin-bottom: 0.5rem;
+  align-self: flex-start;
+  margin: var(--espacio-2);
 }
 
-/* La altura va en el marco: Atlas da al contenedor height: 100% (src/mapa/mapa.css). */
+/* La altura va en el marco: Atlas da al contenedor height: 100% (src/mapa/mapa.css).
+   El mapa ocupa todo el alto de su zona en el panel central. */
+.atlas-map {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
 .atlas-map-frame {
   position: relative;
-  height: 60vh;
-  min-height: 320px;
+  flex: 1 1 auto;
+  min-height: 18rem;
 }
 
 .atlas-map-canvas {
@@ -329,21 +546,14 @@ select {
   font-weight: var(--peso-fuerte);
 }
 
-/* Consulta de evento (T-FAR-03). */
+/* ---------- Consulta de evento (T-FAR-03) ---------- */
+
 .event-query {
-  margin-top: 2.5rem;
-  padding-top: 1.5rem;
-  border-top: 1px solid var(--color-borde);
+  margin-top: var(--espacio-4);
 }
 
-input[type='date'],
-input[type='time'] {
-  font: inherit;
-  padding: 0.3rem var(--espacio-2);
-  border: 1px solid var(--color-borde-control);
-  border-radius: var(--radio-s);
-  background: var(--color-fondo);
-  color: inherit;
+.event-query > .picker {
+  max-width: 48rem;
 }
 
 .field-help {
@@ -358,24 +568,9 @@ input[type='time'] {
   gap: 0.5rem;
 }
 
-/* Observable no afirma un cambio: borde neutro, no el color de "cambio probable". */
-.event-observable {
-  border-color: var(--color-acento);
-}
-
-.event-not_observable {
-  border-color: var(--color-no-observable);
-  border-style: dashed;
-  background-image: repeating-linear-gradient(
-    135deg,
-    transparent 0 12px,
-    var(--color-trama) 12px 14px
-  );
-}
-
 .event-facts {
   display: grid;
-  grid-template-columns: max-content 1fr;
+  grid-template-columns: max-content minmax(0, 1fr);
   gap: 0.35rem 1rem;
   margin: 0;
 }
@@ -393,55 +588,81 @@ input[type='time'] {
   padding-left: 1.1rem;
 }
 
-.verdict-state:focus-visible {
-  outline-offset: 4px;
+/* Pliegue de la consulta de evento, al final de la página. */
+main > .pliegue {
+  margin-top: var(--espacio-6);
+  padding-top: var(--espacio-4);
+  border-top: var(--linea-control) solid var(--color-texto);
 }
 
-@media (max-width: 40rem) {
-  .event-facts {
-    grid-template-columns: 1fr;
-  }
+main > .pliegue > summary {
+  font-size: var(--texto-l);
 }
 
-/* Modo historia (T-FAR-06). */
-.story {
-  margin: 1.5rem 0 2.5rem;
-  padding: 1rem 1.25rem 1.25rem;
+/* Línea de tiempo de Atlas bajo la respuesta del evento (T-FAR-19). */
+.pass-timeline {
+  margin-top: var(--espacio-5);
+  padding: var(--espacio-3) var(--espacio-4);
   border: 1px solid var(--color-borde);
   border-radius: var(--radio-m);
-  background: var(--color-superficie);
 }
 
-.story h2 {
+/* ---------- Modo historia (T-FAR-06) ---------- */
+
+.story {
+  margin: var(--espacio-5) 0 0;
+  padding-top: var(--espacio-5);
+  border-top: var(--linea-control) solid var(--color-texto);
+}
+
+.story > h2 {
+  margin-top: 0;
+}
+
+.story > .muted {
+  max-width: 44rem;
   margin-top: 0;
 }
 
 .story-steps {
   display: flex;
   flex-wrap: wrap;
-  gap: 0.5rem;
-  margin: 0.75rem 0 1rem;
+  gap: var(--espacio-2);
+  margin: var(--espacio-3) 0 var(--espacio-4);
   padding: 0;
   list-style: none;
 }
 
-/* El paso activo se marca con borde y peso, no solo con color. */
+.story-steps button {
+  text-align: left;
+}
+
+/* El paso activo se invierte y va en negrita: no depende solo del color. */
 .story-steps button[aria-current='step'] {
-  border: 2px solid var(--color-texto);
+  background: var(--color-texto);
+  color: var(--color-fondo);
   font-weight: var(--peso-fuerte);
-  background: var(--color-fondo);
+}
+
+.story-scene {
+  min-width: 0;
 }
 
 .story-scene h3 {
-  margin: 0 0 0.5rem;
+  margin: 0 0 var(--espacio-3);
+  font-size: var(--texto-xl);
+}
+
+.story-scene > p {
+  max-width: 44rem;
 }
 
 .story-scene .verdict-card {
-  margin-top: 0.75rem;
+  margin-top: var(--espacio-3);
 }
 
 .story-map-link {
-  margin-top: 0.75rem;
+  margin-top: var(--espacio-3);
 }
 
 .story-count {
@@ -457,21 +678,760 @@ input[type='time'] {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 0.5rem;
-  margin-top: 1rem;
+  gap: var(--espacio-2);
+  margin-top: var(--espacio-4);
 }
 
-button:disabled {
-  opacity: 0.55;
-  cursor: not-allowed;
+/* Con 44rem de panel: escenas a la izquierda, escena activa a la derecha (consulta de contenedor). */
+@container centro (min-width: 44rem) {
+  .story {
+    display: grid;
+    grid-template-columns: 16rem minmax(0, 1fr);
+    column-gap: clamp(1.5rem, 1rem + 2vw, 3rem);
+    align-items: start;
+  }
+
+  .story > h2,
+  .story > .muted {
+    grid-column: 1 / -1;
+  }
+
+  .story > nav {
+    grid-column: 1;
+    grid-row: 3 / span 2;
+    position: sticky;
+    top: var(--espacio-4);
+  }
+
+  .story-steps {
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+  }
+
+  .story-steps button {
+    width: 100%;
+    border-width: 0;
+    border-top: 1px solid var(--color-borde);
+    border-radius: 0;
+    padding: var(--espacio-3) var(--espacio-2);
+  }
+
+  .story-steps li:last-child button {
+    border-bottom: 1px solid var(--color-borde);
+  }
+
+  .story-scene,
+  .story-pager {
+    grid-column: 2;
+  }
 }
 
-/* Línea de tiempo de Atlas bajo la respuesta del evento (T-FAR-19). */
-.pass-timeline {
+/* ---------- Pie ---------- */
+
+footer {
+  margin-top: var(--espacio-6);
+  padding-top: var(--espacio-3);
+  border-top: 1px solid var(--color-borde);
+  font-size: var(--texto-s);
+}
+
+footer p {
+  margin: 0.25rem 0;
+}
+
+/* ---------- Móvil ---------- */
+
+@media (max-width: 40rem) {
+  .picker,
+  .receipt dl,
+  .event-facts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .verdict-card {
+    padding: var(--espacio-3) var(--espacio-4);
+  }
+
+  .evidencia th {
+    width: 50%;
+  }
+}
+
+/* =====================================================================
+ * Armazón de la app: búsqueda a la izquierda, vistas al centro y
+ * guardar y comunidad a la derecha. Cada panel tiene su propio scroll;
+ * la página no se desplaza en escritorio.
+ *   - Desde 84rem: las tres columnas.
+ *   - De 56 a 84rem: el centro y un lateral (Buscar/Ver muestran el
+ *     izquierdo; Guardar, el derecho), elegidos con la barra de paneles.
+ *   - Por debajo de 56rem: un panel cada vez.
+ * ===================================================================== */
+
+.sr-solo {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.app-header {
+  padding-inline: clamp(0.75rem, 0.5rem + 1vw, 1.25rem);
+  padding-block: var(--espacio-2);
+}
+
+.synthetic-banner {
+  margin: var(--espacio-2) clamp(0.75rem, 0.5rem + 1vw, 1.25rem) 0;
+}
+
+.estado-carga {
+  padding: var(--espacio-5);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: 'panel';
+}
+
+.panel-izq,
+.panel-centro,
+.panel-der {
+  grid-area: panel;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: var(--espacio-4);
+}
+
+.panel-centro {
+  container: centro / inline-size;
+}
+
+/* Móvil: un panel cada vez; la barra de abajo elige cuál. */
+.shell[data-panel='buscar'] .panel-centro,
+.shell[data-panel='buscar'] .panel-der,
+.shell[data-panel='ver'] .panel-izq,
+.shell[data-panel='ver'] .panel-der,
+.shell[data-panel='guardar'] .panel-izq,
+.shell[data-panel='guardar'] .panel-centro {
+  display: none;
+}
+
+.shell {
+  padding-bottom: 4rem;
+}
+
+.barra-paneles {
+  position: fixed;
+  inset: auto 0 0 0;
+  z-index: 20;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border-top: var(--linea-control) solid var(--color-texto);
+  background: var(--color-fondo);
+}
+
+.barra-paneles button {
+  min-height: 3.25rem;
+  border: 0;
+  border-radius: 0;
+  font-weight: var(--peso-fuerte);
+}
+
+@media (min-width: 56rem) {
+  #root {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    min-height: 0;
+  }
+
+  .app-header,
+  .synthetic-banner {
+    flex: none;
+  }
+
+  .shell {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: 0;
+    grid-template-columns: 20rem minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+      'barra barra'
+      'lateral centro';
+  }
+
+  .barra-paneles {
+    position: static;
+    grid-area: barra;
+    grid-template-columns: repeat(3, max-content);
+    gap: 0;
+    border-top: 0;
+    border-bottom: 1px solid var(--color-borde);
+    padding-inline: var(--espacio-3);
+  }
+
+  .barra-paneles button {
+    min-height: 2.5rem;
+    font-weight: var(--peso-normal);
+  }
+
+  .panel-izq,
+  .panel-der {
+    grid-area: lateral;
+    overflow-y: auto;
+    border-right: 1px solid var(--color-borde);
+  }
+
+  .panel-centro {
+    grid-area: centro;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .shell[data-panel] .panel-centro {
+    display: flex;
+  }
+
+  /* Ver y Buscar enseñan la búsqueda; Guardar, el panel derecho. */
+  .shell[data-panel='ver'] .panel-izq,
+  .shell[data-panel='buscar'] .panel-izq,
+  .shell[data-panel='guardar'] .panel-der {
+    display: block;
+  }
+
+  .shell[data-panel='guardar'] .panel-izq,
+  .shell[data-panel='ver'] .panel-der,
+  .shell[data-panel='buscar'] .panel-der {
+    display: none;
+  }
+}
+
+@media (min-width: 84rem) {
+  .shell {
+    grid-template-columns: 20rem minmax(0, 1fr) 23rem;
+    grid-template-rows: minmax(0, 1fr);
+    grid-template-areas: 'izq centro der';
+  }
+
+  .barra-paneles {
+    display: none;
+  }
+
+  .shell[data-panel] .panel-izq,
+  .shell[data-panel] .panel-der {
+    display: block;
+  }
+
+  .panel-izq {
+    grid-area: izq;
+  }
+
+  .panel-der {
+    grid-area: der;
+    border-right: 0;
+    border-left: 1px solid var(--color-borde);
+  }
+}
+
+/* ---------- Pestañas ---------- */
+
+.pestanas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0;
+  margin-bottom: var(--espacio-3);
+  border-bottom: var(--linea-control) solid var(--color-texto);
+}
+
+.pestanas [role='tab'] {
+  border: 0;
+  border-radius: var(--radio-s) var(--radio-s) 0 0;
+  padding-inline: var(--espacio-3);
+  font-size: var(--texto-s);
+}
+
+.pestanas [role='tab'][aria-selected='true'] {
+  background: var(--color-texto);
+  color: var(--color-fondo);
+  font-weight: var(--peso-fuerte);
+}
+
+.panel-pestana[hidden] {
+  display: none;
+}
+
+.panel-centro > .panel-pestana {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+/* ---------- Vista de mapa: el mapa arriba y el veredicto debajo ---------- */
+
+.vista-mapa {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-4);
+}
+
+.vista-mapa-mapa {
+  height: 62vh;
+  min-height: 20rem;
+}
+
+@media (min-width: 56rem) {
+  .vista-mapa {
+    height: 100%;
+  }
+
+  .vista-mapa-mapa {
+    flex: 0 0 58%;
+    height: auto;
+  }
+
+  .vista-mapa-detalle {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: var(--espacio-1);
+  }
+}
+
+/* Con un panel central ancho, el veredicto va al lado del mapa en lugar de debajo. */
+@container centro (min-width: 60rem) {
+  .vista-mapa {
+    flex-direction: row;
+  }
+
+  .vista-mapa-mapa {
+    flex: 1 1 auto;
+    height: auto;
+  }
+
+  .vista-mapa-detalle {
+    flex: 0 0 24rem;
+  }
+}
+
+/* En el panel central la historia y la consulta van más compactas. */
+.panel-centro .intro-publico {
+  padding-block: var(--espacio-2) var(--espacio-4);
+}
+
+.panel-centro .intro-publico h2 {
+  font-size: clamp(2rem, 1.5rem + 2vw, 3.25rem);
+}
+
+.panel-centro .story {
+  margin-top: 0;
+  padding-top: var(--espacio-3);
+}
+
+.panel-centro .event-query {
+  margin-top: 0;
+}
+
+/* ---------- Paneles laterales ---------- */
+
+.panel-titulo {
+  font-size: var(--texto-l);
+  margin: 0 0 var(--espacio-3);
+}
+
+.campo {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: var(--espacio-3);
+}
+
+.campo label {
+  font-size: var(--texto-s);
+  font-weight: var(--peso-fuerte);
+}
+
+.campo input[type='text'],
+.campo input[type='email'],
+.campo input[type='password'],
+.campo input[type='date'],
+.campo select,
+.campo textarea {
+  font: inherit;
+  width: 100%;
+  min-height: 2.5rem;
+  box-sizing: border-box;
+  padding: 0.3rem var(--espacio-2);
+  border: var(--linea-control) solid var(--color-borde-control);
+  border-radius: var(--radio-s);
+  background: var(--color-fondo);
+  color: inherit;
+}
+
+.campo textarea {
+  resize: vertical;
+}
+
+.ayuda {
+  margin: 0.2rem 0 0;
+  font-size: 0.8125rem;
+  line-height: 1.45;
+}
+
+fieldset {
+  margin: 0 0 var(--espacio-3);
+  padding: 0;
+  border: 0;
+}
+
+legend {
+  padding: 0;
+  margin-bottom: var(--espacio-1);
+  font-size: var(--texto-s);
+  font-weight: var(--peso-fuerte);
+}
+
+.casilla {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-height: 2rem;
+  font-size: var(--texto-s);
+  cursor: pointer;
+}
+
+.casilla input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin: 0;
+  accent-color: var(--color-texto);
+}
+
+.rango-campos {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--espacio-2);
+}
+
+.linea-rango {
+  display: block;
+  width: 100%;
+  /* El SVG escala con el ancho: sin tope, en un panel ancho de móvil el texto se haría enorme. */
+  max-width: 20rem;
+  height: auto;
+  margin-bottom: var(--espacio-2);
+  color: var(--color-texto);
+}
+
+.linea-rango-sel {
+  fill: var(--color-superficie);
+  stroke: var(--color-texto);
+  stroke-width: 1;
+}
+
+.resultados {
+  margin-top: var(--espacio-3);
+  border-top: var(--linea-control) solid var(--color-texto);
+  padding-top: var(--espacio-2);
+}
+
+.resultados-titulo {
+  margin: 0 0 var(--espacio-2);
+  font-size: var(--texto-m);
+}
+
+.resultados-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.resultados-lista button {
+  display: flex;
+  gap: var(--espacio-2);
+  align-items: flex-start;
+  width: 100%;
+  text-align: left;
+  border: 0;
+  border-bottom: 1px solid var(--color-borde);
+  border-radius: 0;
+  padding: var(--espacio-2) var(--espacio-1);
+  font-weight: var(--peso-normal);
+}
+
+.resultados-lista button .marca {
+  margin-top: 0.2em;
+}
+
+.resultados-lista button[aria-pressed='true'] .marca-change_probable {
+  background: var(--color-fondo);
+}
+
+.resultados-lista button[aria-pressed='true'] .marca-no_detectable_change,
+.resultados-lista button[aria-pressed='true'] .marca-not_observable {
+  box-shadow: inset 0 0 0 var(--linea-control) var(--color-fondo);
+}
+
+.resultado-texto {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.resultado-fechas {
+  font-weight: var(--peso-fuerte);
+  font-variant-numeric: tabular-nums;
+}
+
+.resultado-meta {
+  font-size: 0.8125rem;
+}
+
+.pie {
   margin-top: var(--espacio-5);
-  /* En tema oscuro es una isla clara: el relleno y el radio la separan del texto (revisión de Atlas, PR 95). */
-  padding: var(--espacio-3) var(--espacio-4);
+  font-size: 0.8125rem;
+}
+
+/* ---------- Intérprete y comunidad ---------- */
+
+.interprete-intro,
+.interprete-etiqueta {
+  margin-top: 0;
+  font-size: var(--texto-s);
+}
+
+.interprete h3 {
+  margin: 0 0 var(--espacio-1);
+  font-size: var(--texto-l);
+}
+
+.interprete-sub {
+  margin: var(--espacio-4) 0 var(--espacio-1);
+  font-size: var(--texto-m);
+}
+
+.interprete-resumen {
+  margin: 0 0 var(--espacio-2);
+  font-size: var(--texto-s);
+  font-weight: var(--peso-fuerte);
+}
+
+.interprete-pares {
+  margin: 0 0 var(--espacio-4);
+  padding: 0;
+  list-style: none;
+}
+
+.interprete-pares > li {
+  display: flex;
+  gap: var(--espacio-2);
+  align-items: flex-start;
+  padding: var(--espacio-2) 0;
+  border-top: 1px solid var(--color-borde);
+  font-size: var(--texto-s);
+}
+
+.interprete-pares > li.fuera > div {
+  opacity: 0.5;
+}
+
+.par-cabecera {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem var(--espacio-2);
+  align-items: center;
+}
+
+.par-texto {
+  display: block;
+  margin-top: 0.15rem;
+}
+
+.par-mas summary {
+  cursor: pointer;
+  font-size: 0.8125rem;
+  margin-top: 0.15rem;
+}
+
+.par-mas dl {
+  margin: 0.25rem 0 0;
+}
+
+.par-mas dt {
+  font-weight: var(--peso-fuerte);
+}
+
+.par-mas dd {
+  margin: 0 0 0.25rem;
+}
+
+.notas-autoria {
+  border-top: var(--linea-control) solid var(--color-texto);
+  padding-top: var(--espacio-2);
+}
+
+.notas-autoria h4 {
+  margin: 0;
+}
+
+.notas-autoria blockquote {
+  margin: var(--espacio-2) 0;
+  padding: var(--espacio-2) var(--espacio-3);
+  border-left: 3px solid var(--color-texto);
+  background: var(--color-superficie);
+  white-space: pre-wrap;
+}
+
+.acciones {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--espacio-2);
+  margin: var(--espacio-3) 0 var(--espacio-2);
+}
+
+.boton-principal {
+  background: var(--color-texto);
+  color: var(--color-fondo);
+  font-weight: var(--peso-fuerte);
+}
+
+.boton-principal:hover:not(:disabled) {
+  background: var(--color-texto-suave);
+}
+
+.enlace-boton {
+  border: 0;
+  padding-inline: var(--espacio-1);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.aviso-sesion {
+  font-size: var(--texto-s);
+}
+
+.comunidad-barra {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  margin-bottom: var(--espacio-3);
+  font-size: var(--texto-s);
+}
+
+.comunidad-lista {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.comunidad-lista > li {
+  padding: var(--espacio-3) 0;
+  border-top: 1px solid var(--color-borde);
+}
+
+.comunidad-lista h4 {
+  margin: 0;
+  font-size: var(--texto-m);
+}
+
+.comunidad-meta {
+  margin: 0.15rem 0 var(--espacio-2);
+  font-size: 0.8125rem;
+}
+
+.estrellas-resumen {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--espacio-2);
+  margin: 0;
+  font-size: 0.8125rem;
+}
+
+.estrellas-resumen dt {
+  color: var(--color-texto-suave);
+}
+
+.estrellas-resumen dd {
+  margin: 0;
+  font-weight: var(--peso-fuerte);
+}
+
+.estrellas-valorar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem;
+}
+
+.estrella {
+  min-width: 2.5rem;
+  font-size: 1.15rem;
+  line-height: 1;
+  padding-inline: 0.4rem;
+  border-color: transparent;
+}
+
+/* La estrella elegida no se invierte: ya se marca con el relleno. */
+.estrellas-valorar .estrella[aria-pressed='true'] {
+  background: transparent;
+  color: inherit;
+  border-color: var(--color-texto);
+}
+
+/* ---------- Sesión ---------- */
+
+.sesion {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+}
+
+/* Icono de la cuenta: con sesión se invierte (tinta sobre fondo), como lo activo en el resto de la interfaz. */
+.boton-cuenta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.5rem;
+  padding: 0;
+  border-radius: 50%;
+}
+
+.boton-cuenta.con-sesion {
+  background: var(--color-texto);
+  color: var(--color-fondo);
+}
+
+.boton-cuenta.con-sesion:hover {
+  background: var(--color-texto-suave);
+}
+
+.dialogo {
+  width: min(26rem, calc(100vw - 2rem));
+  padding: var(--espacio-5);
+  border: var(--linea-control) solid var(--color-texto);
   border-radius: var(--radio-m);
+  background: var(--color-fondo);
+  color: var(--color-texto);
+}
+
+.dialogo::backdrop {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.dialogo h2 {
+  font-size: var(--texto-xl);
+}
+
+.dialogo-cerrar {
+  margin-top: var(--espacio-2);
 }
 
 /* Movimiento reducido (RF-INT-09): sin animaciones, transiciones ni desplazamiento suave. Mismo contenido. */
@@ -483,5 +1443,240 @@ button:disabled {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+}
+
+/* =====================================================================
+ * Botones con icono de línea (2026-11-14): sin texto salvo que haga falta.
+ * El nombre va en aria-label y en title (descripción emergente).
+ * ===================================================================== */
+
+.icono {
+  display: block;
+  flex: none;
+}
+
+.boton-icono {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.5rem;
+  min-height: 2.5rem;
+  padding: 0;
+}
+
+.boton-icono.boton-principal {
+  min-width: 2.75rem;
+}
+
+/* Pestañas: solo el icono, con el mismo alto táctil que un botón. */
+.pestanas [role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 2.75rem;
+}
+
+/* Barra de paneles: iconos un poco mayores. */
+.barra-paneles .boton-icono {
+  min-height: 3.25rem;
+}
+
+@media (min-width: 56rem) {
+  .barra-paneles .boton-icono {
+    min-height: 2.5rem;
+    min-width: 3rem;
+  }
+}
+
+/* Idioma: códigos cortos, en el mismo grupo contiguo. */
+.language-switch > button {
+  min-width: 2.5rem;
+  padding-inline: 0.5rem;
+  letter-spacing: 0.04em;
+}
+
+.boton-tema {
+  border-radius: 50%;
+}
+
+.dialogo-cerrar {
+  position: absolute;
+  top: var(--espacio-3);
+  right: var(--espacio-3);
+  margin: 0;
+}
+
+.dialogo {
+  position: relative;
+}
+
+.estrellas-valorar .boton-icono {
+  border-color: transparent;
+}
+
+/* =====================================================================
+ * Esqueletos de carga: bloques grises con un brillo que los recorre.
+ * ===================================================================== */
+
+.esqueleto {
+  display: block;
+  margin-block: var(--espacio-2);
+}
+
+.esqueleto > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
+}
+
+.esq {
+  display: block;
+  border-radius: var(--radio-s);
+  background: linear-gradient(
+      90deg,
+      transparent 0%,
+      light-dark(rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.09)) 50%,
+      transparent 100%
+    )
+    no-repeat,
+    var(--color-superficie);
+  background-size: 40% 100%, 100% 100%;
+  background-position: -60% 0, 0 0;
+  animation: esq-brillo 1.4s ease-in-out infinite;
+}
+
+@keyframes esq-brillo {
+  to {
+    background-position: 160% 0, 0 0;
+  }
+}
+
+.esq-linea {
+  height: 0.8rem;
+}
+
+.esq-corta {
+  width: 45% !important;
+  height: 0.65rem;
+}
+
+.esq-marca {
+  flex: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  border-radius: 0;
+}
+
+.esq-titulo {
+  height: 1.3rem;
+  width: 55%;
+}
+
+.esq-cabecera,
+.esq-fila {
+  display: flex;
+  gap: var(--espacio-3);
+  align-items: center;
+}
+
+.esq-fila {
+  align-items: flex-start;
+  padding-block: var(--espacio-2);
+  border-bottom: 1px solid var(--color-borde);
+}
+
+.esq-fila-texto {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.esqueleto-tarjeta > div {
+  padding: var(--espacio-4);
+  border: 1px solid var(--color-borde);
+  border-radius: var(--radio-m);
+}
+
+.esq-bloque {
+  height: 100%;
+  min-height: 18rem;
+  border-radius: var(--radio-m);
+}
+
+.esqueleto-bloque,
+.esqueleto-bloque > div {
+  height: 100%;
+  margin: 0;
+}
+
+.shell-cargando .panel-centro {
+  display: flex !important;
+  flex-direction: column;
+  gap: var(--espacio-4);
+}
+
+.shell-cargando .panel-izq,
+.shell-cargando .panel-der {
+  display: none;
+}
+
+@media (min-width: 56rem) {
+  .shell-cargando .panel-izq {
+    display: block;
+  }
+}
+
+@media (min-width: 84rem) {
+  .shell-cargando .panel-der {
+    display: block;
+  }
+}
+
+/* =====================================================================
+ * Cambio de tema con transición. Con View Transitions, el tema nuevo se abre
+ * en círculo desde el botón (--tema-x, --tema-y, --tema-r los fija tema.ts);
+ * sin ellas, los colores se funden. Con movimiento reducido, sin animación.
+ * ===================================================================== */
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+::view-transition-new(root) {
+  animation: tema-circulo 0.55s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+@keyframes tema-circulo {
+  from {
+    clip-path: circle(0 at var(--tema-x, 100%) var(--tema-y, 0));
+  }
+  to {
+    clip-path: circle(var(--tema-r, 150%) at var(--tema-x, 100%) var(--tema-y, 0));
+  }
+}
+
+.tema-transicion,
+.tema-transicion *,
+.tema-transicion *::before,
+.tema-transicion *::after {
+  transition:
+    background-color 0.4s ease,
+    color 0.4s ease,
+    border-color 0.4s ease,
+    fill 0.4s ease,
+    stroke 0.4s ease !important;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .esq {
+    animation: none;
+  }
+
+  ::view-transition-new(root) {
+    animation: none;
   }
 }

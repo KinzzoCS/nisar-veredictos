@@ -315,6 +315,38 @@ class SceneShiftOut(BaseModel):
     calibrated: bool = Field(False, description="Siempre false.")
 
 
+class NoiseOut(BaseModel):
+    """Dispersión de la diferencia del par (RF-BUS-09), copiada de stats.noise_* del manifiesto de Eco (T-ECO-09)."""
+
+    basis: Literal["pair_stats"] = Field(
+        "pair_stats", description="Siempre pair_stats: stats.noise_hh_db y noise_hv_db del par en el manifiesto."
+    )
+    hh_db: float | None = Field(
+        description="Desviación robusta de la diferencia HH (1,4826 · MAD alrededor de la mediana), en dB, sobre los "
+        "píxeles observables, tras suavizar 5 × 5 y antes del umbral y del filtro de grupos. null si falta."
+    )
+    hv_db: float | None = Field(description="Igual que hh_db, para HV.")
+    caveat: str = Field(
+        description="Advertencia fija: no es ruido del instrumento. Incluye también cambio real repartido "
+        "(humedad, vegetación) y textura, así que un valor alto no prueba que el cambio sea ruido."
+    )
+    calibrated: bool = Field(False, description="Siempre false: no hay un umbral de ruido contrastado.")
+
+
+NOISE_CAVEAT = (
+    "No es ruido del instrumento: es la dispersión de la diferencia entre las dos fechas sobre lo observable, e "
+    "incluye también cambio real repartido (humedad, vegetación) y textura."
+)
+
+
+def noise_from_stats(stats: dict) -> NoiseOut | None:
+    """evidence.noise si el manifiesto trae alguna de stats.noise_*; si no, null (manifiestos anteriores a T-ECO-09)."""
+    hh, hv = stats.get("noise_hh_db"), stats.get("noise_hv_db")
+    if hh is None and hv is None:
+        return None
+    return NoiseOut(hh_db=hh, hv_db=hv, caveat=NOISE_CAVEAT)
+
+
 class DecisionRule(BaseModel):
     min_observed_fraction: float = Field(description="Por debajo de esta fracción observada, not_observable.")
     min_changed_fraction: float = Field(
@@ -345,6 +377,12 @@ class Evidence(BaseModel):
     )
     water: WaterEvidence = Field(
         description="Contraste del agua del radar con OPERA DSWx-S1 (RF-BAL-07). Un desacuerdo es un dato, no un fallo."
+    )
+    noise: NoiseOut | None = Field(
+        None,
+        description="Dispersión de la diferencia del par en HH y HV (RF-BUS-09, T-BAL-14). null si el manifiesto no "
+        "trae stats.noise_* (artefactos anteriores a T-ECO-09). No es ruido del instrumento: ver caveat. No cambia "
+        "el estado.",
     )
 
 
@@ -801,6 +839,7 @@ def build_verdict(
                 corrected=shift.corrected,
             ),
             water=water_evidence,
+            noise=noise_from_stats(stats),
         ),
         layers=_layers(pair),
         receipt=Receipt(
@@ -1218,8 +1257,8 @@ def create_app(
         openapi_extra={"security": [{"bearerAuth": []}], "x-required-role": "student"},
         summary="Búsqueda de veredictos (student y researcher)",
         description="Filtra, ordena y pagina todos los veredictos precalculados (RF-BUS-01, 03 a 05). Cada fila "
-        "copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin el filtro de calidad "
-        "y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados "
+        "copia los campos del veredicto completo y enlaza a él. public recibe 403; student, sin los filtros de calidad "
+        "y de ruido ni el orden por ruido, y con 50 resultados por página como máximo; researcher, todo y hasta 500. Un filtro sin resultados "
         "devuelve una lista vacía con total 0, nunca 404.",
     )
     def search_verdicts(
@@ -1251,6 +1290,13 @@ def create_app(
         max_cloud_cover: float | None = Query(
             None, ge=0, le=100, description="Nubosidad máxima por tesela de las dos escenas ópticas, en %."
         ),
+        noise_hh_min: float | None = Query(
+            None, ge=0, description="Solo researcher. evidence.noise.hh_db mínima, en dB. Las filas sin ruido no se "
+            "evalúan y se cuentan en query.not_evaluated.",
+        ),
+        noise_hh_max: float | None = Query(None, ge=0, description="Solo researcher. evidence.noise.hh_db máxima, en dB."),
+        noise_hv_min: float | None = Query(None, ge=0, description="Solo researcher. evidence.noise.hv_db mínima, en dB."),
+        noise_hv_max: float | None = Query(None, ge=0, description="Solo researcher. evidence.noise.hv_db máxima, en dB."),
         data_kind: Literal["real", "synthetic"] | None = Query(None),
         q: str | None = Query(
             None, max_length=200, description="Texto libre sobre los textos del veredicto (summary, hipótesis, causa), "
@@ -1265,7 +1311,10 @@ def create_app(
             "sigue siendo de toda la zona.",
             examples=["-105.8,26.85,-105.6,27.0"],
         ),
-        sort: search.SortKey = Query("date", description="date ordena por to_date."),
+        sort: search.SortKey = Query(
+            "date", description="date ordena por to_date. noise_hh y noise_hv son solo para researcher; las filas "
+            "sin ruido van al final en los dos sentidos.",
+        ),
         order: Literal["asc", "desc"] = Query("desc"),
         limit: int = Query(search.DEFAULT_LIMIT, ge=1, le=search.PAGE_LIMIT["researcher"]),
         cursor: str | None = Query(None, description="next_cursor de la página anterior, con la misma consulta."),
@@ -1283,11 +1332,15 @@ def create_app(
             changed_min=changed_min, changed_max=changed_max, scene_shift_exceeds=scene_shift_exceeds,
             quality_flag=quality_flag, water=water, max_cloud_cover=max_cloud_cover, data_kind=data_kind,
             q=q, lang=lang if q is not None else None, bbox=area,
+            noise_hh_min=noise_hh_min, noise_hh_max=noise_hh_max, noise_hv_min=noise_hv_min,
+            noise_hv_max=noise_hv_max,
         )
         if role != "researcher":
             used = [name for name in search.RESEARCHER_FILTERS if getattr(filters, name) is not None]
             if used:
                 return denied("researcher", f"Filtro solo para investigación: {', '.join(used)}.")
+            if sort in search.RESEARCHER_SORTS:
+                return denied("researcher", f"Ordenar por {sort} es solo para investigación.")
             if limit > search.PAGE_LIMIT[role]:
                 return denied(
                     "researcher", f"Más de {search.PAGE_LIMIT[role]} resultados por página es solo para investigación."

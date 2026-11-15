@@ -37,6 +37,10 @@ DEM_SOURCE = "Copernicus DEM GLO-30"
 # GLO-30 da alturas ortométricas sobre el geoide EGM2008, no sobre el elipsoide.
 DEM_VERTICAL_DATUM = "EGM2008"
 # Texto que pide la licencia de Copernicus DEM para redistribuirlo.
+# Etiqueta del GeoTIFF que marca un DEM sintético (T-ECO-13); sin ella, el DEM se toma por real.
+DEM_KIND_TAG = "DATA_KIND"
+SYNTHETIC_DEM_SOURCE = "DEM sintético de processor (no es Copernicus GLO-30)"
+SYNTHETIC_DEM_ATTRIBUTION = "DEM sintético: no describe ningún relieve real."
 DEM_ATTRIBUTION = (
     "Produced using Copernicus WorldDEM-30 © DLR e.V. 2010-2014 and © Airbus Defence and Space GmbH 2014-2018 "
     "provided under COPERNICUS by the European Union and ESA; all rights reserved."
@@ -103,6 +107,15 @@ def dem_on_grid(sources: list[Path | str], crs: str, transform: Affine, shape: t
             )
         out = np.where(np.isnan(out), band, out)
     return out
+
+
+def dem_kind(source: Path | str) -> str | None:
+    """"synthetic" o "real" según la etiqueta del GeoTIFF; None si no se puede abrir."""
+    try:
+        with rasterio.open(source) as dataset:
+            return "synthetic" if dataset.tags().get(DEM_KIND_TAG) == "synthetic" else "real"
+    except RasterioIOError:
+        return None
 
 
 def dem_for_aoi(
