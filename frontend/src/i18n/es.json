@@ -15,16 +15,6 @@
     "student": "Estudiante",
     "researcher": "Investigador"
   },
-  "theme": {
-    "label": "Tema",
-    "sistema": "Del sistema",
-    "claro": "Claro",
-    "oscuro": "Oscuro",
-    "to": {
-      "claro": "Cambiar a tema claro",
-      "oscuro": "Cambiar a tema oscuro"
-    }
-  },
   "public": {
     "question": "¿Qué pasó en Parral?",
     "lead": "NISAR es un satélite de radar de las agencias espaciales de Estados Unidos (NASA) y de la India (ISRO). Ve a través de las nubes y pasa sobre Parral cada 12 días. Aquí ves qué notó entre dos pasadas, qué no pudo ver y qué falta por saber."
@@ -42,20 +32,17 @@
     "card": "Este veredicto usa datos sintéticos."
   },
   "layout": {
-    "left": "Búsqueda y parámetros",
-    "center": "Vistas",
-    "right": "Guardar y comunidad",
-    "switcher": "Paneles",
-    "panels": {
-      "buscar": "Buscar",
-      "ver": "Ver",
-      "guardar": "Guardar"
-    },
+    "left": "Filtros",
+    "filters": "Filtros",
+    "top": "barra superior",
+    "tools": "Herramientas del mapa",
+    "right": "Paneles de lectura",
+    "collapse": "Recoger {{name}}",
+    "expand": "Abrir {{name}}",
     "tabs": {
-      "mapa": "Mapa",
+      "hallazgos": "Hallazgos",
       "historia": "Historia de Parral",
       "evento": "¿Pudo verlo?",
-      "interprete": "Intérprete",
       "comunidad": "Comunidad"
     }
   },
@@ -325,5 +312,41 @@
   "footer": {
     "attribution": "Datos NISAR: NASA e ISRO. Cada fuente externa se atribuye donde se muestra.",
     "license": "Software libre bajo GPL-3.0-only."
+  },
+  "tools": {
+    "projection": "Vista del mapa",
+    "view3d": "Globo en 3D",
+    "view2d": "Mapa plano en 2D",
+    "reframe": "Volver a encuadrar la zona",
+    "layers": "Capas del radar",
+    "layer": "Capa visible",
+    "opacity": "Opacidad",
+    "fullscreen": "Pantalla completa",
+    "exitFullscreen": "Salir de pantalla completa",
+    "layerNames": {
+      "state": "Estado del veredicto",
+      "change_hh": "Cambio en HH",
+      "change_hv": "Cambio en HV"
+    }
+  },
+  "geocoder": {
+    "label": "Buscar ubicación (próximamente)",
+    "placeholder": "Buscar ubicación…",
+    "soon": "Próximamente"
+  },
+  "status": {
+    "online": "En línea",
+    "offline": "Sin conexión con la API",
+    "connecting": "Conectando"
+  },
+  "player": {
+    "playStory": "Reproducir historia en el mapa",
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "previous": "Par anterior",
+    "next": "Par siguiente",
+    "close": "Cerrar la reproducción",
+    "timeline": "Pares de la historia en el tiempo",
+    "position": "Par {{n}} de {{total}}"
   }
 }

@@ -28,20 +28,24 @@ const PARES: [string, string, number, string][] = [
   ['color-acento', 'color-fondo', NO_TEXTO, 'borde de observable en la consulta de evento'],
   ['color-aviso-borde', 'color-aviso-fondo', NO_TEXTO, 'borde del distintivo de datos sintéticos'],
   ['color-aviso-borde', 'color-fondo', NO_TEXTO, 'borde del aviso de datos sintéticos'],
+  // Vidrio (T-FAR-21): peor caso, vidrio sobre la parte más clara de la imagen de satélite.
+  ['color-texto', 'color-vidrio-peor', TEXTO, 'texto sobre los paneles de vidrio'],
+  ['color-texto-suave', 'color-vidrio-peor', TEXTO, 'textos secundarios sobre vidrio'],
+  ['color-borde-control', 'color-vidrio-peor', NO_TEXTO, 'bordes de control y foco sobre vidrio'],
+  ['color-texto', 'color-vidrio-activo-peor', TEXTO, 'botón activo sobre vidrio'],
 ]
 
-const TEMAS: Tema[] = ['claro', 'oscuro']
+// Solo se usa el tema oscuro (T-FAR-21): el claro ya no se aplica ni se comprueba.
+const TEMAS: Tema[] = ['oscuro']
 
 describe('variables del sistema de diseño', () => {
   it('lee los colores declarados con light-dark()', () => {
     expect(Object.keys(colores).length).toBeGreaterThanOrEqual(10)
   })
 
-  it('declara las variables también en las islas claras, que fijan el tema claro', () => {
-    // Si solo estuvieran en :root, el build (LightningCSS traduce light-dark()) dejaría
-    // las islas con los colores oscuros aunque tengan color-scheme: light.
-    expect(css).toMatch(/:root,\s*\.isla-clara\s*\{[^}]*--color-fondo:/)
-    expect(css).toMatch(/\.isla-clara\s*\{\s*color-scheme:\s*light;\s*\}/)
+  it('fija el tema oscuro, sin islas claras (T-FAR-21)', () => {
+    expect(css).toMatch(/:root\s*\{\s*color-scheme:\s*dark;/)
+    expect(css).not.toContain('isla-clara')
   })
 
   it('cada par declarado usa variables que existen', () => {

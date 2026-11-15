@@ -1,0 +1,1110 @@
+/*
+ * Rediseño de vidrio (T-FAR-21, RF-INT-23 a 32; specs/08-interfaz).
+ * El mapa ocupa toda la pantalla de fondo y la interfaz flota encima en paneles de vidrio
+ * esmerilado que se recogen en su borde. Solo tema oscuro. Se carga después de index.css.
+ * Las variables --hueco-* dicen cuánto tapa cada barra: el mapa de Atlas (src/mapa/mapa.css)
+ * las usa para no esconder su leyenda ni sus controles detrás de los paneles.
+ */
+
+:root,
+body {
+  background: #050608;
+}
+
+body {
+  overflow: hidden;
+}
+
+.app-vidrio {
+  --margen: 1rem;
+  --alto-arriba: 4.25rem;
+  --ancho-izq: 21.5rem;
+  --ancho-der: clamp(20rem, 25vw, 30rem);
+  --ancho-pestanas: 3.6rem;
+  --transicion: 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --tope-paneles: var(--margen);
+  --hueco-arriba: 2.25rem;
+  --hueco-abajo: 2.25rem;
+  --hueco-izq: 2.25rem;
+  --hueco-der: calc(var(--ancho-pestanas) + var(--margen));
+
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  color: var(--color-texto);
+}
+
+.app-vidrio[data-arriba='true'] {
+  --tope-paneles: calc(var(--margen) * 2 + var(--alto-arriba));
+  --hueco-arriba: calc(var(--margen) * 2 + var(--alto-arriba));
+}
+
+.app-vidrio[data-abajo='true'] {
+  --hueco-abajo: 5.25rem;
+}
+
+.app-vidrio[data-izq='true'] {
+  --hueco-izq: calc(var(--margen) * 2 + var(--ancho-izq));
+}
+
+.app-vidrio[data-der='true'] {
+  --hueco-der: calc(var(--ancho-der) + var(--ancho-pestanas) + var(--margen) * 1.5);
+}
+
+/* ---------- Superficie de vidrio ---------- */
+
+.vidrio {
+  background: var(--vidrio-fondo);
+  -webkit-backdrop-filter: var(--vidrio-desenfoque);
+  backdrop-filter: var(--vidrio-desenfoque);
+  border: 1px solid var(--vidrio-borde);
+  box-shadow:
+    var(--vidrio-sombra),
+    inset 0 1px 0 var(--vidrio-brillo);
+  color: var(--color-texto);
+  /* Dentro del vidrio, las cajas que eran grises o negras pasan a velos claros. */
+  --color-superficie: rgba(255, 255, 255, 0.06);
+  --color-aviso-fondo: rgba(255, 255, 255, 0.08);
+  --color-borde: rgba(255, 255, 255, 0.14);
+}
+
+/* Sin desenfoque, el vidrio sería transparente sobre la imagen: casi opaco. */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .vidrio {
+    background: var(--vidrio-fondo-solido);
+  }
+}
+
+/* ---------- Controles sobre vidrio: píldoras translúcidas ---------- */
+
+.app-vidrio button {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 0.75rem;
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-texto);
+  transition:
+    background-color 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.app-vidrio button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.14);
+  border-color: rgba(255, 255, 255, 0.55);
+}
+
+/* Los botones de icono son círculos; los de texto corto, píldoras. */
+.app-vidrio .boton-icono,
+.app-vidrio .story-escenas button,
+.app-vidrio .ejemplo button {
+  border-radius: 999px;
+}
+
+/* Lo activo: más claro, borde blanco y texto en negrita (además del estado ARIA). */
+.app-vidrio button[aria-pressed='true'],
+.app-vidrio [role='tab'][aria-selected='true'] {
+  background: var(--vidrio-activo);
+  border-color: rgba(255, 255, 255, 0.85);
+  color: var(--color-texto);
+  font-weight: var(--peso-fuerte);
+}
+
+.app-vidrio .boton-principal {
+  background: rgba(255, 255, 255, 0.92);
+  border-color: #ffffff;
+  color: #000000;
+}
+
+.app-vidrio .boton-principal:hover:not(:disabled) {
+  background: #ffffff;
+}
+
+.app-vidrio select,
+.app-vidrio input[type='date'],
+.app-vidrio input[type='time'],
+.app-vidrio input[type='text'],
+.app-vidrio input[type='email'],
+.app-vidrio input[type='password'],
+.app-vidrio input[type='number'],
+.app-vidrio textarea {
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 0.75rem;
+  background: rgba(0, 0, 0, 0.28);
+  color: var(--color-texto);
+}
+
+.app-vidrio input[type='range'],
+.app-vidrio input[type='checkbox'],
+.app-vidrio input[type='radio'] {
+  accent-color: #ffffff;
+}
+
+.app-vidrio .language-switch > button {
+  border-radius: 0;
+}
+
+.app-vidrio .language-switch > button:first-child {
+  border-radius: 999px 0 0 999px;
+}
+
+.app-vidrio .language-switch > button:last-child {
+  border-radius: 0 999px 999px 0;
+}
+
+/* ---------- Fondo: espacio con estrellas y el mapa a pantalla completa (RF-INT-24) ---------- */
+
+.zona-principal {
+  position: absolute;
+  inset: 0;
+}
+
+.fondo-mapa {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #050608;
+  background-image:
+    radial-gradient(ellipse at 50% 115%, rgba(120, 130, 150, 0.2), transparent 60%),
+    radial-gradient(1px 1px at 12% 18%, rgba(255, 255, 255, 0.9), transparent 60%),
+    radial-gradient(1px 1px at 68% 42%, rgba(255, 255, 255, 0.7), transparent 60%),
+    radial-gradient(1.5px 1.5px at 33% 77%, rgba(255, 255, 255, 0.8), transparent 60%),
+    radial-gradient(1px 1px at 87% 64%, rgba(255, 255, 255, 0.6), transparent 60%),
+    radial-gradient(1px 1px at 52% 9%, rgba(255, 255, 255, 0.75), transparent 60%),
+    radial-gradient(1.5px 1.5px at 6% 58%, rgba(255, 255, 255, 0.55), transparent 60%),
+    radial-gradient(1px 1px at 76% 88%, rgba(255, 255, 255, 0.65), transparent 60%);
+  background-size:
+    100% 100%,
+    280px 280px,
+    340px 340px,
+    410px 410px,
+    230px 230px,
+    370px 370px,
+    450px 450px,
+    310px 310px;
+}
+
+.fondo-mapa .atlas-map,
+.fondo-mapa .atlas-map-frame,
+.fondo-mapa .atlas-map-canvas {
+  height: 100%;
+}
+
+.fondo-mapa .atlas-map-frame {
+  position: relative;
+}
+
+/* Mientras llega otro veredicto: velo con desenfoque, sin tapar del todo el mapa de fondo. */
+.fondo-mapa .atlas-map-busy {
+  background: rgba(5, 6, 8, 0.55);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+}
+
+/* ---------- Barras recogibles (RF-INT-25) ---------- */
+
+.barra {
+  position: fixed;
+  z-index: 20;
+  pointer-events: none;
+}
+
+.barra > * {
+  pointer-events: auto;
+}
+
+.barra-contenido {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  border-radius: var(--radio-vidrio);
+  outline: none;
+  transition:
+    transform var(--transicion),
+    opacity var(--transicion),
+    visibility 0s linear 0s;
+}
+
+/* Recogida: se desliza fuera de la pantalla en lugar de desaparecer de golpe. `hidden` la quita
+   del orden de tabulación y del árbol de accesibilidad (visibility: hidden). */
+.barra-contenido[hidden] {
+  display: flex;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transition:
+    transform var(--transicion),
+    opacity var(--transicion),
+    visibility 0s linear 0.35s;
+}
+
+/* La pestaña del borde: pequeña cuña de vidrio pegada a su costado. */
+.app-vidrio .barra-pestana {
+  position: absolute;
+  min-width: 0;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--vidrio-fondo);
+  border-color: var(--vidrio-borde);
+}
+
+.app-vidrio .barra-pestana:hover {
+  background: var(--vidrio-fondo-solido);
+}
+
+/* Superior */
+.barra-arriba {
+  top: var(--margen);
+  left: var(--margen);
+  right: var(--margen);
+}
+
+.barra-arriba .barra-contenido[hidden] {
+  transform: translateY(calc(-100% - var(--margen) * 2));
+}
+
+.app-vidrio .barra-arriba .barra-pestana {
+  top: calc(-1 * var(--margen));
+  left: 50%;
+  width: 4.5rem;
+  height: 1.85rem;
+  transform: translateX(-50%);
+  border-top: 0;
+  border-radius: 0 0 1rem 1rem;
+}
+
+/* Izquierda */
+.barra-izq {
+  top: var(--tope-paneles);
+  bottom: var(--margen);
+  left: var(--margen);
+  width: var(--ancho-izq);
+  transition: top var(--transicion);
+}
+
+.barra-izq .barra-contenido {
+  height: 100%;
+  overflow: hidden;
+}
+
+.barra-izq .barra-contenido[hidden] {
+  transform: translateX(calc(-100% - var(--margen) * 2));
+}
+
+.app-vidrio .barra-izq .barra-pestana {
+  left: calc(-1 * var(--margen));
+  top: 50%;
+  width: 1.85rem;
+  height: 4.5rem;
+  transform: translateY(-50%);
+  border-left: 0;
+  border-radius: 0 1rem 1rem 0;
+}
+
+/* Inferior */
+.barra-abajo {
+  bottom: var(--margen);
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: calc(100vw - var(--margen) * 2);
+}
+
+.barra-abajo .barra-contenido {
+  border-radius: 999px;
+}
+
+.barra-abajo .barra-contenido[hidden] {
+  transform: translateY(calc(100% + var(--margen) * 2));
+}
+
+.app-vidrio .barra-abajo .barra-pestana {
+  bottom: calc(-1 * var(--margen));
+  left: 50%;
+  width: 4.5rem;
+  height: 1.85rem;
+  transform: translateX(-50%);
+  border-bottom: 0;
+  border-radius: 1rem 1rem 0 0;
+}
+
+/* ---------- Cabecera de vidrio ---------- */
+
+.app-vidrio .app-header {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: var(--espacio-4);
+  min-height: var(--alto-arriba);
+  box-sizing: border-box;
+  padding: var(--espacio-2) var(--espacio-3) var(--espacio-2) var(--espacio-5);
+  border: 0;
+}
+
+.app-vidrio .app-marca {
+  flex: none;
+}
+
+.app-vidrio .app-header h1 {
+  font-size: var(--texto-l);
+  letter-spacing: 0.02em;
+}
+
+.app-vidrio .app-lema {
+  max-width: 16rem;
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+
+.app-separador {
+  width: 1px;
+  height: 2rem;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.buscador-ubicacion {
+  flex: 1 1 auto;
+  max-width: 36rem;
+  margin-inline: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-height: 2.75rem;
+  box-sizing: border-box;
+  padding: 0 var(--espacio-2) 0 var(--espacio-4);
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.22);
+}
+
+.app-vidrio .buscador-ubicacion input {
+  flex: 1;
+  min-width: 0;
+  min-height: 2.5rem;
+  border: 0;
+  background: transparent;
+  color: var(--color-texto);
+  font: inherit;
+  cursor: not-allowed;
+}
+
+.buscador-ubicacion input::placeholder {
+  color: var(--color-texto-suave);
+  opacity: 1;
+}
+
+.pronto {
+  flex: none;
+  padding: 0.15rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.32);
+  border-radius: 999px;
+  font-size: 0.75rem;
+  color: var(--color-texto-suave);
+}
+
+.app-vidrio .app-controls {
+  flex: none;
+  flex-wrap: nowrap;
+}
+
+/* Estado de la API: punto lleno en línea, hueco sin conexión y discontinuo mientras conecta. */
+.estado-api {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  margin: 0 var(--espacio-2) 0 0;
+  font-size: var(--texto-s);
+  white-space: nowrap;
+}
+
+.estado-api-punto {
+  width: 0.6rem;
+  height: 0.6rem;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1.5px solid #ffffff;
+}
+
+.estado-api[data-estado='online'] .estado-api-punto {
+  background: #ffffff;
+  box-shadow: 0 0 0.5rem rgba(255, 255, 255, 0.8);
+}
+
+.estado-api[data-estado='connecting'] .estado-api-punto {
+  border-style: dashed;
+}
+
+/* ---------- Aviso de datos sintéticos: fijo, fuera de las barras (RF-INT-32) ---------- */
+
+.aviso-fijo {
+  position: fixed;
+  z-index: 15;
+  top: calc(var(--hueco-arriba) + 0.25rem);
+  left: calc(var(--hueco-izq) + (100vw - var(--hueco-izq) - var(--hueco-der)) / 2);
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100vw - var(--hueco-izq) - var(--hueco-der) - 1rem);
+  transition:
+    top var(--transicion),
+    left var(--transicion);
+}
+
+.app-vidrio .synthetic-banner {
+  position: static;
+  margin: 0;
+  padding: var(--espacio-2) var(--espacio-4);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  border-radius: 999px;
+  background: var(--vidrio-fondo);
+  -webkit-backdrop-filter: var(--vidrio-desenfoque);
+  backdrop-filter: var(--vidrio-desenfoque);
+  font-size: var(--texto-s);
+  align-items: center;
+}
+
+.app-vidrio .synthetic-banner .marca {
+  margin-top: 0;
+}
+
+/* ---------- Paneles: cabecera y cuerpo con su propio scroll ---------- */
+
+.panel-izq {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.panel-cabecera {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
+  padding: var(--espacio-3) var(--espacio-3) var(--espacio-2) var(--espacio-5);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.panel-cabecera h2 {
+  flex: 1;
+  margin: 0;
+  font-size: var(--texto-l);
+  letter-spacing: 0;
+}
+
+.app-vidrio .panel-cabecera .boton-icono {
+  border-color: transparent;
+  background: transparent;
+}
+
+.panel-cuerpo {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--espacio-4) var(--espacio-5) var(--espacio-5);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+}
+
+.panel-cuerpo .pie {
+  margin-top: var(--espacio-5);
+  font-size: 0.8rem;
+}
+
+/* ---------- Barra derecha: panel y pestañas verticales (RF-INT-27) ---------- */
+
+.lateral-der {
+  position: fixed;
+  z-index: 20;
+  top: var(--tope-paneles);
+  bottom: var(--margen);
+  right: 0;
+  display: flex;
+  align-items: center;
+  gap: calc(var(--margen) / 2);
+  pointer-events: none;
+  transition: top var(--transicion);
+}
+
+.lateral-der-panel {
+  pointer-events: auto;
+  width: var(--ancho-der);
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border-radius: var(--radio-vidrio);
+  transition:
+    transform var(--transicion),
+    opacity var(--transicion),
+    visibility 0s linear 0s;
+}
+
+.lateral-der-panel[hidden] {
+  display: flex;
+  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(calc(100% + var(--ancho-pestanas) + var(--margen)));
+  transition:
+    transform var(--transicion),
+    opacity var(--transicion),
+    visibility 0s linear 0.35s;
+}
+
+.lateral-der-panel > .panel-pestana {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.lateral-der-panel > .panel-pestana[hidden] {
+  display: none;
+}
+
+.pestanas-der {
+  pointer-events: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-2);
+  padding: var(--espacio-2);
+  border-right: 0;
+  border-radius: 1.25rem 0 0 1.25rem;
+}
+
+.app-vidrio .pestanas-der [role='tab'] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.75rem;
+  height: 2.75rem;
+  min-height: 0;
+  padding: 0;
+  border-color: transparent;
+  background: transparent;
+}
+
+.app-vidrio .pestanas-der [role='tab'][aria-selected='true'] {
+  background: var(--vidrio-activo);
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+/* El contenido de cada pestaña: algo más compacto dentro del panel. Los titulares, a escala del panel. */
+.lateral-der,
+.barra-izq {
+  --texto-titular: var(--texto-xl);
+  --texto-seccion: var(--texto-l);
+}
+
+.lateral-der .intro-publico {
+  padding-block: 0 var(--espacio-4);
+}
+
+.lateral-der .intro-publico h2 {
+  font-size: var(--texto-xl);
+}
+
+.lateral-der .story,
+.lateral-der .event-query {
+  margin-top: 0;
+  padding-top: 0;
+}
+
+/* ---------- Barra inferior: herramientas del mapa (RF-INT-28) ---------- */
+
+.herramientas {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  padding: var(--espacio-2) var(--espacio-3);
+}
+
+.segmentado {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.app-vidrio .segmentado > button {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  min-height: 2.4rem;
+  padding: 0 var(--espacio-4);
+  border-color: transparent;
+  background: transparent;
+  font-size: var(--texto-s);
+}
+
+.app-vidrio .segmentado > button[aria-pressed='true'] {
+  background: var(--vidrio-activo);
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+.herramientas-separador {
+  width: 1px;
+  height: 1.75rem;
+  margin-inline: var(--espacio-1);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.app-vidrio .herramientas .boton-icono {
+  border-color: transparent;
+  background: transparent;
+}
+
+.app-vidrio .herramientas .boton-icono[aria-pressed='true'],
+.app-vidrio .herramientas .boton-icono[aria-expanded='true'] {
+  background: var(--vidrio-activo);
+  border-color: rgba(255, 255, 255, 0.85);
+}
+
+.capas-caja {
+  position: relative;
+}
+
+.capas-panel {
+  position: absolute;
+  bottom: calc(100% + 1rem);
+  left: 50%;
+  width: 15rem;
+  transform: translateX(-50%);
+  padding: var(--espacio-3) var(--espacio-4);
+  border-radius: 1rem;
+  font-size: var(--texto-s);
+}
+
+.capas-panel[hidden] {
+  display: none;
+}
+
+.capas-panel fieldset {
+  margin: 0 0 var(--espacio-3);
+  padding: 0;
+  border: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--espacio-1);
+}
+
+.capas-panel legend {
+  margin-bottom: var(--espacio-2);
+  font-weight: var(--peso-fuerte);
+}
+
+.capas-panel label {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-2);
+  cursor: pointer;
+}
+
+.capas-panel .capas-opacidad {
+  flex-direction: column;
+  align-items: stretch;
+  font-weight: var(--peso-fuerte);
+}
+
+/* ---------- Reproducción de una historia (RF-INT-30) ---------- */
+
+.reproductor {
+  position: fixed;
+  z-index: 18;
+  bottom: calc(var(--hueco-abajo) + 0.5rem);
+  left: calc(var(--hueco-izq) + (100vw - var(--hueco-izq) - var(--hueco-der)) / 2);
+  width: min(38rem, calc(100vw - var(--hueco-izq) - var(--hueco-der) - 1rem));
+  transform: translateX(-50%);
+  box-sizing: border-box;
+  padding: var(--espacio-3) var(--espacio-4);
+  border-radius: var(--radio-vidrio);
+  transition:
+    bottom var(--transicion),
+    left var(--transicion),
+    width var(--transicion);
+}
+
+.reproductor-cabecera {
+  display: flex;
+  align-items: center;
+  gap: var(--espacio-3);
+}
+
+.reproductor-cabecera h2 {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  overflow: hidden;
+  font-size: var(--texto-m);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.reproductor-cabecera p {
+  margin: 0;
+  font-size: var(--texto-s);
+  white-space: nowrap;
+}
+
+.reproductor-controles {
+  display: flex;
+  gap: var(--espacio-1);
+}
+
+.reproductor-linea {
+  position: relative;
+  height: 2.5rem;
+  margin: var(--espacio-3) var(--espacio-2) var(--espacio-2);
+  padding: 0;
+  list-style: none;
+}
+
+/* El eje de la historia */
+.reproductor-linea::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 2px;
+  background: rgba(255, 255, 255, 0.25);
+}
+
+.reproductor-linea li {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.app-vidrio .reproductor-tramo {
+  position: absolute;
+  inset: 0.45rem 1px;
+  min-width: 1.25rem;
+  min-height: 0;
+  padding: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.5rem;
+  background: rgba(20, 22, 26, 0.85);
+  font-size: 0.75rem;
+}
+
+.app-vidrio .reproductor-tramo[aria-current='step'] {
+  background: rgba(60, 62, 66, 0.95);
+  border: 2px solid #ffffff;
+}
+
+.reproductor-actual {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--espacio-2);
+  margin: 0;
+  font-size: var(--texto-s);
+}
+
+/* ---------- Pantalla estrecha: cada panel ocupa el ancho (RF-INT-26) ---------- */
+
+@media (max-width: 40rem) {
+  .app-vidrio {
+    --margen: 0.5rem;
+    /* Las pestañas de la derecha siguen visibles: el panel izquierdo no se mete debajo. */
+    --ancho-izq: calc(100vw - var(--ancho-pestanas) - var(--margen) * 2.5);
+    --ancho-der: calc(100vw - var(--ancho-pestanas) - var(--margen) * 1.5);
+    --alto-arriba: 7.5rem;
+  }
+
+  .app-vidrio .app-header {
+    flex-wrap: wrap;
+    gap: var(--espacio-2);
+    padding: var(--espacio-2) var(--espacio-3);
+  }
+
+  .app-vidrio .app-lema,
+  .app-separador,
+  .app-marca > .icono,
+  .estado-api {
+    display: none;
+  }
+
+  .buscador-ubicacion {
+    order: 3;
+    flex-basis: 100%;
+  }
+
+  .app-vidrio .app-controls {
+    margin-left: auto;
+  }
+
+  .app-vidrio .segmentado > button {
+    padding-inline: var(--espacio-3);
+  }
+
+  .reproductor-cabecera {
+    flex-wrap: wrap;
+  }
+
+  /* Con un panel lateral abierto apenas queda mapa: sus cajas se ocultan en vez de apretarse. */
+  .app-vidrio:is([data-izq='true'], [data-der='true']) :is(.atlas-extension, .atlas-panel, .atlas-aviso-3d, .atlas-aviso-escala) {
+    visibility: hidden;
+  }
+}
+
+/* ---------- Mapa de Atlas dentro del vidrio (src/mapa/) ----------
+ * El mapa ocupa toda la pantalla, así que su leyenda, sus controles y sus avisos se apartan
+ * de las barras con --hueco-*, y pasan al mismo vidrio oscuro. Solo dentro de .app-vidrio:
+ * la página de demostración de Atlas (src/mapa/demo.html) queda como estaba.
+ */
+
+.app-vidrio .atlas-mapa {
+  min-height: 0;
+}
+
+.app-vidrio .atlas-extension,
+.app-vidrio .atlas-panel,
+.app-vidrio .atlas-aviso-3d,
+.app-vidrio .atlas-aviso-escala,
+.app-vidrio .atlas-optico-panel,
+.app-vidrio .maplibregl-ctrl-group,
+.app-vidrio .maplibregl-ctrl-attrib,
+.app-vidrio .maplibregl-ctrl-scale {
+  background: var(--vidrio-fondo);
+  -webkit-backdrop-filter: var(--vidrio-desenfoque);
+  backdrop-filter: var(--vidrio-desenfoque);
+  border: 1px solid var(--vidrio-borde);
+  box-shadow: var(--vidrio-sombra);
+  color: var(--color-texto);
+}
+
+.app-vidrio .atlas-extension,
+.app-vidrio .atlas-panel,
+.app-vidrio .atlas-optico-panel {
+  border-radius: 1rem;
+  padding: 0.6rem 0.85rem;
+}
+
+.app-vidrio .atlas-extension {
+  top: calc(var(--hueco-arriba) + 0.5rem);
+  left: calc(var(--hueco-izq) + 0.5rem);
+}
+
+.app-vidrio .atlas-sintetico {
+  top: calc(var(--hueco-arriba) + 4.25rem);
+  left: calc(var(--hueco-izq) + 0.5rem);
+  border: 1px solid #ffffff;
+  border-radius: 999px;
+  background: #000000;
+}
+
+.app-vidrio .atlas-panel,
+.app-vidrio.app-vidrio .atlas-con-3d .atlas-panel {
+  top: calc(var(--hueco-arriba) + 7.5rem);
+  right: calc(var(--hueco-der) + 0.5rem);
+  max-height: calc(100% - var(--hueco-arriba) - var(--hueco-abajo) - 9rem);
+}
+
+.app-vidrio .maplibregl-ctrl-top-right {
+  top: calc(var(--hueco-arriba) - 0.25rem);
+  right: calc(var(--hueco-der) - 0.25rem);
+}
+
+.app-vidrio .maplibregl-ctrl-bottom-left {
+  left: calc(var(--hueco-izq) - 0.25rem);
+  bottom: calc(var(--hueco-abajo) - 0.25rem);
+}
+
+.app-vidrio .maplibregl-ctrl-bottom-right {
+  right: calc(var(--hueco-der) - 0.25rem);
+  bottom: calc(var(--hueco-abajo) - 0.25rem);
+  max-width: max(14rem, calc(100vw - var(--hueco-izq) - var(--hueco-der)));
+}
+
+.app-vidrio .atlas-aviso-escala {
+  left: calc(var(--hueco-izq) + 0.5rem);
+  bottom: calc(var(--hueco-abajo) + 0.5rem);
+  border-radius: 999px;
+  padding: 0.3rem 0.8rem;
+}
+
+.app-vidrio .atlas-aviso-3d {
+  bottom: calc(var(--hueco-abajo) + 3rem);
+  left: calc(var(--hueco-izq) + (100% - var(--hueco-izq) - var(--hueco-der)) / 2);
+  border-radius: 999px;
+}
+
+.app-vidrio .atlas-extension,
+.app-vidrio .atlas-sintetico,
+.app-vidrio .atlas-panel,
+.app-vidrio .atlas-aviso-3d,
+.app-vidrio .atlas-aviso-escala,
+.app-vidrio .maplibregl-ctrl-top-right,
+.app-vidrio .maplibregl-ctrl-bottom-left,
+.app-vidrio .maplibregl-ctrl-bottom-right {
+  transition:
+    top var(--transicion),
+    right var(--transicion),
+    bottom var(--transicion),
+    left var(--transicion);
+}
+
+/* Leyenda y muestras sobre vidrio oscuro */
+.app-vidrio .atlas-leyenda {
+  border-top-color: rgba(255, 255, 255, 0.14);
+}
+
+.app-vidrio .atlas-leyenda small,
+.app-vidrio .atlas-teclas-3d {
+  color: var(--color-texto-suave);
+}
+
+.app-vidrio .atlas-muestra {
+  border-color: #ffffff;
+}
+
+.app-vidrio .atlas-muestra-trama {
+  background: repeating-linear-gradient(135deg, #000000 0 2px, #e6e6e6 2px 5.7px);
+}
+
+.app-vidrio .atlas-degradado {
+  border-color: #ffffff;
+}
+
+/* Controles de MapLibre: botones de vidrio con iconos claros */
+.app-vidrio .maplibregl-ctrl-group {
+  border-radius: 1rem;
+  overflow: hidden;
+}
+
+.app-vidrio .maplibregl-ctrl-group button {
+  width: 2.25rem;
+  height: 2.25rem;
+  min-height: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.app-vidrio .maplibregl-ctrl-group button + button {
+  border-top: 1px solid rgba(255, 255, 255, 0.14);
+}
+
+.app-vidrio .maplibregl-ctrl-group button .maplibregl-ctrl-icon {
+  filter: invert(1);
+}
+
+.app-vidrio .maplibregl-ctrl-attrib {
+  border-radius: 0.75rem;
+  font-size: 0.7rem;
+}
+
+.app-vidrio .maplibregl-ctrl-attrib a {
+  color: var(--color-texto);
+}
+
+.app-vidrio .maplibregl-ctrl-scale {
+  border-radius: 0 0 0.35rem 0.35rem;
+  border-top: 0;
+  border-color: #ffffff;
+}
+
+/* Ventana del punto y serie por píxel */
+.app-vidrio .maplibregl-popup-content {
+  background: var(--vidrio-fondo-solido);
+  border: 1px solid var(--vidrio-borde);
+  border-radius: 1rem;
+  box-shadow: var(--vidrio-sombra);
+  color: var(--color-texto);
+}
+
+.app-vidrio .maplibregl-popup-tip {
+  border-top-color: var(--vidrio-fondo-solido) !important;
+  border-bottom-color: var(--vidrio-fondo-solido) !important;
+}
+
+.app-vidrio .maplibregl-popup-close-button {
+  min-height: 0;
+  border: 0;
+  color: var(--color-texto);
+}
+
+.app-vidrio .atlas-serie,
+.app-vidrio .atlas-serie p,
+.app-vidrio .atlas-serie h2,
+.app-vidrio .atlas-serie-tabla {
+  color: var(--color-texto);
+}
+
+.app-vidrio .atlas-serie-nota,
+.app-vidrio .atlas-serie-coord {
+  color: var(--color-texto-suave);
+}
+
+.app-vidrio .atlas-mapa .maplibregl-canvas:focus-visible {
+  outline-color: #ffffff;
+}
+
+/* ---------- Componentes de contenido sobre vidrio ---------- */
+
+.app-vidrio .verdict-card {
+  border: 1px solid rgba(255, 255, 255, 0.5);
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* El par elegido ya no se invierte: la marca de cambio probable sigue en blanco. */
+.app-vidrio .resultados-lista button[aria-pressed='true'] .marca-change_probable {
+  background: var(--color-texto);
+}
+
+.app-vidrio .dialogo {
+  border: 1px solid var(--vidrio-borde);
+  border-radius: var(--radio-vidrio);
+  background: var(--vidrio-fondo-solido);
+  box-shadow: var(--vidrio-sombra);
+}
+
+.app-vidrio .dialogo::backdrop {
+  background: rgba(0, 0, 0, 0.45);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+}
+
+/* ---------- Línea de tiempo de Atlas sobre vidrio oscuro ----------
+ * src/mapa/lineaTiempo.css está pensada para fondo claro. Aquí se pasan a oscuro sus variables y los
+ * rellenos fijos en blanco, para que lo hueco (pasada parcial o estimada) siga distinguiéndose de lo
+ * lleno (pasada completa) sobre el panel oscuro.
+ */
+.app-vidrio .atlas-linea {
+  --linea-texto: #ffffff;
+  --linea-suave: #c8c8c8;
+  --linea-pista: #6b6b6b;
+  --linea-pasada: #ffffff;
+  --linea-excluida: #ffffff;
+  --linea-evento: #ffffff;
+  --linea-foco: #ffffff;
+}
+
+.app-vidrio .atlas-linea .atlas-linea-pasada {
+  stroke: #1d1e22;
+}
+
+.app-vidrio .atlas-linea .atlas-linea-pasada-parcial,
+.app-vidrio .atlas-linea .atlas-linea-estimada {
+  fill: #1d1e22;
+  stroke: var(--linea-pasada);
+}
+
+.app-vidrio .atlas-linea .atlas-linea-trama-fondo {
+  fill: #2a2c30;
+}
+
+.app-vidrio .atlas-linea .atlas-linea-trama-raya {
+  stroke: #c8c8c8;
+}
+
+.app-vidrio .atlas-linea .atlas-linea-evento {
+  fill: rgba(255, 255, 255, 0.14);
+}

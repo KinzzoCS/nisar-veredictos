@@ -11,19 +11,13 @@
  * solo sabe leer ese formato.
  */
 
-/* Tema del sistema por omisión; data-tema en <html> lo fuerza. */
-:root {
-  color-scheme: light dark;
-}
-
 /*
- * Las variables se declaran también en .isla-clara. Al compilar, Vite (LightningCSS)
- * traduce light-dark() a variables --lightningcss-* que se resuelven donde se declara
- * la variable: si solo estuvieran en :root, una isla con color-scheme: light seguiría
- * recibiendo los colores oscuros. En desarrollo no pasa, así que solo se ve en el build.
+ * Solo tema oscuro desde el rediseño de vidrio (T-FAR-21, RF-INT-23, 2026-11-14): no hay botón de
+ * tema ni islas claras. Los valores claros de light-dark() se conservan para la prueba de contraste
+ * y por si vuelve el tema claro, pero con color-scheme: dark nunca se aplican.
  */
-:root,
-.isla-clara {
+:root {
+  color-scheme: dark;
   /*
    * Blanco y negro (diseño de referencia del 2026-11-14): la interfaz no usa color.
    * Lo que hay que distinguir se distingue por la forma: relleno, contorno y trama.
@@ -32,9 +26,9 @@
 
   /* Texto y fondos */
   --color-texto: light-dark(#000000, #ffffff);
-  --color-texto-suave: light-dark(#525252, #adadad);
+  --color-texto-suave: light-dark(#525252, #c8c8c8);
   --color-fondo: light-dark(#ffffff, #000000);
-  --color-superficie: light-dark(#f3f3f3, #141414);
+  --color-superficie: light-dark(#f3f3f3, #26282c);
 
   /* Bordes: decorativo (solo separa, sin requisito de contraste) y de control, en tinta */
   --color-borde: light-dark(#d4d4d4, #2f2f2f);
@@ -53,8 +47,25 @@
   --color-trama: light-dark(rgba(0, 0, 0, 0.08), rgba(255, 255, 255, 0.14));
 
   /* Aviso (distintivo de datos sintéticos): superficie con borde en tinta y la marca de trama */
-  --color-aviso-fondo: light-dark(#f3f3f3, #141414);
+  --color-aviso-fondo: light-dark(#f3f3f3, #26282c);
   --color-aviso-borde: light-dark(#000000, #ffffff);
+
+  /*
+   * Vidrio esmerilado (T-FAR-21): paneles translúcidos sobre el mapa. El contraste se comprueba con
+   * --color-vidrio-peor, el color opaco que queda en el peor caso: el vidrio (78 % de #1d1e22) sobre
+   * blanco puro, lo más claro que puede haber debajo con cualquier mapa base.
+   */
+  --vidrio-fondo: rgba(29, 30, 34, 0.78);
+  --vidrio-fondo-solido: rgba(29, 30, 34, 0.96);
+  --vidrio-borde: rgba(255, 255, 255, 0.18);
+  --vidrio-brillo: rgba(255, 255, 255, 0.07);
+  --vidrio-activo: rgba(255, 255, 255, 0.16);
+  --vidrio-desenfoque: blur(18px) saturate(1.2);
+  --vidrio-sombra: 0 8px 32px rgba(0, 0, 0, 0.45);
+  --radio-vidrio: 1.25rem;
+  --color-vidrio-peor: light-dark(#4f4f4f, #4f4f4f);
+  /* Botón activo sobre vidrio: --vidrio-activo encima del peor caso */
+  --color-vidrio-activo-peor: light-dark(#6f6f6f, #6f6f6f);
 
   /* Velo sobre el mapa mientras llega otro veredicto */
   --color-velo: light-dark(rgba(255, 255, 255, 0.88), rgba(0, 0, 0, 0.88));
@@ -93,17 +104,4 @@
 
   /* Grosor de las líneas de control y de las marcas de estado */
   --linea-control: 1.5px;
-}
-
-/* Isla clara: zonas con colores propios pensados para fondo claro (mapa y línea de tiempo de Atlas). */
-.isla-clara {
-  color-scheme: light;
-}
-
-:root[data-tema='claro'] {
-  color-scheme: light;
-}
-
-:root[data-tema='oscuro'] {
-  color-scheme: dark;
 }

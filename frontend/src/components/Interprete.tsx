@@ -84,6 +84,7 @@ export function Interprete({
   onCerrar,
   onGuardar,
   onDescargar,
+  onReproducir,
 }: {
   aoi: string
   filtro: Filtro
@@ -94,6 +95,8 @@ export function Interprete({
   onCerrar: () => void
   onGuardar: (h: HistoriaNueva) => Promise<string | null>
   onDescargar: (h: HistoriaNueva | Historia, pares: Verdict[]) => Promise<void>
+  /** Reproduce la historia abierta en el mapa, par a par (T-FAR-21, RF-INT-30). */
+  onReproducir?: (pares: Verdict[]) => void
 }) {
   const { t } = useTranslation()
   const { sesion } = useSesion()
@@ -134,6 +137,14 @@ export function Interprete({
           <blockquote>{abierta.notes || t('community.file.noNotes')}</blockquote>
         </section>
         <div className="acciones">
+          {onReproducir && encontrados.length > 0 && (
+            <BotonIcono
+              icono="reproducir"
+              etiqueta={t('player.playStory')}
+              className="boton-principal"
+              onClick={() => onReproducir(encontrados)}
+            />
+          )}
           <BotonIcono
             icono="descargar"
             etiqueta={t('community.download')}

@@ -81,7 +81,10 @@ function storyOut(over: Record<string, unknown> = {}) {
     series: 'all',
     from_date: '2026-06-17',
     to_date: '2026-07-11',
-    pairs: [{ series: 'T048A-F015', pair: '20260617_20260629' }],
+    pairs: [
+      { series: 'T048A-F015', pair: '20260629_20260711' },
+      { series: 'T048A-F015', pair: '20260617_20260629' },
+    ],
     notes: 'Miré el centro.',
     author_role: 'researcher',
     created_at: '2026-11-14T18:00:00Z',
@@ -148,8 +151,9 @@ beforeEach(async () => {
 
 afterEach(() => vi.unstubAllGlobals())
 
-async function abrirMapa(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByRole('tab', { name: 'Mapa' }))
+/** Abre una barra recogible desde su pestaña del borde (T-FAR-21). */
+async function abrirBarra(user: ReturnType<typeof userEvent.setup>, nombre: 'barra superior' | 'Herramientas del mapa' | 'Filtros') {
+  await user.click(screen.getByRole('button', { name: `Abrir ${nombre}` }))
 }
 
 function resultado(nombre: RegExp) {
@@ -158,6 +162,7 @@ function resultado(nombre: RegExp) {
 
 /** Entra con el formulario del icono de la cuenta (el doble de la API da el perfil estudiante). */
 async function entrarComoEstudiante(user: ReturnType<typeof userEvent.setup>) {
+  if (document.getElementById('barra-arriba')?.hidden) await abrirBarra(user, 'barra superior')
   await user.click(screen.getByRole('button', { name: 'Iniciar sesión' }))
   const dialogo = screen.getByRole('dialog', { name: 'Iniciar sesión' })
   await user.type(within(dialogo).getByLabelText('Correo'), 'ana@example.org')
@@ -166,75 +171,93 @@ async function entrarComoEstudiante(user: ReturnType<typeof userEvent.setup>) {
   expect(await screen.findByRole('button', { name: 'Cuenta: estudiante' })).toBeInTheDocument()
 }
 
-test('con sesión de investigación abre con el primer par consecutivo de la primera serie, en el mapa', async () => {
+test('con sesión de investigación abre con el primer par consecutivo de la primera serie, en Hallazgos', async () => {
   stubApi({ perfil: 'researcher' })
   render(<App />)
   expect(await screen.findByRole('heading', { name: /Cambio probable/ })).toBeInTheDocument()
-  expect(within(screen.getByRole('main')).getByText('Entre A')).toBeInTheDocument()
+  expect(within(screen.getByRole('tabpanel', { name: 'Hallazgos' })).getByText('Entre A')).toBeInTheDocument()
   expect(screen.getByLabelText('Serie')).toHaveValue('all')
   expect(resultado(/2026-06-17 → 2026-06-29/)).toHaveAttribute('aria-pressed', 'true')
-  expect(screen.getByRole('tab', { name: 'Mapa' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('tab', { name: 'Hallazgos' })).toHaveAttribute('aria-selected', 'true')
   expect(screen.getByRole('region', { name: 'Mapa' })).toBeInTheDocument()
+  // El mapa abre en el globo, sin botón 3D ni selector de capas propios: los da la barra inferior.
   await waitFor(() =>
     expect(crearMapa).toHaveBeenLastCalledWith(
       expect.any(HTMLElement),
-      expect.objectContaining({ dataKind: 'real', idioma: 'es', compare: 'off', controlCapas: true }),
+      expect.objectContaining({ dataKind: 'real', idioma: 'es', compare: 'off', modo3d: true, control3d: false, controlCapas: false }),
     ),
   )
 })
 
-test('las tres zonas tienen su nombre: búsqueda, vistas y guardar', async () => {
-  stubApi()
-  render(<App />)
-  await screen.findByRole('heading', { name: 'Buscar veredictos' })
-  expect(screen.getByRole('complementary', { name: 'Búsqueda y parámetros' })).toBeInTheDocument()
-  expect(screen.getByRole('main')).toBeInTheDocument()
-  expect(screen.getByRole('complementary', { name: 'Guardar y comunidad' })).toBeInTheDocument()
-  // La barra de paneles (móvil y tableta) elige cuál se ve.
-  const barra = screen.getByRole('navigation', { name: 'Paneles' })
-  expect(within(barra).getByRole('button', { name: 'Ver' })).toHaveAttribute('aria-pressed', 'true')
-})
-
-test('la cabecera lleva el idioma, el tema y la cuenta; no hay selector de vista', async () => {
-  stubApi()
-  render(<App />)
-  await screen.findByRole('heading', { name: 'Buscar veredictos' })
-  const cabecera = screen.getByRole('banner')
-  expect(within(cabecera).getByRole('group', { name: 'Idioma' })).toBeInTheDocument()
-  expect(within(cabecera).getByRole('button', { name: 'Cambiar a tema oscuro' })).toBeInTheDocument()
-  expect(within(cabecera).getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
-  expect(within(cabecera).queryByRole('group', { name: 'Vista' })).not.toBeInTheDocument()
-  expect(screen.queryByRole('button', { name: 'Investigador' })).not.toBeInTheDocument()
-  // Sin tema guardado, el del sistema: la app no fija ninguno.
-  expect(document.documentElement.dataset.tema).toBeUndefined()
-})
-
-test('el botón de tema alterna claro y oscuro, lo guarda y cambia de icono y de nombre', async () => {
+test('el mapa va de fondo y las barras se recogen en su borde: abiertas Filtros y Hallazgos', async () => {
   const user = userEvent.setup()
   stubApi()
   render(<App />)
   await screen.findByRole('heading', { name: 'Buscar veredictos' })
-  await user.click(screen.getByRole('button', { name: 'Cambiar a tema oscuro' }))
-  expect(document.documentElement.dataset.tema).toBe('oscuro')
-  expect(localStorage.getItem('tema')).toBe('oscuro')
-  await user.click(screen.getByRole('button', { name: 'Cambiar a tema claro' }))
-  expect(document.documentElement.dataset.tema).toBe('claro')
-  expect(localStorage.getItem('tema')).toBe('claro')
-  localStorage.removeItem('tema')
-  delete document.documentElement.dataset.tema
+  expect(screen.getByRole('complementary', { name: 'Filtros' })).toBeInTheDocument()
+  expect(screen.getByRole('main')).toBeInTheDocument()
+  expect(screen.getByRole('tabpanel', { name: 'Hallazgos' })).toBeVisible()
+  // Superior e inferior empiezan recogidas: solo su pestaña.
+  expect(document.getElementById('barra-arriba')).not.toBeVisible()
+  expect(screen.queryByRole('navigation', { name: 'Herramientas del mapa' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Abrir barra superior' })).toHaveAttribute('aria-expanded', 'false')
+
+  await abrirBarra(user, 'Herramientas del mapa')
+  const herramientas = screen.getByRole('navigation', { name: 'Herramientas del mapa' })
+  expect(within(herramientas).getByRole('button', { name: 'Globo en 3D' })).toHaveAttribute('aria-pressed', 'true')
+  await user.click(within(herramientas).getByRole('button', { name: 'Mapa plano en 2D' }))
+  expect(within(herramientas).getByRole('button', { name: 'Mapa plano en 2D' })).toHaveAttribute('aria-pressed', 'true')
+  await waitFor(() => expect(crearMapa.mock.results.at(-1)!.value.actualizar).toHaveBeenLastCalledWith({ modo3d: false }))
+
+  // Recoger Filtros deja la pestaña del borde y le pasa el foco.
+  await user.click(screen.getByRole('button', { name: 'Recoger Filtros' }))
+  expect(screen.queryByRole('complementary', { name: 'Filtros' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Abrir Filtros' })).toHaveFocus()
+  await user.keyboard('{Enter}')
+  expect(screen.getByRole('complementary', { name: 'Filtros' })).toBeInTheDocument()
+
+  // La pestaña activa de la derecha recoge su panel; otra lo vuelve a abrir en ella.
+  await user.click(screen.getByRole('tab', { name: 'Hallazgos' }))
+  expect(screen.queryByRole('tabpanel', { name: 'Hallazgos' })).not.toBeInTheDocument()
+  await user.click(screen.getByRole('tab', { name: '¿Pudo verlo?' }))
+  expect(screen.getByRole('tab', { name: '¿Pudo verlo?' })).toHaveAttribute('aria-selected', 'true')
+  expect(screen.getByRole('tabpanel', { name: '¿Pudo verlo?' })).toBeVisible()
+})
+
+test('la cabecera lleva el estado de la API, el buscador de ubicación (próximamente), el idioma y la cuenta', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await abrirBarra(user, 'barra superior')
+  const cabecera = document.querySelector<HTMLElement>('header.app-header')!
+  expect(within(cabecera).getByRole('group', { name: 'Idioma' })).toBeInTheDocument()
+  expect(within(cabecera).getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
+  expect(within(cabecera).getByText('En línea')).toBeInTheDocument()
+  // Sin geocodificador en la API: el campo se ve, pero no busca.
+  expect(within(cabecera).getByRole('searchbox', { name: 'Buscar ubicación (próximamente)' })).toBeDisabled()
+  // Tema solo oscuro (RF-INT-23): sin botón de tema ni selector de vista.
+  expect(within(cabecera).queryByRole('button', { name: /tema/ })).not.toBeInTheDocument()
+  expect(within(cabecera).queryByRole('group', { name: 'Vista' })).not.toBeInTheDocument()
+  expect(document.documentElement.dataset.tema).toBeUndefined()
 })
 
 test('los botones de acción solo llevan icono, con nombre accesible y descripción emergente', async () => {
+  const user = userEvent.setup()
   stubApi({ perfil: 'researcher' })
   render(<App />)
   await screen.findByRole('heading', { name: /Cambio probable/ })
+  await abrirBarra(user, 'barra superior')
+  await abrirBarra(user, 'Herramientas del mapa')
+  await user.click(screen.getByRole('tab', { name: 'Comunidad' }))
   const acciones = [
-    screen.getByRole('button', { name: 'Cambiar a tema oscuro' }),
     screen.getByRole('button', { name: 'Cuenta: investigador o investigadora' }),
-    screen.getByRole('tab', { name: 'Mapa' }),
+    screen.getByRole('tab', { name: 'Hallazgos' }),
     screen.getByRole('tab', { name: 'Comunidad' }),
     screen.getByRole('button', { name: 'Guardar historia' }),
-    within(screen.getByRole('navigation', { name: 'Paneles' })).getByRole('button', { name: 'Buscar' }),
+    screen.getByRole('button', { name: 'Recoger Filtros' }),
+    screen.getByRole('button', { name: 'Volver a encuadrar la zona' }),
+    screen.getByRole('button', { name: 'Capas del radar' }),
   ]
   for (const b of acciones) {
     // Sin texto visible: solo el icono (y, en las pestañas, el nombre oculto para el lector de pantalla).
@@ -243,6 +266,22 @@ test('los botones de acción solo llevan icono, con nombre accesible y descripci
     expect(b.querySelector('svg.icono')).not.toBeNull()
     expect(b.getAttribute('title')).toBeTruthy()
   }
+})
+
+test('el selector de capas de la barra cambia la capa y la opacidad del mapa', async () => {
+  const user = userEvent.setup()
+  stubApi({ perfil: 'researcher' })
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  await abrirBarra(user, 'Herramientas del mapa')
+  const capas = screen.getByRole('button', { name: 'Capas del radar' })
+  await user.click(capas)
+  expect(capas).toHaveAttribute('aria-expanded', 'true')
+  await user.click(screen.getByRole('radio', { name: 'Cambio en HV' }))
+  const m = crearMapa.mock.results.at(-1)!.value
+  await waitFor(() => expect(m.actualizar).toHaveBeenLastCalledWith({ activeLayer: 'change_hv' }))
+  fireEvent.change(screen.getByRole('slider', { name: 'Opacidad' }), { target: { value: '0.5' } })
+  await waitFor(() => expect(m.fijarOpacidad).toHaveBeenLastCalledWith(0.5))
 })
 
 test('mientras cargan los veredictos se ven esqueletos que anuncian la carga', async () => {
@@ -297,9 +336,10 @@ test('vuelve a pedir los veredictos en inglés al cambiar de idioma', async () =
   const user = userEvent.setup()
   const fetch = stubApi({ perfil: 'researcher' })
   render(<App />)
-  await within(await screen.findByRole('main')).findByText('Entre A')
+  await within(await screen.findByRole('tabpanel', { name: 'Hallazgos' })).findByText('Entre A')
+  await abrirBarra(user, 'barra superior')
   await user.click(screen.getByRole('button', { name: 'English' }))
-  expect(await within(screen.getByRole('main')).findByText('Between A')).toBeInTheDocument()
+  expect(await within(screen.getByRole('tabpanel', { name: 'Findings' })).findByText('Between A')).toBeInTheDocument()
   expect(screen.getByRole('heading', { name: /Probable change/ })).toBeInTheDocument()
   const urls = fetch.mock.calls.map(([r]) => (typeof r === 'string' ? r : r.url))
   expect(urls.some((u) => u.includes('lang=en'))).toBe(true)
@@ -335,7 +375,8 @@ test('si fallan los veredictos avisa y no muestra ninguna tarjeta', async () => 
 test('avisa si la API no responde', async () => {
   vi.stubGlobal('fetch', vi.fn(async () => Promise.reject(new TypeError('network'))))
   render(<App />)
-  expect(await screen.findByRole('alert')).toHaveTextContent('No se pudo conectar con la API')
+  const avisos = await screen.findAllByRole('alert')
+  expect(avisos[0]).toHaveTextContent('No se pudo conectar con la API')
 })
 
 test('el enlace para saltar al contenido es lo primero con el tabulador y lleva a main', async () => {
@@ -355,24 +396,25 @@ test('el título del documento sigue al idioma', async () => {
   stubApi()
   render(<App />)
   await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await abrirBarra(user, 'barra superior')
   await user.click(screen.getByRole('button', { name: 'English' }))
   expect(document.title).toBe(i18n.t('app.title', { lng: 'en' }))
   expect(document.documentElement.lang).toBe('en')
 })
 
-test('las pestañas del centro se recorren con las flechas', async () => {
+test('las pestañas de la derecha se recorren con las flechas arriba y abajo', async () => {
   const user = userEvent.setup()
   stubApi({ perfil: 'researcher' })
   render(<App />)
   await screen.findByRole('heading', { name: /Cambio probable/ })
-  screen.getByRole('tab', { name: 'Mapa' }).focus()
-  await user.keyboard('{ArrowRight}')
+  screen.getByRole('tab', { name: 'Hallazgos' }).focus()
+  await user.keyboard('{ArrowDown}')
   const historia = screen.getByRole('tab', { name: 'Historia de Parral' })
   expect(historia).toHaveFocus()
   expect(historia).toHaveAttribute('aria-selected', 'true')
   expect(screen.getByRole('tabpanel', { name: 'Historia de Parral' })).toBeVisible()
-  await user.keyboard('{ArrowLeft}{ArrowLeft}')
-  expect(screen.getByRole('tab', { name: '¿Pudo verlo?' })).toHaveAttribute('aria-selected', 'true')
+  await user.keyboard('{ArrowUp}{ArrowUp}')
+  expect(screen.getByRole('tab', { name: 'Comunidad' })).toHaveAttribute('aria-selected', 'true')
 })
 
 // T-FAR-07: axe-core sin infracciones WCAG 2.0/2.1 A y AA. jsdom no calcula colores,
@@ -400,38 +442,40 @@ describe.each([
 // Vista desde el perfil de la sesión (specs/08-interfaz, cambio del 2026-11-14; RF-INT-02 y 03).
 const PERFILES = [undefined, 'student', 'researcher'] as const
 
-test('sin cuenta la vista es Público: la historia primero y lo avanzado plegado', async () => {
+test('sin cuenta la vista es Público: Hallazgos primero, la historia a un clic y lo avanzado plegado', async () => {
+  const user = userEvent.setup()
   stubApi()
   render(<App />)
   await screen.findByRole('heading', { name: 'Buscar veredictos' })
-  expect(screen.getByRole('tab', { name: 'Historia de Parral' })).toHaveAttribute('aria-selected', 'true')
+  // Desde el rediseño de vidrio (RF-INT-26) la primera pantalla es el mapa con Hallazgos.
+  expect(screen.getByRole('tab', { name: 'Hallazgos' })).toHaveAttribute('aria-selected', 'true')
+  await user.click(screen.getByRole('tab', { name: 'Historia de Parral' }))
   expect(screen.getByRole('heading', { level: 2, name: '¿Qué pasó en Parral?' })).toBeInTheDocument()
   // Las siglas de la primera pantalla van explicadas.
   expect(screen.getByText(/Estados Unidos \(NASA\) y de la India \(ISRO\)/)).toBeInTheDocument()
   const mas = screen.getByText('Más filtros', { selector: 'summary' }).closest('details') as HTMLDetailsElement
   expect(mas.open).toBe(false)
+  await abrirBarra(user, 'Herramientas del mapa')
   expect(screen.queryByRole('button', { name: /Comparar con la imagen/ })).not.toBeInTheDocument()
-  await waitFor(() =>
-    expect(crearMapa).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ controlCapas: false })),
-  )
+  // En Público, sin selector de capas (RF-INT-03).
+  expect(screen.queryByRole('button', { name: 'Capas del radar' })).not.toBeInTheDocument()
 })
 
 test('al entrar, la vista pasa a la del perfil y, al salir, vuelve a Público', async () => {
   const user = userEvent.setup()
   stubApi({ auth: 'on' })
   render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await user.click(screen.getByRole('tab', { name: 'Historia de Parral' }))
   await screen.findByRole('heading', { level: 2, name: '¿Qué pasó en Parral?' })
   await entrarComoEstudiante(user)
 
   expect(screen.queryByRole('heading', { name: '¿Qué pasó en Parral?' })).not.toBeInTheDocument()
-  // Fuera de Público, los filtros de estado se ven sin desplegar nada y el mapa lleva su selector de capas.
+  // Fuera de Público, los filtros de estado se ven sin desplegar nada y la barra lleva el selector de capas.
   expect(screen.queryByText('Más filtros')).not.toBeInTheDocument()
   expect(screen.getByRole('group', { name: 'Estados' })).toBeInTheDocument()
-  // Sin pestaña elegida, el centro sigue a la vista: Estudiante abre en el mapa.
-  expect(screen.getByRole('tab', { name: 'Mapa' })).toHaveAttribute('aria-selected', 'true')
-  await waitFor(() =>
-    expect(crearMapa).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ controlCapas: true })),
-  )
+  await abrirBarra(user, 'Herramientas del mapa')
+  expect(screen.getByRole('button', { name: 'Capas del radar' })).toBeInTheDocument()
 
   await user.click(screen.getByRole('button', { name: 'Cuenta: estudiante' }))
   const cuenta = screen.getByRole('dialog', { name: 'Tu cuenta' })
@@ -442,13 +486,11 @@ test('al entrar, la vista pasa a la del perfil y, al salir, vuelve a Público', 
 })
 
 test('con cualquier perfil están el estado, los tres textos, el distintivo y el recibo, y la tarjeta es idéntica', async () => {
-  const user = userEvent.setup()
   const textos: (string | null)[] = []
   for (const perfil of PERFILES) {
     stubApi({ kind: 'synthetic', perfil })
     const { unmount } = render(<App />)
     await screen.findByRole('heading', { name: 'Buscar veredictos' })
-    if (!perfil) await abrirMapa(user)
     const card = await screen.findByRole('article', { name: /Cambio probable/ })
     for (const label of ['Qué detectamos', 'Qué no prueba', 'Qué falta']) {
       expect(within(card).getByText(label), `${perfil}: ${label}`).toBeInTheDocument()
@@ -465,11 +507,9 @@ test('con cualquier perfil están el estado, los tres textos, el distintivo y el
 
 // Diseño en blanco y negro (2026-11-14): la evidencia va fuera de la tarjeta, que no cambia entre vistas.
 test('la evidencia aparece con perfil Estudiante (explicada) e Investigación (con el JSON), no sin cuenta', async () => {
-  const user = userEvent.setup()
   stubApi()
   const publico = render(<App />)
   await screen.findByRole('heading', { name: 'Buscar veredictos' })
-  await abrirMapa(user)
   await screen.findByRole('heading', { name: /Cambio probable/ })
   expect(screen.queryByRole('heading', { name: 'Evidencia' })).not.toBeInTheDocument()
   publico.unmount()
@@ -494,21 +534,24 @@ test('la evidencia aparece con perfil Estudiante (explicada) e Investigación (c
 })
 
 // Historias de la comunidad (RF-ACC-13 a 17, T-ANT-20).
-function interprete() {
-  return screen.getByRole('tabpanel', { name: 'Intérprete' })
+/** El intérprete vive en la pestaña Comunidad de la barra derecha (T-FAR-21). */
+async function interprete(user: ReturnType<typeof userEvent.setup>) {
+  if (!screen.queryByRole('tabpanel', { name: 'Comunidad' })) await user.click(screen.getByRole('tab', { name: 'Comunidad' }))
+  return screen.getByRole('tabpanel', { name: 'Comunidad' })
 }
 
 test('el intérprete arma el borrador con los textos de la API y, sin acceso, no deja guardar', async () => {
+  const user = userEvent.setup()
   stubApi()
   render(<App />)
   await screen.findByRole('heading', { name: '3 veredictos' })
-  const panel = interprete()
+  const panel = await interprete(user)
   expect(
     within(panel).getByText('3 pares: 1 con cambio probable, 1 sin cambio detectable y 1 sin poder observarse.'),
   ).toBeInTheDocument()
   expect(within(panel).getByText('Entre A')).toBeInTheDocument()
   expect(within(panel).getByRole('button', { name: 'Guardar historia' })).toBeDisabled()
-  expect(within(panel).getByText(/AUTH_ENABLED=0/)).toBeInTheDocument()
+  expect(within(panel).getAllByText(/AUTH_ENABLED=0/).length).toBeGreaterThan(0)
 })
 
 test('con sesión se guarda una historia con referencias y notas, sin textos de veredictos', async () => {
@@ -518,7 +561,7 @@ test('con sesión se guarda una historia con referencias y notas, sin textos de 
   await screen.findByRole('heading', { name: '3 veredictos' })
   await entrarComoEstudiante(user)
 
-  const panel = interprete()
+  const panel = await interprete(user)
   await user.click(within(panel).getByRole('checkbox', { name: /2026-06-26 al 2026-07-08/ }))
   await user.type(within(panel).getByLabelText('Tus notas'), 'Mis notas')
   await user.click(within(panel).getByRole('button', { name: 'Guardar historia' }))
@@ -571,10 +614,40 @@ test('abrir una historia de la comunidad enseña sus notas aparte, rotuladas com
   await user.click(screen.getByRole('tab', { name: 'Comunidad' }))
   const historia = await screen.findByRole('article', { name: 'Junio en Parral' })
   await user.click(within(historia).getByRole('button', { name: 'Abrir' }))
-  const panel = interprete()
-  expect(within(panel).getByRole('heading', { name: 'Junio en Parral' })).toBeInTheDocument()
+  const panel = await interprete(user)
+  // En la lista de la comunidad y abierta encima, en el intérprete.
+  expect(within(panel).getAllByRole('heading', { name: 'Junio en Parral' })).toHaveLength(2)
   const notas = within(panel).getByRole('region', { name: 'Notas de quien la escribió' })
   expect(within(notas).getByText('No son texto de la API ni están comprobadas.')).toBeInTheDocument()
   expect(within(notas).getByText('Miré el centro.')).toBeInTheDocument()
   expect(within(panel).getByText('Entre A')).toBeInTheDocument()
+})
+
+test('reproducir una historia recorre sus pares en orden de fechas y cada uno se elige en el mapa', async () => {
+  const user = userEvent.setup()
+  stubApi({ perfil: 'researcher' })
+  render(<App />)
+  await screen.findByRole('heading', { name: /Cambio probable/ })
+  await user.click(screen.getByRole('tab', { name: 'Comunidad' }))
+  const historia = await screen.findByRole('article', { name: 'Junio en Parral' })
+  await user.click(within(historia).getByRole('button', { name: 'Abrir' }))
+  await user.click(screen.getByRole('button', { name: 'Reproducir historia en el mapa' }))
+
+  // La historia guarda los pares desordenados; se reproducen por fecha: primero el del 17 de junio.
+  const linea = screen.getByRole('list', { name: 'Pares de la historia en el tiempo' })
+  expect(screen.getByText('Par 1 de 2')).toBeInTheDocument()
+  expect(within(linea).getAllByRole('button')[0]).toHaveAttribute('aria-current', 'step')
+  expect(resultado(/2026-06-17 → 2026-06-29/)).toHaveAttribute('aria-pressed', 'true')
+  // La barra derecha se queda en la historia.
+  expect(screen.getByRole('tab', { name: 'Comunidad' })).toHaveAttribute('aria-selected', 'true')
+
+  await user.click(screen.getByRole('button', { name: 'Pausar' }))
+  expect(screen.getByRole('button', { name: 'Reproducir' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Par siguiente' }))
+  expect(screen.getByText('Par 2 de 2')).toBeInTheDocument()
+  expect(resultado(/2026-06-29 → 2026-07-11/)).toHaveAttribute('aria-pressed', 'true')
+  expect(screen.getByRole('button', { name: 'Par siguiente' })).toBeDisabled()
+
+  await user.click(screen.getByRole('button', { name: 'Cerrar la reproducción' }))
+  expect(screen.queryByText('Par 2 de 2')).not.toBeInTheDocument()
 })

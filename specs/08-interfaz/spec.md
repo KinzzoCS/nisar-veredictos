@@ -15,7 +15,7 @@ Una interfaz de primer nivel que cualquiera entiende a la primera (80/20: el 80 
 - El **perfil** (`specs/06-acceso`) decide qué rutas de la API puede usar: búsqueda, exportación y cuotas.
 - **Desde el 2026-11-14, la vista sale del perfil de la sesión** y no hay selector: sin sesión es `Público`; con sesión, la del perfil declarado (`student` o `researcher`). Decisión del usuario tras ver el diseño en blanco y negro: la cabecera solo lleva el idioma y el icono de la cuenta. Sustituye a la vista elegible por cualquiera.
 - Lo que no cambia: la tarjeta del veredicto (estado, los tres textos, el distintivo de datos sintéticos y el recibo con los gránulos) es idéntica en las tres vistas, y el JSON de cada veredicto sigue siendo público en la API. La sesión solo añade explicaciones y herramientas (constitución X: los perfiles cambian la profundidad, nunca la verdad).
-- El tema es por omisión el del sistema (`prefers-color-scheme`). Un botón de icono (luna o sol) lo alterna entre claro y oscuro con una transición y lo recuerda; con `prefers-reduced-motion`, cambia sin animar.
+- **Desde el 2026-11-14 (rediseño de vidrio, RF-INT-23), la interfaz es solo oscura** y no hay botón de tema. Sustituye al tema del sistema con botón luna o sol. Decisión del usuario sobre el diseño de referencia de vidrio esmerilado.
 
 ## Qué ve cada vista
 
@@ -44,7 +44,7 @@ Las tres vistas muestran siempre, juntos, el estado, "qué detectamos", "qué no
 | ID | Requisito | Prioridad |
 |---|---|---|
 | RF-INT-01 | Sistema de diseño con variables (color, tipografía, espaciado, radios, elevación) en tema claro y oscuro; contraste AA comprobado en cada par de colores | P0 |
-| RF-INT-02 | La vista sale del perfil de la sesión (`Público` sin sesión) y se anuncia junto al icono de la cuenta; sin selector de vista. El tema se alterna con un botón de icono, con transición (cambio del 2026-11-14) | P0 |
+| RF-INT-02 | La vista sale del perfil de la sesión (`Público` sin sesión) y se anuncia junto al icono de la cuenta; sin selector de vista. Tema solo oscuro, sin botón (cambio del 2026-11-14, RF-INT-23) | P0 |
 | RF-INT-03 | Vista Público 80/20: una pregunta, una respuesta y un mapa; ninguna sigla sin explicar; acciones avanzadas fuera de la primera pantalla | P0 |
 | RF-INT-04 | Vista Estudiante: explicación de cada campo de la evidencia, con textos en `src/i18n/` que pasan la prueba de lenguaje | P1 |
 | RF-INT-05 | Vista Investigador: panel denso con toda la evidencia, atajos de teclado documentados y enlace al JSON de cada veredicto | P1 |
@@ -71,7 +71,29 @@ Las tres vistas muestran siempre, juntos, el estado, "qué detectamos", "qué no
 | RF-INT-19 | La interfaz `crearMapa` sigue siendo compatible: las opciones nuevas (`modo3d`, `relieve`, `huellas`) son opcionales | P0 |
 | RF-INT-20 | El comparador radar frente a óptico (RF-ATL-07) no mezcla geometrías: en 3D, copia al mapa óptico la proyección y el relieve además del centro, el zoom, la orientación y la inclinación, o fuerza 2D mientras está activo y lo dice | P0 |
 
+### Rediseño de vidrio (Faro, con cambios en el mapa de Atlas; 2026-11-14)
+
+Pedido por el usuario a partir de un diseño de referencia: el mapa ocupa toda la pantalla de fondo y la interfaz flota encima en paneles de vidrio esmerilado (glassmorfismo) que se recogen en su borde. Todo lo que hoy se muestra se conserva; solo cambia dónde y cómo. Sigue sin color: grises, blanco y transparencias.
+
+| ID | Requisito | Prioridad |
+|---|---|---|
+| RF-INT-23 | Tema solo oscuro. Superficies de vidrio: fondo negro translúcido con `backdrop-filter: blur()` y borde claro fino; sin `backdrop-filter`, fondo casi opaco. El texto sobre vidrio cumple AA medido contra el fondo opaco equivalente. Los botones son píldoras translúcidas; el activo, más claro y con texto en negrita | P0 |
+| RF-INT-24 | El mapa siempre de fondo, a pantalla completa y abierto en el globo 3D, con un fondo de espacio con estrellas alrededor del globo. Ningún panel lo sustituye | P0 |
+| RF-INT-25 | Cuatro barras recogibles, cada una en su borde: superior (marca, buscador de ubicación, estado de la API, idioma y cuenta), izquierda (Filtros: la búsqueda de veredictos con la línea de tiempo, los resultados y el pie de licencia), derecha (pestañas) e inferior (herramientas del mapa). Recogida, cada barra deja solo una pestaña pequeña en su borde. Botón con `aria-expanded` y `aria-controls`; recogida, su contenido sale del orden de tabulación y del árbol de accesibilidad | P0 |
+| RF-INT-26 | Al cargar en escritorio: mapa, Filtros y la barra derecha en Hallazgos, abiertos; barras superior e inferior recogidas. Por debajo de 40rem, todas recogidas y cada panel abierto ocupa el ancho de la pantalla | P0 |
+| RF-INT-27 | Barra derecha de unos 25 % del ancho (entre 20 y 30 rem) con cuatro pestañas verticales pegadas al borde derecho y centradas en vertical: Hallazgos (la tarjeta del veredicto elegido, su evidencia y el JSON en Investigador), Historia de Parral, Consulta de eventos y Comunidad. Pulsar la pestaña activa con el panel abierto lo recoge | P0 |
+| RF-INT-28 | Barra inferior: 3D y 2D (`aria-pressed`, usa `modo3d` de `crearMapa`), volver a encuadrar la zona, capas (radar de estado, cambio HH o HV, y opacidad; no aparece en vista Público) y pantalla completa | P1 |
+| RF-INT-29 | Buscador de ubicación en la barra superior: se ve, pero está desactivado y dice «Próximamente», porque la API no tiene geocodificador. No busca ni inventa resultados | P2 |
+| RF-INT-30 | Comunidad: al abrir una historia aparece un botón de reproducir. La reproducción recorre sus pares en orden de fechas, elige cada uno en el mapa y en Hallazgos (unos 4 s por par) y muestra una línea de tiempo de la historia con el par actual marcado, con pausa, anterior y siguiente. El borrador del intérprete y las historias publicadas siguen en Comunidad. Con movimiento reducido, sin transiciones; el avance automático sigue y se puede pausar | P1 |
+| RF-INT-31 | Mapa base de imagen de satélite en grises: Sentinel-2 cloudless 2016 de EOX (CC BY 4.0), con su atribución y el año visibles: es una imagen de fondo de 2016, no de las fechas del veredicto. Las otras ediciones son CC BY-NC-SA y no se usan | P1 |
+| RF-INT-32 | El distintivo de datos sintéticos queda siempre visible, fuera de las barras recogibles (constitución II.2) | P0 |
+
+Cambios sobre lo anterior: el tema (RF-INT-02) y, para la vista Público, la primera pantalla (RF-INT-03) pasa a ser el mapa con Hallazgos; la historia de Parral queda a un clic en la pestaña Historia. La barra de paneles para móvil (Buscar, Ver y Guardar) se sustituye por las barras recogibles.
+
 ## Criterios de aceptación
+
+- [ ] Rediseño de vidrio: el mapa se ve detrás de las cuatro barras; cada barra se recoge a su pestaña y se vuelve a abrir con teclado y ratón; al cargar en escritorio están abiertos Filtros y Hallazgos; axe sin errores con las barras abiertas y recogidas; sin desbordamiento horizontal a 375 px.
+- [ ] Reproducir una historia de la comunidad pasa por todos sus pares en orden, el mapa y Hallazgos cambian con cada uno y la pausa los detiene.
 
 - [ ] Una persona sin cuenta, en vista Público, llega a la respuesta de la tormenta del 1 de julio sin abrir ningún menú.
 - [ ] En las tres vistas, el estado, los tres textos, el distintivo de datos sintéticos y el recibo están presentes (prueba de componentes con las tres vistas).

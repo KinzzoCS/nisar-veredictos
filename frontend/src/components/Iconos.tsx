@@ -77,6 +77,46 @@ const TRAZOS: Record<string, ReactNode> = {
     </>
   ),
   luna: <path d="M19.5 14.5A7.5 7.5 0 1 1 9.5 4.5a6 6 0 0 0 10 10z" />,
+  // Rediseño de vidrio (T-FAR-21)
+  hallazgos: <path d="M12 3l1.9 5.6L19.5 10.5l-5.6 1.9L12 18l-1.9-5.6L4.5 10.5l5.6-1.9zM18.5 15.5l.8 2.2 2.2.8-2.2.8-.8 2.2-.8-2.2-2.2-.8 2.2-.8z" />,
+  filtros: <path d="M4 5h16l-6.25 7.5v5.5l-3.5 2v-7.5z" />,
+  satelite: (
+    <>
+      <path d="M9.5 9.5l5 5M7 12l5-5 5 5-5 5z" />
+      <path d="M4.5 9.5l2.5-2.5M2.5 7.5l2.5-2.5 2 2-2.5 2.5zM14.5 19.5l2.5-2.5M17 21.5l2.5-2.5 2 2-2.5 2.5zM15.5 4.5a4 4 0 0 1 4 4" />
+    </>
+  ),
+  cubo: (
+    <>
+      <path d="M12 3l8 4.5v9L12 21l-8-4.5v-9z" />
+      <path d="M4 7.5l8 4.5 8-4.5M12 12v9" />
+    </>
+  ),
+  plano: <path d="M3 19.5l5.5-10 4 6 2.5-3.5 6 7.5z" />,
+  centrar: (
+    <>
+      <circle cx="12" cy="12" r="6.5" />
+      <circle cx="12" cy="12" r="1.75" />
+      <path d="M12 2.5v3M12 18.5v3M2.5 12h3M18.5 12h3" />
+    </>
+  ),
+  capas: (
+    <>
+      <path d="M12 3.5l9 4.75-9 4.75-9-4.75z" />
+      <path d="M3 12.5l9 4.75 9-4.75M3 16.5l9 4.75 9-4.75" />
+    </>
+  ),
+  pantalla: <path d="M4 9V4h5M15 4h5v5M20 15v5h-5M9 20H4v-5M9 9l6 6M15 9l-6 6" />,
+  reproducir: <path d="M7.5 4.5v15l12-7.5z" />,
+  pausa: <path d="M8 5v14M16 5v14" />,
+  ubicacion: (
+    <>
+      <path d="M12 21s-6.5-6.2-6.5-11a6.5 6.5 0 0 1 13 0c0 4.8-6.5 11-6.5 11z" />
+      <circle cx="12" cy="10" r="2.25" />
+    </>
+  ),
+  arriba: <path d="M6 14.5l6-6 6 6" />,
+  abajo: <path d="M6 9.5l6 6 6-6" />,
   cuenta: (
     <>
       <circle cx="12" cy="8" r="3.75" />

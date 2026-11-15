@@ -32,16 +32,6 @@ a:hover {
   text-decoration-thickness: 2px;
 }
 
-/*
- * Islas claras: el mapa y la línea de tiempo de Atlas (src/mapa/) tienen colores
- * pensados para fondo claro. Sus contenedores llevan la clase isla-clara
- * (src/tema/tokens.css) y quedan en tema claro también con el tema oscuro.
- */
-.isla-clara {
-  color: var(--color-texto);
-  background: var(--color-fondo);
-}
-
 #root {
   min-height: 100vh;
 }
@@ -503,37 +493,6 @@ input[type='time'] {
   font-size: var(--texto-s);
 }
 
-/* Mapa de Atlas (T-FAR-05). */
-.atlas-map {
-  border: var(--linea-control) solid var(--color-texto);
-  border-radius: var(--radio-m);
-  overflow: hidden;
-}
-
-.atlas-map > button {
-  align-self: flex-start;
-  margin: var(--espacio-2);
-}
-
-/* La altura va en el marco: Atlas da al contenedor height: 100% (src/mapa/mapa.css).
-   El mapa ocupa todo el alto de su zona en el panel central. */
-.atlas-map {
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  box-sizing: border-box;
-}
-
-.atlas-map-frame {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 18rem;
-}
-
-.atlas-map-canvas {
-  height: 100%;
-}
-
 /* Mientras llega otro veredicto, las capas anteriores no se leen como actuales. */
 .atlas-map-busy {
   position: absolute;
@@ -758,16 +717,7 @@ footer p {
   }
 }
 
-/* =====================================================================
- * Armazón de la app: búsqueda a la izquierda, vistas al centro y
- * guardar y comunidad a la derecha. Cada panel tiene su propio scroll;
- * la página no se desplaza en escritorio.
- *   - Desde 84rem: las tres columnas.
- *   - De 56 a 84rem: el centro y un lateral (Buscar/Ver muestran el
- *     izquierdo; Guardar, el derecho), elegidos con la barra de paneles.
- *   - Por debajo de 56rem: un panel cada vez.
- * ===================================================================== */
-
+/* Solo para lectores de pantalla. */
 .sr-solo {
   position: absolute;
   width: 1px;
@@ -780,263 +730,12 @@ footer p {
   border: 0;
 }
 
-.app-header {
-  padding-inline: clamp(0.75rem, 0.5rem + 1vw, 1.25rem);
-  padding-block: var(--espacio-2);
-}
-
-.synthetic-banner {
-  margin: var(--espacio-2) clamp(0.75rem, 0.5rem + 1vw, 1.25rem) 0;
-}
-
 .estado-carga {
-  padding: var(--espacio-5);
-}
-
-.shell {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  grid-template-areas: 'panel';
-}
-
-.panel-izq,
-.panel-centro,
-.panel-der {
-  grid-area: panel;
-  min-width: 0;
-  box-sizing: border-box;
-  padding: var(--espacio-4);
-}
-
-.panel-centro {
-  container: centro / inline-size;
-}
-
-/* Móvil: un panel cada vez; la barra de abajo elige cuál. */
-.shell[data-panel='buscar'] .panel-centro,
-.shell[data-panel='buscar'] .panel-der,
-.shell[data-panel='ver'] .panel-izq,
-.shell[data-panel='ver'] .panel-der,
-.shell[data-panel='guardar'] .panel-izq,
-.shell[data-panel='guardar'] .panel-centro {
-  display: none;
-}
-
-.shell {
-  padding-bottom: 4rem;
-}
-
-.barra-paneles {
-  position: fixed;
-  inset: auto 0 0 0;
-  z-index: 20;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  border-top: var(--linea-control) solid var(--color-texto);
-  background: var(--color-fondo);
-}
-
-.barra-paneles button {
-  min-height: 3.25rem;
-  border: 0;
-  border-radius: 0;
-  font-weight: var(--peso-fuerte);
-}
-
-@media (min-width: 56rem) {
-  #root {
-    display: flex;
-    flex-direction: column;
-    height: 100vh;
-    height: 100dvh;
-    min-height: 0;
-  }
-
-  .app-header,
-  .synthetic-banner {
-    flex: none;
-  }
-
-  .shell {
-    flex: 1 1 auto;
-    min-height: 0;
-    padding-bottom: 0;
-    grid-template-columns: 20rem minmax(0, 1fr);
-    grid-template-rows: auto minmax(0, 1fr);
-    grid-template-areas:
-      'barra barra'
-      'lateral centro';
-  }
-
-  .barra-paneles {
-    position: static;
-    grid-area: barra;
-    grid-template-columns: repeat(3, max-content);
-    gap: 0;
-    border-top: 0;
-    border-bottom: 1px solid var(--color-borde);
-    padding-inline: var(--espacio-3);
-  }
-
-  .barra-paneles button {
-    min-height: 2.5rem;
-    font-weight: var(--peso-normal);
-  }
-
-  .panel-izq,
-  .panel-der {
-    grid-area: lateral;
-    overflow-y: auto;
-    border-right: 1px solid var(--color-borde);
-  }
-
-  .panel-centro {
-    grid-area: centro;
-    overflow-y: auto;
-    display: flex;
-    flex-direction: column;
-  }
-
-  .shell[data-panel] .panel-centro {
-    display: flex;
-  }
-
-  /* Ver y Buscar enseñan la búsqueda; Guardar, el panel derecho. */
-  .shell[data-panel='ver'] .panel-izq,
-  .shell[data-panel='buscar'] .panel-izq,
-  .shell[data-panel='guardar'] .panel-der {
-    display: block;
-  }
-
-  .shell[data-panel='guardar'] .panel-izq,
-  .shell[data-panel='ver'] .panel-der,
-  .shell[data-panel='buscar'] .panel-der {
-    display: none;
-  }
-}
-
-@media (min-width: 84rem) {
-  .shell {
-    grid-template-columns: 20rem minmax(0, 1fr) 23rem;
-    grid-template-rows: minmax(0, 1fr);
-    grid-template-areas: 'izq centro der';
-  }
-
-  .barra-paneles {
-    display: none;
-  }
-
-  .shell[data-panel] .panel-izq,
-  .shell[data-panel] .panel-der {
-    display: block;
-  }
-
-  .panel-izq {
-    grid-area: izq;
-  }
-
-  .panel-der {
-    grid-area: der;
-    border-right: 0;
-    border-left: 1px solid var(--color-borde);
-  }
-}
-
-/* ---------- Pestañas ---------- */
-
-.pestanas {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0;
-  margin-bottom: var(--espacio-3);
-  border-bottom: var(--linea-control) solid var(--color-texto);
-}
-
-.pestanas [role='tab'] {
-  border: 0;
-  border-radius: var(--radio-s) var(--radio-s) 0 0;
-  padding-inline: var(--espacio-3);
-  font-size: var(--texto-s);
-}
-
-.pestanas [role='tab'][aria-selected='true'] {
-  background: var(--color-texto);
-  color: var(--color-fondo);
-  font-weight: var(--peso-fuerte);
+  padding: var(--espacio-3) 0;
 }
 
 .panel-pestana[hidden] {
   display: none;
-}
-
-.panel-centro > .panel-pestana {
-  flex: 1 1 auto;
-  min-height: 0;
-}
-
-/* ---------- Vista de mapa: el mapa arriba y el veredicto debajo ---------- */
-
-.vista-mapa {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-4);
-}
-
-.vista-mapa-mapa {
-  height: 62vh;
-  min-height: 20rem;
-}
-
-@media (min-width: 56rem) {
-  .vista-mapa {
-    height: 100%;
-  }
-
-  .vista-mapa-mapa {
-    flex: 0 0 58%;
-    height: auto;
-  }
-
-  .vista-mapa-detalle {
-    flex: 1 1 auto;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: var(--espacio-1);
-  }
-}
-
-/* Con un panel central ancho, el veredicto va al lado del mapa en lugar de debajo. */
-@container centro (min-width: 60rem) {
-  .vista-mapa {
-    flex-direction: row;
-  }
-
-  .vista-mapa-mapa {
-    flex: 1 1 auto;
-    height: auto;
-  }
-
-  .vista-mapa-detalle {
-    flex: 0 0 24rem;
-  }
-}
-
-/* En el panel central la historia y la consulta van más compactas. */
-.panel-centro .intro-publico {
-  padding-block: var(--espacio-2) var(--espacio-4);
-}
-
-.panel-centro .intro-publico h2 {
-  font-size: clamp(2rem, 1.5rem + 2vw, 3.25rem);
-}
-
-.panel-centro .story {
-  margin-top: 0;
-  padding-top: var(--espacio-3);
-}
-
-.panel-centro .event-query {
-  margin-top: 0;
 }
 
 /* ---------- Paneles laterales ---------- */
@@ -1469,134 +1168,11 @@ legend {
   min-width: 2.75rem;
 }
 
-/* Pestañas: solo el icono, con el mismo alto táctil que un botón. */
-.pestanas [role='tab'] {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  min-width: 2.75rem;
-}
-
-/* Barra de paneles: iconos un poco mayores. */
-.barra-paneles .boton-icono {
-  min-height: 3.25rem;
-}
-
-@media (min-width: 56rem) {
-  .barra-paneles .boton-icono {
-    min-height: 2.5rem;
-    min-width: 3rem;
-  }
-}
-
 /* Idioma: códigos cortos, en el mismo grupo contiguo. */
 .language-switch > button {
   min-width: 2.5rem;
   padding-inline: 0.5rem;
   letter-spacing: 0.04em;
-}
-
-.boton-tema {
-  border-radius: 50%;
-}
-
-.dialogo-cerrar {
-  position: absolute;
-  top: var(--espacio-3);
-  right: var(--espacio-3);
-  margin: 0;
-}
-
-.dialogo {
-  position: relative;
-}
-
-.estrellas-valorar .boton-icono {
-  border-color: transparent;
-}
-
-/* =====================================================================
- * Esqueletos de carga: bloques grises con un brillo que los recorre.
- * ===================================================================== */
-
-.esqueleto {
-  display: block;
-  margin-block: var(--espacio-2);
-}
-
-.esqueleto > div {
-  display: flex;
-  flex-direction: column;
-  gap: var(--espacio-2);
-}
-
-.esq {
-  display: block;
-  border-radius: var(--radio-s);
-  background: linear-gradient(
-      90deg,
-      transparent 0%,
-      light-dark(rgba(255, 255, 255, 0.75), rgba(255, 255, 255, 0.09)) 50%,
-      transparent 100%
-    )
-    no-repeat,
-    var(--color-superficie);
-  background-size: 40% 100%, 100% 100%;
-  background-position: -60% 0, 0 0;
-  animation: esq-brillo 1.4s ease-in-out infinite;
-}
-
-@keyframes esq-brillo {
-  to {
-    background-position: 160% 0, 0 0;
-  }
-}
-
-.esq-linea {
-  height: 0.8rem;
-}
-
-.esq-corta {
-  width: 45% !important;
-  height: 0.65rem;
-}
-
-.esq-marca {
-  flex: none;
-  width: 1.25rem;
-  height: 1.25rem;
-  border-radius: 0;
-}
-
-.esq-titulo {
-  height: 1.3rem;
-  width: 55%;
-}
-
-.esq-cabecera,
-.esq-fila {
-  display: flex;
-  gap: var(--espacio-3);
-  align-items: center;
-}
-
-.esq-fila {
-  align-items: flex-start;
-  padding-block: var(--espacio-2);
-  border-bottom: 1px solid var(--color-borde);
-}
-
-.esq-fila-texto {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: 0.35rem;
-}
-
-.esqueleto-tarjeta > div {
-  padding: var(--espacio-4);
-  border: 1px solid var(--color-borde);
-  border-radius: var(--radio-m);
 }
 
 .esq-bloque {
@@ -1611,72 +1187,8 @@ legend {
   margin: 0;
 }
 
-.shell-cargando .panel-centro {
-  display: flex !important;
-  flex-direction: column;
-  gap: var(--espacio-4);
-}
-
-.shell-cargando .panel-izq,
-.shell-cargando .panel-der {
-  display: none;
-}
-
-@media (min-width: 56rem) {
-  .shell-cargando .panel-izq {
-    display: block;
-  }
-}
-
-@media (min-width: 84rem) {
-  .shell-cargando .panel-der {
-    display: block;
-  }
-}
-
-/* =====================================================================
- * Cambio de tema con transición. Con View Transitions, el tema nuevo se abre
- * en círculo desde el botón (--tema-x, --tema-y, --tema-r los fija tema.ts);
- * sin ellas, los colores se funden. Con movimiento reducido, sin animación.
- * ===================================================================== */
-
-::view-transition-old(root),
-::view-transition-new(root) {
-  animation: none;
-  mix-blend-mode: normal;
-}
-
-::view-transition-new(root) {
-  animation: tema-circulo 0.55s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-@keyframes tema-circulo {
-  from {
-    clip-path: circle(0 at var(--tema-x, 100%) var(--tema-y, 0));
-  }
-  to {
-    clip-path: circle(var(--tema-r, 150%) at var(--tema-x, 100%) var(--tema-y, 0));
-  }
-}
-
-.tema-transicion,
-.tema-transicion *,
-.tema-transicion *::before,
-.tema-transicion *::after {
-  transition:
-    background-color 0.4s ease,
-    color 0.4s ease,
-    border-color 0.4s ease,
-    fill 0.4s ease,
-    stroke 0.4s ease !important;
-}
-
 @media (prefers-reduced-motion: reduce) {
   .esq {
-    animation: none;
-  }
-
-  ::view-transition-new(root) {
     animation: none;
   }
 }

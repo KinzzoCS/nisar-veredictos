@@ -15,16 +15,6 @@
     "student": "Student",
     "researcher": "Researcher"
   },
-  "theme": {
-    "label": "Theme",
-    "sistema": "System",
-    "claro": "Light",
-    "oscuro": "Dark",
-    "to": {
-      "claro": "Switch to light theme",
-      "oscuro": "Switch to dark theme"
-    }
-  },
   "public": {
     "question": "What happened in Parral?",
     "lead": "NISAR is a radar satellite from the space agencies of the United States (NASA) and India (ISRO). It sees through clouds and passes over Parral every 12 days. Here you can see what it noticed between two passes, what it could not see and what is still unknown."
@@ -42,20 +32,17 @@
     "card": "This verdict uses synthetic data."
   },
   "layout": {
-    "left": "Search and parameters",
-    "center": "Views",
-    "right": "Save and community",
-    "switcher": "Panels",
-    "panels": {
-      "buscar": "Search",
-      "ver": "View",
-      "guardar": "Save"
-    },
+    "left": "Filters",
+    "filters": "Filters",
+    "top": "top bar",
+    "tools": "Map tools",
+    "right": "Reading panels",
+    "collapse": "Collapse {{name}}",
+    "expand": "Open {{name}}",
     "tabs": {
-      "mapa": "Map",
-      "historia": "Parral story",
+      "hallazgos": "Findings",
+      "historia": "The Parral story",
       "evento": "Could it see it?",
-      "interprete": "Interpreter",
       "comunidad": "Community"
     }
   },
@@ -325,5 +312,41 @@
   "footer": {
     "attribution": "NISAR data: NASA and ISRO. Each external source is credited where it is shown.",
     "license": "Free software under GPL-3.0-only."
+  },
+  "tools": {
+    "projection": "Map view",
+    "view3d": "3D globe",
+    "view2d": "Flat 2D map",
+    "reframe": "Reframe the area",
+    "layers": "Radar layers",
+    "layer": "Visible layer",
+    "opacity": "Opacity",
+    "fullscreen": "Full screen",
+    "exitFullscreen": "Exit full screen",
+    "layerNames": {
+      "state": "Verdict state",
+      "change_hh": "HH change",
+      "change_hv": "HV change"
+    }
+  },
+  "geocoder": {
+    "label": "Search location (coming soon)",
+    "placeholder": "Search location…",
+    "soon": "Coming soon"
+  },
+  "status": {
+    "online": "Online",
+    "offline": "No connection to the API",
+    "connecting": "Connecting"
+  },
+  "player": {
+    "playStory": "Play story on the map",
+    "play": "Play",
+    "pause": "Pause",
+    "previous": "Previous pair",
+    "next": "Next pair",
+    "close": "Close playback",
+    "timeline": "Story pairs over time",
+    "position": "Pair {{n}} of {{total}}"
   }
 }
