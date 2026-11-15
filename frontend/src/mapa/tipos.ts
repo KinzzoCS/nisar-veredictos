@@ -1,4 +1,5 @@
 // Interfaz del mapa para Faro. Fuente: specs/04-atlas/plan.md y src/types/map.ts.
+import type { FeatureCollection, Polygon } from "geojson";
 import type { MapLayerName, MapProps } from "../types/map";
 import type { AvisoEscena } from "./escena";
 import type { Huellas } from "./huellas";
@@ -59,6 +60,11 @@ export interface OpcionesMapa
   huellas?: Huellas;
   /** Muestra el selector de capa y la opacidad dentro del mapa. Por defecto, true. */
   controlCapas?: boolean;
+  /**
+   * Comparador antes/después: la escena óptica de antes y la de después del par, recortadas a la
+   * zona y separadas por un deslizador que sigue al globo. Funciona en 2D y en 3D. Por defecto, false.
+   */
+  antesDespues?: boolean;
   /** Se llama cuando la persona cambia de capa con el selector del mapa. */
   onLayerChanged?: (capa: CapaRadar) => void;
 }
@@ -80,8 +86,19 @@ export type CambiosMapa = Partial<
     | "compare"
     | "modo3d"
     | "huellas"
+    | "antesDespues"
   >
 >;
+
+/**
+ * Resultados del buscador mundial (catalog /search/world): huellas de los gránulos, el elegido resaltado y su
+ * vista previa de ASF colocada en la caja de su huella (aproximada: la PNG no trae georreferencia).
+ */
+export interface MundoMapa {
+  huellas: FeatureCollection<Polygon, { id: string }>;
+  elegido?: string | null;
+  vista?: { url: string; bbox: Bbox } | null;
+}
 
 export interface MapaAtlas {
   /** Aplica cambios sin recrear el mapa; por ejemplo, al elegir otro veredicto. */
@@ -90,5 +107,9 @@ export interface MapaAtlas {
   fijarOpacidad(opacidad: number): void;
   /** Vuelve a encuadrar la zona. */
   encuadrar(): void;
+  /** Buscador mundial: pinta (o quita, con null) las huellas y la vista previa del gránulo elegido. */
+  mostrarMundo(m: MundoMapa | null): void;
+  /** Lleva la cámara a una caja [oeste, sur, este, norte]. */
+  volarA(bbox: Bbox): void;
   destruir(): void;
 }

@@ -20,6 +20,7 @@ export function BotonRecoger({
   controla,
   onCambiar,
   className,
+  icono,
 }: {
   lado: Lado
   abierta: boolean
@@ -27,6 +28,8 @@ export function BotonRecoger({
   controla: string
   onCambiar: (abierta: boolean) => void
   className?: string
+  /** Icono propio (el del panel) en lugar de la flecha; lo usa el botón flotante de la barra recogida. */
+  icono?: NombreIcono
 }) {
   const { t } = useTranslation()
   const etiqueta = t(abierta ? 'layout.collapse' : 'layout.expand', { name: nombre })
@@ -40,7 +43,7 @@ export function BotonRecoger({
       title={etiqueta}
       onClick={() => onCambiar(!abierta)}
     >
-      <Icono nombre={FLECHA[lado][abierta ? 'recoger' : 'abrir']} />
+      <Icono nombre={icono ?? FLECHA[lado][abierta ? 'recoger' : 'abrir']} />
     </button>
   )
 }
@@ -58,6 +61,8 @@ export function BarraRecogible({
   onCambiar,
   children,
   className,
+  icono,
+  vidrio = true,
 }: {
   lado: Lado
   id: string
@@ -66,6 +71,10 @@ export function BarraRecogible({
   onCambiar: (abierta: boolean) => void
   children: ReactNode
   className?: string
+  /** Icono del botón flotante que queda al recogerla (por omisión, la flecha hacia donde se abre). */
+  icono?: NombreIcono
+  /** Sin superficie propia: la barra superior lleva sus piezas de vidrio sueltas sobre el mapa. */
+  vidrio?: boolean
 }) {
   // El foco no se pierde al abrir o recoger: si estaba en la barra, pasa a su contenido o a su pestaña.
   const caja = useRef<HTMLDivElement>(null)
@@ -82,7 +91,8 @@ export function BarraRecogible({
     else raiz.querySelector<HTMLElement>('.barra-pestana')?.focus()
   }, [abierta])
 
-  // Abierta, la pestaña del borde se oculta: el panel lleva su propio botón para recogerse
+  // Recogida, la barra queda como un botón flotante de vidrio líquido, separado del borde (sin pestañas
+  // pegadas al canto). Abierta, el botón se oculta: el panel lleva el suyo para recogerse
   // (`BotonRecoger` dentro de `children`), en su cabecera o al final de la barra.
   return (
     <div ref={caja} className={`barra barra-${lado} ${className ?? ''}`} data-abierta={abierta}>
@@ -93,10 +103,11 @@ export function BarraRecogible({
           nombre={nombre}
           controla={id}
           onCambiar={onCambiar}
-          className="barra-pestana vidrio"
+          icono={icono}
+          className="barra-pestana boton-flotante"
         />
       )}
-      <div id={id} className="barra-contenido vidrio" hidden={!abierta} tabIndex={-1}>
+      <div id={id} className={`barra-contenido${vidrio ? ' vidrio' : ''}`} hidden={!abierta} tabIndex={-1}>
         {children}
       </div>
     </div>

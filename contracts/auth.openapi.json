@@ -510,6 +510,11 @@
             "title": "Aoi",
             "type": "string"
           },
+          "author_alias": {
+            "description": "Seudónimo estable de la cuenta autora (SAR-XXXXXX, del SHA-256 de su id): identifica a quien publica sin revelar el correo (RF-ACC-16).",
+            "title": "Author Alias",
+            "type": "string"
+          },
           "author_role": {
             "description": "Perfil declarado de quien la escribió. Nunca se muestra el correo (RF-ACC-16).",
             "enum": [
@@ -525,7 +530,7 @@
             "type": "string"
           },
           "downloads": {
-            "description": "Descargas hechas con sesión.",
+            "description": "Descargas, con o sin sesión.",
             "title": "Downloads",
             "type": "integer"
           },
@@ -592,6 +597,7 @@
           "pairs",
           "notes",
           "author_role",
+          "author_alias",
           "created_at",
           "downloads",
           "ratings",
@@ -1267,7 +1273,7 @@
     },
     "/stories/{story_id}/download": {
       "post": {
-        "description": "Cuenta la descarga y devuelve la historia. El archivo lo arma la interfaz con los veredictos actuales de la\nAPI y las notas aparte. No es una barrera de seguridad: los datos son públicos (constitución II.4).",
+        "description": "Cuenta la descarga y devuelve la historia. El archivo lo arma la interfaz con los veredictos actuales de la\nAPI y las notas aparte. Desde el 2026-11-14 no pide sesión: toda la información es pública y la cuenta solo\nhace falta para publicar, valorar y borrar (constitución II.4).",
         "operationId": "download_stories__story_id__download_post",
         "parameters": [
           {
@@ -1307,9 +1313,6 @@
             },
             "description": "Successful Response"
           },
-          "401": {
-            "description": "Sin sesión o con un token no válido"
-          },
           "404": {
             "description": "No hay una historia con ese id"
           },
@@ -1324,16 +1327,10 @@
             "description": "Validation Error"
           }
         },
-        "security": [
-          {
-            "bearerAuth": []
-          }
-        ],
         "summary": "Download",
         "tags": [
           "historias"
-        ],
-        "x-required-role": "student"
+        ]
       }
     },
     "/stories/{story_id}/rating": {

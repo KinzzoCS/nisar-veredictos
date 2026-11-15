@@ -6,6 +6,7 @@ nunca congela ni cambia lo que dice un veredicto. Las notas van siempre aparte y
 """
 from __future__ import annotations
 
+import hashlib
 import re
 from collections.abc import Callable
 from datetime import date, datetime, timezone
@@ -129,8 +130,14 @@ class StoryOut(BaseModel):
     author_role: Literal["student", "researcher"] = Field(
         description="Perfil declarado de quien la escribió. Nunca se muestra el correo (RF-ACC-16)."
     )
+    author_alias: str = Field(
+        description=(
+            "Seudónimo estable de la cuenta autora (SAR-XXXXXX, del SHA-256 de su id): identifica a quien publica "
+            "sin revelar el correo (RF-ACC-16)."
+        )
+    )
     created_at: str = Field(description="Hora UTC de creación, ISO 8601.")
-    downloads: int = Field(description="Descargas hechas con sesión.")
+    downloads: int = Field(description="Descargas, con o sin sesión.")
     ratings: StoryRatings
     is_mine: bool = Field(description="La escribió la cuenta del token. False sin token.")
     my_stars: int | None = Field(description="Estrellas que le dio la cuenta del token, o null.")
@@ -149,6 +156,11 @@ def _stars(summary: RatingSummary) -> Stars:
     return Stars(count=summary.count, average=summary.average)
 
 
+def author_alias(author_id: str) -> str:
+    """Seudónimo de la cuenta: igual en todas sus historias y sin forma de volver al correo."""
+    return "SAR-" + hashlib.sha256(author_id.encode("utf-8")).hexdigest()[:6].upper()
+
+
 def story_out(story: Story, viewer: str | None, mine: int | None) -> StoryOut:
     return StoryOut(
         id=story.id,
@@ -160,6 +172,7 @@ def story_out(story: Story, viewer: str | None, mine: int | None) -> StoryOut:
         pairs=[StoryPair(**p) for p in story.pairs],
         notes=story.notes,
         author_role=story.author_role,
+        author_alias=author_alias(story.author_id),
         created_at=_utc(story.created_at),
         downloads=story.downloads,
         ratings=StoryRatings(
@@ -279,13 +292,13 @@ def story_routes(
     @router.post(
         "/{story_id}/download",
         response_model=StoryOut,
-        responses={**no_session, **not_found},
-        openapi_extra=session,
+        responses={**not_found},
     )
     def download(story_id: str, authorization: str | None = Header(default=None)) -> StoryOut:
         """Cuenta la descarga y devuelve la historia. El archivo lo arma la interfaz con los veredictos actuales de la
-        API y las notas aparte. No es una barrera de seguridad: los datos son públicos (constitución II.4)."""
-        user = account(authorization)
+        API y las notas aparte. Desde el 2026-11-14 no pide sesión: toda la información es pública y la cuenta solo
+        hace falta para publicar, valorar y borrar (constitución II.4)."""
+        user = viewer_of(authorization)
         existing(story_id)
         store.count_download(story_id)
         return out(existing(story_id), user)

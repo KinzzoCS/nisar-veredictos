@@ -112,6 +112,8 @@ export function Comunidad({
               <article aria-labelledby={`historia-${h.id}`}>
                 <h4 id={`historia-${h.id}`}>{h.title}</h4>
                 <p className="muted comunidad-meta">
+                  <strong className="autoria">{h.author_alias}</strong>
+                  {' · '}
                   {t('community.meta', { role: t(`community.role.${h.author_role}`), from: h.from_date, to: h.to_date })}
                   {' · '}
                   {t('community.pairs', { count: h.pairs.length })}
@@ -124,7 +126,7 @@ export function Comunidad({
                   <BotonIcono
                     icono="descargar"
                     etiqueta={t('community.download')}
-                    disabled={!token || ocupada === h.id}
+                    disabled={ocupada === h.id}
                     onClick={async () => {
                       setOcupada(h.id)
                       await onDescargar(h)

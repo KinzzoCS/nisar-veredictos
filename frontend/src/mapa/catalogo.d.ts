@@ -129,6 +129,29 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/search/world": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Search World
+         * @description Pasadas NISAR GCOV en cualquier parte del mundo, sin descargar nada y sin cuenta (buscador mundial).
+         *
+         *     Usa CMR, el catálogo detrás de NASA Earthdata Search, y las vistas previas públicas de ASF. Abierta a todos:
+         *     solo son metadatos públicos.
+         */
+        get: operations["search_world_search_world_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -795,6 +818,115 @@ export interface components {
             /** Error Type */
             type: string;
         };
+        /** WorldGranuleOut */
+        WorldGranuleOut: {
+            /**
+             * Acquired At
+             * Format: date-time
+             * @description Inicio de la adquisición, UTC, del nombre del gránulo.
+             */
+            acquired_at: string;
+            /**
+             * Bbox
+             * @description Caja [oeste, sur, este, norte] de la huella, o null sin huella.
+             */
+            bbox: number[] | null;
+            /**
+             * Browse Url
+             * @description Vista previa _LATLON.png de ASF: pública, sin cuenta. No es un producto georreferenciado: su caja en el mapa es la de la huella y se dice aproximada.
+             */
+            browse_url: string | null;
+            /**
+             * Data Url
+             * @description HDF5 completo en ASF; pide una cuenta de Earthdata.
+             */
+            data_url: string;
+            /**
+             * Date
+             * Format: date
+             */
+            date: string;
+            /**
+             * Direction
+             * @enum {string}
+             */
+            direction: "A" | "D";
+            /**
+             * Earthdata Search Url
+             * @description El gránulo en NASA Earthdata Search.
+             */
+            earthdata_search_url: string;
+            /**
+             * Footprint
+             * @description Anillo cerrado [lon, lat] de la huella en CMR, 5 decimales. Vacío si CMR no da polígono.
+             */
+            footprint: number[][];
+            /** Frame */
+            frame: number;
+            /**
+             * Id
+             * @description Nombre del gránulo (título en CMR).
+             */
+            id: string;
+            /** Mode */
+            mode: string;
+            /** Polarization */
+            polarization: string;
+            /** Size Mb */
+            size_mb: number;
+            /**
+             * Thumbnail Url
+             * @description Miniatura de esa vista previa.
+             */
+            thumbnail_url: string | null;
+            /** Track */
+            track: number;
+            /**
+             * Vertex Url
+             * @description El gránulo en ASF Data Search Vertex.
+             */
+            vertex_url: string;
+        };
+        /** WorldSearchOut */
+        WorldSearchOut: {
+            /** Bbox */
+            bbox: number[];
+            /** Collection */
+            collection: string;
+            /**
+             * Data Kind
+             * @default real
+             * @constant
+             */
+            data_kind: "real";
+            /** Direction */
+            direction: ("A" | "D") | null;
+            /**
+             * From
+             * Format: date
+             */
+            from: string;
+            /**
+             * Granules
+             * @description Los más recientes primero, como mucho `limit`.
+             */
+            granules: components["schemas"]["WorldGranuleOut"][];
+            /**
+             * Sources
+             * @description Recursos oficiales usados: CMR (NASA Earthdata Search) y ASF.
+             */
+            sources: string[];
+            /**
+             * To
+             * Format: date
+             */
+            to: string;
+            /**
+             * Total
+             * @description Gránulos que CMR encuentra en el rectángulo y las fechas, sin filtrar por dirección.
+             */
+            total: number;
+        };
     };
     responses: never;
     parameters: never;
@@ -1038,6 +1170,50 @@ export interface operations {
             };
             /** @description Parámetro o cursor no válido. */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    search_world_search_world_get: {
+        parameters: {
+            query: {
+                /** @description oeste,sur,este,norte en WGS84; sin cruzar el antimeridiano. */
+                bbox: string;
+                /** @description Primer día (UTC). Por omisión, 90 días antes de `to`. */
+                from?: string | null;
+                /** @description Último día (UTC), incluido. Por omisión, hoy. */
+                to?: string | null;
+                /** @description A ascendente o D descendente. */
+                direction?: ("A" | "D") | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WorldSearchOut"];
+                };
+            };
+            /** @description Rectángulo o fechas no válidos. */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description CMR no respondió. */
+            502: {
                 headers: {
                     [name: string]: unknown;
                 };

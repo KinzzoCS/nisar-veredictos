@@ -1274,6 +1274,218 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "WorldGranuleOut": {
+        "properties": {
+          "acquired_at": {
+            "description": "Inicio de la adquisición, UTC, del nombre del gránulo.",
+            "format": "date-time",
+            "title": "Acquired At",
+            "type": "string"
+          },
+          "bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Caja [oeste, sur, este, norte] de la huella, o null sin huella.",
+            "title": "Bbox"
+          },
+          "browse_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Vista previa _LATLON.png de ASF: pública, sin cuenta. No es un producto georreferenciado: su caja en el mapa es la de la huella y se dice aproximada.",
+            "title": "Browse Url"
+          },
+          "data_url": {
+            "description": "HDF5 completo en ASF; pide una cuenta de Earthdata.",
+            "title": "Data Url",
+            "type": "string"
+          },
+          "date": {
+            "format": "date",
+            "title": "Date",
+            "type": "string"
+          },
+          "direction": {
+            "enum": [
+              "A",
+              "D"
+            ],
+            "title": "Direction",
+            "type": "string"
+          },
+          "earthdata_search_url": {
+            "description": "El gránulo en NASA Earthdata Search.",
+            "title": "Earthdata Search Url",
+            "type": "string"
+          },
+          "footprint": {
+            "description": "Anillo cerrado [lon, lat] de la huella en CMR, 5 decimales. Vacío si CMR no da polígono.",
+            "items": {
+              "items": {
+                "type": "number"
+              },
+              "type": "array"
+            },
+            "title": "Footprint",
+            "type": "array"
+          },
+          "frame": {
+            "title": "Frame",
+            "type": "integer"
+          },
+          "id": {
+            "description": "Nombre del gránulo (título en CMR).",
+            "title": "Id",
+            "type": "string"
+          },
+          "mode": {
+            "title": "Mode",
+            "type": "string"
+          },
+          "polarization": {
+            "title": "Polarization",
+            "type": "string"
+          },
+          "size_mb": {
+            "title": "Size Mb",
+            "type": "number"
+          },
+          "thumbnail_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Miniatura de esa vista previa.",
+            "title": "Thumbnail Url"
+          },
+          "track": {
+            "title": "Track",
+            "type": "integer"
+          },
+          "vertex_url": {
+            "description": "El gránulo en ASF Data Search Vertex.",
+            "title": "Vertex Url",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "acquired_at",
+          "date",
+          "track",
+          "direction",
+          "frame",
+          "mode",
+          "polarization",
+          "size_mb",
+          "footprint",
+          "bbox",
+          "browse_url",
+          "thumbnail_url",
+          "data_url",
+          "vertex_url",
+          "earthdata_search_url"
+        ],
+        "title": "WorldGranuleOut",
+        "type": "object"
+      },
+      "WorldSearchOut": {
+        "properties": {
+          "bbox": {
+            "items": {
+              "type": "number"
+            },
+            "title": "Bbox",
+            "type": "array"
+          },
+          "collection": {
+            "title": "Collection",
+            "type": "string"
+          },
+          "data_kind": {
+            "const": "real",
+            "default": "real",
+            "title": "Data Kind",
+            "type": "string"
+          },
+          "direction": {
+            "anyOf": [
+              {
+                "enum": [
+                  "A",
+                  "D"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Direction"
+          },
+          "from": {
+            "format": "date",
+            "title": "From",
+            "type": "string"
+          },
+          "granules": {
+            "description": "Los más recientes primero, como mucho `limit`.",
+            "items": {
+              "$ref": "#/components/schemas/WorldGranuleOut"
+            },
+            "title": "Granules",
+            "type": "array"
+          },
+          "sources": {
+            "description": "Recursos oficiales usados: CMR (NASA Earthdata Search) y ASF.",
+            "items": {
+              "type": "string"
+            },
+            "title": "Sources",
+            "type": "array"
+          },
+          "to": {
+            "format": "date",
+            "title": "To",
+            "type": "string"
+          },
+          "total": {
+            "description": "Gránulos que CMR encuentra en el rectángulo y las fechas, sin filtrar por dirección.",
+            "title": "Total",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "bbox",
+          "from",
+          "to",
+          "direction",
+          "total",
+          "granules",
+          "collection",
+          "sources"
+        ],
+        "title": "WorldSearchOut",
+        "type": "object"
       }
     },
     "securitySchemes": {
@@ -1873,6 +2085,116 @@
         ],
         "summary": "Search Passes",
         "x-required-role": "student"
+      }
+    },
+    "/search/world": {
+      "get": {
+        "description": "Pasadas NISAR GCOV en cualquier parte del mundo, sin descargar nada y sin cuenta (buscador mundial).\n\nUsa CMR, el catálogo detrás de NASA Earthdata Search, y las vistas previas públicas de ASF. Abierta a todos:\nsolo son metadatos públicos.",
+        "operationId": "search_world_search_world_get",
+        "parameters": [
+          {
+            "description": "oeste,sur,este,norte en WGS84; sin cruzar el antimeridiano.",
+            "in": "query",
+            "name": "bbox",
+            "required": true,
+            "schema": {
+              "description": "oeste,sur,este,norte en WGS84; sin cruzar el antimeridiano.",
+              "title": "Bbox",
+              "type": "string"
+            }
+          },
+          {
+            "description": "Primer día (UTC). Por omisión, 90 días antes de `to`.",
+            "in": "query",
+            "name": "from",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Primer día (UTC). Por omisión, 90 días antes de `to`.",
+              "title": "From"
+            }
+          },
+          {
+            "description": "Último día (UTC), incluido. Por omisión, hoy.",
+            "in": "query",
+            "name": "to",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "format": "date",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Último día (UTC), incluido. Por omisión, hoy.",
+              "title": "To"
+            }
+          },
+          {
+            "description": "A ascendente o D descendente.",
+            "in": "query",
+            "name": "direction",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "enum": [
+                    "A",
+                    "D"
+                  ],
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "A ascendente o D descendente.",
+              "title": "Direction"
+            }
+          },
+          {
+            "in": "query",
+            "name": "limit",
+            "required": false,
+            "schema": {
+              "default": 60,
+              "maximum": 200,
+              "minimum": 1,
+              "title": "Limit",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/WorldSearchOut"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Rectángulo o fechas no válidos."
+          },
+          "502": {
+            "description": "CMR no respondió."
+          }
+        },
+        "summary": "Search World"
       }
     }
   }

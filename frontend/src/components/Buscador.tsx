@@ -3,55 +3,44 @@ import { useTranslation } from 'react-i18next'
 import type { SeriesInfo, Verdict } from '../api/client'
 import { ESTADOS, claveVeredicto, type Filtro } from '../comunidad/historias'
 import { Esqueleto } from './Esqueleto'
+import { Evolucion } from './Evolucion'
+import { Icono } from './Iconos'
 import { Marca } from './Marca'
 
 const DIA = 86_400_000
 const ms = (d: string) => Date.parse(`${d}T00:00:00Z`)
+const iso = (t: number) => new Date(t).toISOString().slice(0, 10)
 
-/**
- * Línea de tiempo del buscador: una fila por serie con sus pasadas y el rango elegido encima.
- * Es un resumen visual; el rango se cambia con los campos de fecha, que dicen lo mismo en texto.
- */
-function LineaRango({ series, filtro }: { series: SeriesInfo[]; filtro: Filtro }) {
-  const fechas = series.flatMap((s) => s.dates).sort()
-  if (fechas.length === 0) return null
-  const ini = ms(fechas[0])
-  const fin = ms(fechas.at(-1)!)
-  const ancho = 280
-  const x = (d: string) => 8 + ((ms(d) - ini) / Math.max(fin - ini, DIA)) * (ancho - 16)
-  const fila = 22
-  const alto = series.length * fila + 18
-  const desde = filtro.desde || fechas[0]
-  const hasta = filtro.hasta || fechas.at(-1)!
-  return (
-    <svg className="linea-rango" viewBox={`0 0 ${ancho} ${alto}`} aria-hidden="true">
-      <rect className="linea-rango-sel" x={x(desde)} y={2} width={Math.max(x(hasta) - x(desde), 2)} height={alto - 16} />
-      {series.map((s, i) => {
-        const y = 4 + i * fila
-        const activa = filtro.series === 'all' || filtro.series === s.id
-        return (
-          <g key={s.id} opacity={activa ? 1 : 0.35}>
-            <text x={8} y={y + 8} fontSize="9" fill="currentColor">
-              {s.id}
-            </text>
-            {s.dates.map((d) => (
-              <line key={d} x1={x(d)} x2={x(d)} y1={y + 10} y2={y + 19} stroke="currentColor" strokeWidth="2" />
-            ))}
-          </g>
-        )
-      })}
-      <text x={8} y={alto - 2} fontSize="9" fill="currentColor">
-        {new Date(ini).toISOString().slice(0, 7)}
-      </text>
-      <text x={ancho - 8} y={alto - 2} fontSize="9" fill="currentColor" textAnchor="end">
-        {new Date(fin).toISOString().slice(0, 7)}
-      </text>
-    </svg>
-  )
+/** Filtro de partida: todo a la vista. También es lo que deja «Limpiar filtros». */
+const FILTRO_INICIAL: Filtro = { series: 'all', desde: '', hasta: '', estados: [...ESTADOS], ventanas: false }
+
+const esInicial = (f: Filtro) =>
+  f.series === 'all' && !f.desde && !f.hasta && f.estados.length === ESTADOS.length && !f.ventanas
+
+/** «T048A-F015» → pista 048 y dirección ascendente (A) o descendente (D). */
+function describirSerie(id: string): { pista: string; direccion: 'A' | 'D' | null } {
+  const m = id.match(/^T(\d+)([AD])/)
+  return m ? { pista: `T${m[1]}`, direccion: m[2] as 'A' | 'D' } : { pista: id, direccion: null }
 }
 
+/** Fecha corta y legible en el idioma de la app: «16 ago 2026». Siempre en UTC, como las pasadas. */
+function fechaCorta(d: string, lang: string, conAnio = true) {
+  return new Intl.DateTimeFormat(lang, {
+    day: 'numeric',
+    month: 'short',
+    year: conAnio ? 'numeric' : undefined,
+    timeZone: 'UTC',
+  }).format(new Date(ms(d)))
+}
+
+/**
+ * Panel de Filtros (rediseño del 2026-11-14): tres pasos numerados en lenguaje llano (qué satélite, cuándo y qué
+ * buscar) con botones grandes en lugar de listas desplegables, atajos de periodo y la lista de resultados con
+ * fechas legibles. Todo se ve igual con o sin sesión.
+ */
 export function Buscador({
   series,
+  todos,
   filtro,
   onFiltro,
   resultados,
@@ -59,9 +48,10 @@ export function Buscador({
   onSeleccionar,
   cargando,
   error,
-  plegarAvanzado,
 }: {
   series: SeriesInfo[]
+  /** Todos los veredictos de la zona, sin filtrar: la gráfica de evolución los necesita para dar contexto. */
+  todos: Verdict[]
   filtro: Filtro
   onFiltro: (f: Filtro) => void
   resultados: Verdict[]
@@ -69,61 +59,105 @@ export function Buscador({
   onSeleccionar: (v: Verdict) => void
   cargando: boolean
   error: boolean
-  /** En vista Público, estados y ventanas van plegados (RF-INT-03). */
-  plegarAvanzado: boolean
+  /** Ya no se usa: el panel enseña todo con o sin sesión. Se acepta para no romper a quien lo pase. */
+  plegarAvanzado?: boolean
 }) {
-  const { t } = useTranslation()
-  const ids = { serie: useId(), desde: useId(), hasta: useId(), titulo: useId() }
+  const { t, i18n } = useTranslation()
+  const lang = i18n.language === 'en' ? 'en' : 'es'
+  const ids = { desde: useId(), hasta: useId(), titulo: useId(), serie: useId(), periodo: useId(), estados: useId() }
   const todas = series.flatMap((s) => s.dates).sort()
   const min = todas[0]
   const max = todas.at(-1)
   const cambiar = (parcial: Partial<Filtro>) => onFiltro({ ...filtro, ...parcial })
 
-  const avanzado = (
-    <>
-      <fieldset className="buscador-estados">
-        <legend>{t('search.states')}</legend>
-        {ESTADOS.map((e) => (
-          <label key={e} className="casilla">
-            <input
-              type="checkbox"
-              checked={filtro.estados.includes(e)}
-              onChange={(ev) =>
-                cambiar({ estados: ev.target.checked ? [...filtro.estados, e] : filtro.estados.filter((x) => x !== e) })
-              }
-            />
-            <Marca estado={e} />
-            {t(`verdict.state.${e}`)}
-          </label>
-        ))}
-      </fieldset>
-      <label className="casilla">
-        <input type="checkbox" checked={filtro.ventanas} onChange={(ev) => cambiar({ ventanas: ev.target.checked })} />
-        {t('search.fullWindows')}
-      </label>
-    </>
-  )
+  // Atajos de periodo, contados desde la última pasada (no desde hoy: los datos acaban donde acaban).
+  const atajos = max
+    ? [
+        { clave: 'all', desde: '', hasta: '' },
+        { clave: 'last30', desde: iso(ms(max) - 30 * DIA), hasta: '' },
+        { clave: 'last90', desde: iso(ms(max) - 90 * DIA), hasta: '' },
+      ]
+    : []
+  const atajoActivo = atajos.find((a) => a.desde === filtro.desde && a.hasta === filtro.hasta)?.clave
 
   return (
     <section className="buscador" aria-labelledby={ids.titulo}>
-      <h2 id={ids.titulo} className="panel-titulo">
+      <h2 id={ids.titulo} className="sr-solo">
         {t('search.heading')}
       </h2>
-      <div className="campo">
-        <label htmlFor={ids.serie}>{t('picker.series')}</label>
-        <select id={ids.serie} value={filtro.series} onChange={(e) => cambiar({ series: e.target.value })}>
-          <option value="all">{t('search.allSeries')}</option>
-          {series.map((s) => (
-            <option key={s.id} value={s.id}>
-              {s.id} · {t(`dataKind.${s.data_kind}`)}
-            </option>
-          ))}
-        </select>
-      </div>
+      <p className="buscador-ayuda">
+        <Icono nombre="info" tamano={16} />
+        <span>{t('search.help')}</span>
+      </p>
 
-      <fieldset className="buscador-rango">
-        <legend>{t('search.timeline')}</legend>
-        <LineaRango series={series} filtro={filtro} />
+      {/* 1. Qué satélite: la serie de pasadas ascendentes o la de descendentes sobre la zona. */}
+      <fieldset className="paso" aria-describedby={ids.serie}>
+        <legend>
+          <span className="paso-numero" aria-hidden="true">1</span>
+          {t('picker.series')}
+        </legend>
+        <p id={ids.serie} className="paso-ayuda">
+          {t('search.seriesHelp')}
+        </p>
+        <div className="chips">
+          <label className="chip">
+            <input type="radio" name={`${ids.titulo}-serie`} checked={filtro.series === 'all'} onChange={() => cambiar({ series: 'all' })} />
+            <span>{t('search.allShort')}</span>
+          </label>
+          {series.map((s) => {
+            const { pista, direccion } = describirSerie(s.id)
+            return (
+              <label key={s.id} className="chip" title={s.id}>
+                <input type="radio" name={`${ids.titulo}-serie`} checked={filtro.series === s.id} onChange={() => cambiar({ series: s.id })} />
+                <span>
+                  {direccion && (
+                    <span aria-hidden="true" className="chip-flecha">
+                      {direccion === 'A' ? '↗' : '↘'}
+                    </span>
+                  )}
+                  {pista}
+                  {direccion && <span className="chip-detalle"> · {t(`search.direction.${direccion}`)}</span>}
+                  <span className="sr-solo">
+                    {' '}
+                    ({s.id}, {t(`dataKind.${s.data_kind}`)})
+                  </span>
+                </span>
+              </label>
+            )
+          })}
+        </div>
+      </fieldset>
+
+      {/* 2. Cuándo: atajos, la gráfica de evolución con su deslizador y las fechas exactas. */}
+      <fieldset className="paso" aria-describedby={ids.periodo}>
+        <legend>
+          <span className="paso-numero" aria-hidden="true">2</span>
+          {t('search.timeline')}
+        </legend>
+        <p id={ids.periodo} className="paso-ayuda">
+          {t('search.periodHelp')}
+        </p>
+        <div className="chips" role="group" aria-label={t('search.shortcuts')}>
+          {atajos.map((a) => (
+            <button
+              key={a.clave}
+              type="button"
+              className="chip"
+              aria-pressed={atajoActivo === a.clave}
+              onClick={() => cambiar({ desde: a.desde, hasta: a.hasta })}
+            >
+              {t(`search.shortcut.${a.clave}`)}
+            </button>
+          ))}
+        </div>
+        <Evolucion
+          series={series}
+          todos={todos}
+          filtro={filtro}
+          onFiltro={onFiltro}
+          seleccion={seleccion}
+          onSeleccionar={onSeleccionar}
+        />
         <div className="rango-campos">
           <div className="campo">
             <label htmlFor={ids.desde}>{t('search.from')}</label>
@@ -150,37 +184,80 @@ export function Buscador({
         </div>
       </fieldset>
 
-      {plegarAvanzado ? (
-        <details className="pliegue">
-          <summary>{t('search.more')}</summary>
-          {avanzado}
-        </details>
-      ) : (
-        avanzado
-      )}
+      {/* 3. Qué buscar: los tres estados, con su forma, y las ventanas completas. */}
+      <fieldset className="paso buscador-estados" aria-describedby={ids.estados}>
+        <legend>
+          <span className="paso-numero" aria-hidden="true">3</span>
+          {t('search.states')}
+        </legend>
+        <p id={ids.estados} className="paso-ayuda">
+          {t('search.statesHelp')}
+        </p>
+        <div className="chips chips-columna">
+          {ESTADOS.map((e) => (
+            <label key={e} className="chip chip-estado">
+              <input
+                type="checkbox"
+                checked={filtro.estados.includes(e)}
+                onChange={(ev) =>
+                  cambiar({ estados: ev.target.checked ? [...filtro.estados, e] : filtro.estados.filter((x) => x !== e) })
+                }
+              />
+              <Marca estado={e} />
+              <span>{t(`verdict.state.${e}`)}</span>
+            </label>
+          ))}
+        </div>
+        <label className="interruptor">
+          <input type="checkbox" role="switch" checked={filtro.ventanas} onChange={(ev) => cambiar({ ventanas: ev.target.checked })} />
+          <span className="interruptor-pista" aria-hidden="true" />
+          <span className="interruptor-texto">
+            {t('search.fullWindows')}
+            <small>{t('search.fullWindowsHelp')}</small>
+          </span>
+        </label>
+      </fieldset>
 
       <div className="resultados" aria-busy={cargando}>
-        <h3 className="resultados-titulo" aria-live="polite">
-          {t('search.results', { count: resultados.length })}
-        </h3>
+        <div className="resultados-cabecera">
+          <h3 className="resultados-titulo" aria-live="polite">
+            {t('search.results', { count: resultados.length })}
+          </h3>
+          {!esInicial(filtro) && (
+            <button type="button" className="chip chip-limpiar" onClick={() => onFiltro({ ...FILTRO_INICIAL, estados: [...ESTADOS] })}>
+              <Icono nombre="volver" tamano={14} />
+              {t('search.reset')}
+            </button>
+          )}
+        </div>
+        {!cargando && !error && resultados.length > 0 && <p className="paso-ayuda">{t('search.pickHelp')}</p>}
         {cargando && <Esqueleto etiqueta={t('picker.loading')} variante="lista" filas={6} />}
         {error && <p role="alert">{t('picker.error')}</p>}
+        {!cargando && !error && resultados.length === 0 && <p className="resultados-vacio">{t('search.none')}</p>}
         <ol className="resultados-lista">
           {resultados.map((v) => {
             const clave = claveVeredicto(v)
+            const dias = Math.round((ms(v.to_date) - ms(v.from_date)) / DIA)
+            const mismoAnio = v.from_date.slice(0, 4) === v.to_date.slice(0, 4)
             return (
               <li key={clave}>
                 <button type="button" aria-pressed={seleccion === clave} onClick={() => onSeleccionar(v)}>
                   <Marca estado={v.state} />
                   <span className="resultado-texto">
+                    <span className="resultado-estado">{t(`verdict.state.${v.state}`)}</span>
                     <span className="resultado-fechas">
-                      {v.from_date} → {v.to_date}
+                      {fechaCorta(v.from_date, lang, !mismoAnio)} → {fechaCorta(v.to_date, lang)}
+                      <span className="sr-solo">
+                        {' '}
+                        ({v.from_date} → {v.to_date})
+                      </span>
                     </span>
                     <span className="resultado-meta">
-                      {v.series}
-                      {v.kind === 'full_window' ? ` · ${t('picker.fullWindow')}` : ''} · {t(`verdict.state.${v.state}`)}
+                      {describirSerie(v.series).pista} · {t('search.days', { count: dias })}
+                      {v.kind === 'full_window' ? ` · ${t('picker.fullWindow')}` : ''}
                     </span>
                   </span>
+                  <Icono nombre="siguiente" tamano={16} />
                 </button>
               </li>
             )

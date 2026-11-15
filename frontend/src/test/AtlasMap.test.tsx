@@ -74,7 +74,7 @@ test('las herramientas cambian solo lo suyo: comparador, 3D, capa, opacidad y en
   const m = mapa.instancias[0]
   // Solo el modo: reenviar las capas haría que el mapa las volviera a cargar.
   rerender(<AtlasMap options={o} {...base} canCompare compare />)
-  expect(m.actualizar).toHaveBeenLastCalledWith({ compare: 'swipe' })
+  expect(m.actualizar).toHaveBeenLastCalledWith({ antesDespues: true })
   rerender(<AtlasMap options={o} {...base} canCompare compare modo3d={false} />)
   expect(m.actualizar).toHaveBeenLastCalledWith({ modo3d: false })
   rerender(<AtlasMap options={o} {...base} canCompare compare modo3d={false} layer="change_hv" />)
@@ -89,7 +89,7 @@ test('las herramientas cambian solo lo suyo: comparador, 3D, capa, opacidad y en
 
 test('sin escena óptica el comparador no se activa aunque se pida', () => {
   render(<AtlasMap options={options()} {...base} compare />)
-  expect(mapa.crearMapa).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ compare: 'off' }))
+  expect(mapa.crearMapa).toHaveBeenLastCalledWith(expect.any(HTMLElement), expect.objectContaining({ compare: 'off', antesDespues: false }))
 })
 
 test('mientras carga, tapa el mapa y lo marca ocupado', () => {

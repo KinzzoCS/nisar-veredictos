@@ -395,7 +395,9 @@ export function crearLineaTiempo(
     const marco = html("div", "atlas-linea-desplazable");
     marco.tabIndex = 0;
     marco.setAttribute("role", "region");
-    marco.setAttribute("aria-labelledby", `${id}-titulo`);
+    // Nombre propio (la descripción de la gráfica): con el mismo título que la sección, axe lo marca como
+    // región duplicada (landmark-unique, prueba de uso del 2026-11-14).
+    marco.setAttribute("aria-labelledby", `${id}-aria`);
     marco.append(svg);
     raiz.append(marco);
 

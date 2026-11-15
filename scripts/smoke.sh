@@ -211,6 +211,19 @@ if curl -fsS "$BASE/api/catalog/openapi.json" | grep -q '/search/passes'; then
   covered catalog "/search/passes"
 fi
 
+# Buscador mundial (2026-11-14): abierto a todos, depende de CMR. Comprueba la caja de la zona y que cada
+# gránulo trae su huella y sus enlaces a Vertex y a Earthdata Search.
+if curl -fsS "$BASE/api/catalog/openapi.json" | grep -q '/search/world'; then
+  if external catalog_world "/api/catalog/search/world?bbox=-105.95,26.7,-105.4,27.15&from=2026-06-01&to=2026-11-14&limit=5"; then
+    check "catalog /search/world" catalog_world "
+assert d['data_kind'] == 'real' and d['total'] >= len(d['granules'])
+for g in d['granules']:
+    assert g['direction'] in ('A', 'D') and g['vertex_url'] and g['earthdata_search_url'], g
+"
+  fi
+  covered catalog "/search/world"
+fi
+
 # --- Verdicts (Balanza) -----------------------------------------------------
 
 get verdicts_health "/api/verdicts/health"

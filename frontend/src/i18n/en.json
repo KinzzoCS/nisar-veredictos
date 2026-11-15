@@ -43,20 +43,47 @@
       "hallazgos": "Findings",
       "historia": "The Parral story",
       "evento": "Could it see it?",
-      "comunidad": "Community"
+      "comunidad": "Community",
+      "mundo": "World"
     }
   },
   "search": {
     "heading": "Search verdicts",
     "allSeries": "All series",
-    "timeline": "Timeline",
+    "allShort": "All",
+    "timeline": "Period",
     "from": "From",
     "to": "To",
     "states": "States",
     "fullWindows": "Include full windows",
     "more": "More filters",
     "results_one": "{{count}} verdict",
-    "results_other": "{{count}} verdicts"
+    "results_other": "{{count}} verdicts",
+    "help": "Choose which passes to look at, the period and what you are looking for. Then tap a result to see it on the map.",
+    "seriesHelp": "NISAR passes over the area on two orbits, every 12 days. You can see both at once.",
+    "direction": {
+      "A": "ascending",
+      "D": "descending"
+    },
+    "periodHelp": "Each bar is a pair of consecutive passes: the taller, the more the signal changed. Glowing peaks are probable change. Drag the handles to choose the period or tap a bar to see it on the map.",
+    "shortcuts": "Period shortcuts",
+    "shortcut": {
+      "all": "All",
+      "last30": "Last month",
+      "last90": "Last 3 months"
+    },
+    "statesHelp": "Which kind of answer you want to see. Each state has its own shape on the map.",
+    "fullWindowsHelp": "Compares the first and last pass of the series, not only consecutive passes.",
+    "reset": "Clear filters",
+    "pickHelp": "Tap one to see it on the map and read its explanation.",
+    "none": "Nothing with these filters. Widen the period or tick more states.",
+    "days_one": "{{count}} day",
+    "days_other": "{{count}} days",
+    "chartDesc_one": "Chart of the change fraction per pair of passes, with {{count}} probable change peak.",
+    "chartDesc_other": "Chart of the change fraction per pair of passes, with {{count}} probable change peaks.",
+    "threshold": "threshold {{value}}",
+    "periodStart": "Start of the period",
+    "periodEnd": "End of the period"
   },
   "interpreter": {
     "heading": "Story interpreter",
@@ -74,13 +101,14 @@
     "notesHelp": "{{n}} of {{max}} characters. Shown separately from the API texts and not checked.",
     "save": "Save story",
     "saved": "Story saved. It is in the Community tab.",
-    "loginToSave": "Sign in to save and download stories.",
+    "loginToSave": "Sign in to publish your story: it will show your alias and profile.",
     "reading": "Community story",
     "authorNotes": "Notes by the author",
     "notesDisclaimer": "They are not API text and have not been checked.",
     "missingPair": "{{pair}}: this pair is no longer in the API or belongs to another area.",
     "otherZone": "This story is about the {{aoi}} area; only pairs from the current area can be shown here.",
-    "backToDraft": "Back to the draft"
+    "backToDraft": "Back to the draft",
+    "readTexts": "Read what the API says"
   },
   "community": {
     "heading": "Community stories",
@@ -112,7 +140,7 @@
     "starsN_other": "{{count}} stars",
     "unrate": "Remove my rating",
     "ownStory": "This is your story: you cannot rate it.",
-    "loginToRate": "Sign in to download and rate stories.",
+    "loginToRate": "Sign in to rate stories and publish your own.",
     "open": "Open",
     "download": "Download",
     "delete": "Delete",
@@ -307,7 +335,7 @@
   },
   "map": {
     "label": "Map",
-    "compare": "Compare with the optical image (Sentinel-2)"
+    "compare": "Compare before and after (Sentinel-2)"
   },
   "footer": {
     "attribution": "NISAR data: NASA and ISRO. Each external source is credited where it is shown.",
@@ -348,5 +376,41 @@
     "close": "Close playback",
     "timeline": "Story pairs over time",
     "position": "Pair {{n}} of {{total}}"
+  },
+  "portal": {
+    "title": "SAR: NISAR radar verdicts",
+    "open": "About SAR",
+    "sections": "Sections",
+    "close": "Close",
+    "carousel": "carousel",
+    "slide": "slide",
+    "slideOf": "{{n}} of {{total}}",
+    "slides": "Slides",
+    "goTo": "Go to {{n}}: {{title}}",
+    "previous": "Previous",
+    "next": "Next",
+    "pause": "Pause the carousel",
+    "play": "Resume the carousel",
+    "feature": "Feature",
+    "yes": "Included",
+    "no": "Not included"
+  },
+  "world": {
+    "heading": "Worldwide NISAR pass search",
+    "intro": "Search NISAR radar passes anywhere in the world without downloading anything or creating an account. Move the map to the area you care about and search: you will see each pass footprint and its preview.",
+    "area": "Search area (what you see on the map):",
+    "areaHelp": "Zoom the globe in or out to change the area. With the whole world in view, the search covers the planet.",
+    "direction": "Orbit direction",
+    "bothDirections": "Both",
+    "search": "Search this area",
+    "loading": "Searching passes in the NASA catalog…",
+    "error": "The NASA catalog (CMR) did not answer. Try again in a few seconds.",
+    "results": "The {{count}} most recent of {{total}} passes",
+    "none": "No NISAR passes in this area and these dates. Widen the area or the period.",
+    "frame": "frame",
+    "newTab": "opens in a new tab",
+    "note": "The ASF preview is placed on the footprint box: its position is approximate. Downloading the full product (about 7 GB) needs an Earthdata account; a verdict for this area needs processing first, which is not done from here yet.",
+    "sources": "Sources: NASA CMR (Earthdata Search) and ASF DAAC (Vertex) previews, official challenge resources.",
+    "wholeWorld": "the whole world"
   }
 }

@@ -39,6 +39,19 @@ export function SesionBoton() {
     if (abierta) cerrar(dialogo.current)
   }, [abierta])
 
+  // Las ventanas informativas (components/Portal.tsx) abren este mismo formulario con el evento
+  // `sar:abrir-sesion`; `detail: 'registrar'` lo abre en «Crear cuenta».
+  useEffect(() => {
+    function alPedir(e: Event) {
+      const pedido = (e as CustomEvent<'entrar' | 'registrar' | undefined>).detail
+      if (pedido) setModo(pedido)
+      setError(null)
+      abrir(dialogo.current)
+    }
+    window.addEventListener('sar:abrir-sesion', alPedir)
+    return () => window.removeEventListener('sar:abrir-sesion', alPedir)
+  }, [])
+
   async function enviar(e: FormEvent) {
     e.preventDefault()
     setOcupado(true)

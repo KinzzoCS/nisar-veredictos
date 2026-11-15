@@ -176,7 +176,7 @@ test('con sesión de investigación abre con el primer par consecutivo de la pri
   render(<App />)
   expect(await screen.findByRole('heading', { name: /Cambio probable/ })).toBeInTheDocument()
   expect(within(screen.getByRole('tabpanel', { name: 'Hallazgos' })).getByText('Entre A')).toBeInTheDocument()
-  expect(screen.getByLabelText('Serie')).toHaveValue('all')
+  expect(screen.getByRole('radio', { name: 'Todas' })).toBeChecked()
   expect(resultado(/2026-06-17 → 2026-06-29/)).toHaveAttribute('aria-pressed', 'true')
   expect(screen.getByRole('tab', { name: 'Hallazgos' })).toHaveAttribute('aria-selected', 'true')
   expect(screen.getByRole('region', { name: 'Mapa' })).toBeInTheDocument()
@@ -303,7 +303,7 @@ test('elige otro par en la lista y filtra por serie, solo con el teclado', async
   await user.keyboard('{Enter}')
   expect(screen.getByRole('heading', { name: /Sin cambio detectable/ })).toBeInTheDocument()
 
-  await user.selectOptions(screen.getByLabelText('Serie'), 'T171D-F075')
+  await user.click(screen.getByRole('radio', { name: /T171/ }))
   expect(screen.getByRole('heading', { name: '1 veredicto' })).toBeInTheDocument()
   resultado(/2026-06-26 → 2026-07-08/).focus()
   await user.keyboard('{Enter}')
@@ -328,7 +328,7 @@ test('el buscador filtra por rango de fechas, por estado y con ventanas completa
   expect(screen.getByRole('heading', { name: '1 veredicto' })).toBeInTheDocument()
 
   fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '' } })
-  await user.click(screen.getByRole('checkbox', { name: 'Incluir ventanas completas' }))
+  await user.click(screen.getByRole('switch', { name: /Incluir ventanas completas/ }))
   expect(resultado(/2026-06-17 → 2026-07-11.*ventana completa/)).toBeInTheDocument()
 })
 

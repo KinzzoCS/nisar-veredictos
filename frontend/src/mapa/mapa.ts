@@ -43,7 +43,9 @@ import {
   type SeriePixel,
 } from "./seleccion";
 import { TEXTOS } from "./textos";
-import type { Bbox, CambiosMapa, CapaRadar, MapaAtlas, OpcionesMapa } from "./tipos";
+import { luzDelSol, nocheGeojson } from "./sol";
+import { crearAntesDespues, type AntesDespues } from "./antesDespues";
+import type { Bbox, CambiosMapa, CapaRadar, MapaAtlas, MundoMapa, OpcionesMapa } from "./tipos";
 
 maplibregl.setWorkerUrl(workerUrl);
 
@@ -83,6 +85,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     modo3d: opciones.modo3d ?? false,
     falloGlobo: false,
     huellas: huellasValidas(opciones.huellas),
+    antesDespues: opciones.antesDespues ?? false,
   };
 
   // Comparador óptico (T-ATL-07): solo con compare "swipe" y al menos un lado con datos.
@@ -108,6 +111,10 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     fitBoundsOptions: { padding: 32 },
     // Dos niveles sobre el dato de 10 m: se ve cada píxel sin aparentar más detalle (T-ATL-08).
     maxZoom: ZOOM_MAXIMO_MAPA,
+    // Memoria (2026-11-14): como mucho 1,5 píxeles por píxel CSS (en pantallas de 2× el lienzo ocupaba casi el
+    // doble de GPU sin que se note en el radar de 10 m) y una caché de teselas acotada.
+    pixelRatio: Math.min(window.devicePixelRatio || 1, 1.5),
+    maxTileCacheSize: 300,
     attributionControl: false,
     // En 2D, sin giro ni inclinación: la escala y el contorno se leen con el norte arriba.
     // En 3D se activan (T-ATL-10); ver aplicarInteraccion.
@@ -206,6 +213,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     aviso3d.textContent = p.motivo ? TEXTOS[estado.idioma].sin3d[p.motivo] : "";
     aviso3d.hidden = !p.motivo;
     control3d?.dibujar({ pulsado: estado.modo3d, idioma: estado.idioma });
+    if (cargado) emitirCamara();
     aplicarInteraccion();
     actualizarEscala();
   }
@@ -249,6 +257,35 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     if (!ok) avisoEscala.textContent = TEXTOS[estado.idioma].sinEscala;
   }
   map.on("move", actualizarEscala);
+
+  // Cámara del globo para el fondo espacial (components/Espacio.tsx): dónde está el centro de la Tierra en
+  // pantalla, su radio y la orientación, para dibujar el Sol y el halo de la atmósfera detrás del mapa.
+  // Va por un evento de ventana para que el mapa no dependa de la app.
+  function emitirCamara() {
+    const c = map.getCenter();
+    const caja = map.getCanvas().getBoundingClientRect();
+    const p = map.project(c);
+    const lat = Math.min(Math.abs(c.lat), 85.051129);
+    const radio = (512 * Math.pow(2, map.getZoom())) / (2 * Math.PI) / Math.cos((lat * Math.PI) / 180);
+    window.dispatchEvent(
+      new CustomEvent("sar:camara", {
+        detail: {
+          globo: proyeccionActual === "globe",
+          x: caja.left + p.x,
+          y: caja.top + p.y,
+          radio,
+          lng: c.lng,
+          lat: c.lat,
+          bearing: map.getBearing(),
+          pitch: map.getPitch(),
+          zoom: map.getZoom(),
+        },
+      }),
+    );
+  }
+  map.on("move", emitirCamara);
+  map.on("resize", emitirCamara);
+  map.on("load", emitirCamara);
 
   const marcador = new maplibregl.Marker({ color: "#000000" });
   const ventana = new maplibregl.Popup({ maxWidth: "300px", closeOnClick: false, focusAfterOpen: false });
@@ -438,7 +475,28 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   }
   map.on("zoom", mostrarEtiquetas);
 
+  // Día y noche en tiempo real: la sombra del lado nocturno sobre el globo y la luz de la atmósfera
+  // se recalculan cada minuto (src/mapa/sol.ts).
+  const reloj = window.setInterval(() => {
+    const ahora = new Date();
+    (map.getSource("noche") as maplibregl.GeoJSONSource | undefined)?.setData(nocheGeojson(ahora));
+    if (cargado) map.setLight(luzDelSol(ahora));
+  }, 60_000);
+
   map.on("load", () => {
+    map.addSource("noche", { type: "geojson", data: nocheGeojson(new Date()) });
+    map.addLayer({
+      id: "noche",
+      type: "fill",
+      source: "noche",
+      // Cuatro bandas apiladas (bajo el horizonte y los tres crepúsculos): la noche se oscurece hacia
+      // su centro. Solo se ve de lejos; a la escala de la zona no tapa los datos.
+      paint: {
+        "fill-color": "#020611",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 0, 0.2, 5, 0.12, 8, 0],
+        "fill-antialias": false,
+      },
+    });
     map.addSource("huellas", { type: "geojson", data: geojsonHuellas(estado.huellas) });
     map.addLayer({
       id: "huellas-relleno",
@@ -485,6 +543,79 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   });
 
   let comparador: Comparador | null = null;
+  let antesDespues: AntesDespues | null = null;
+
+  // ---- Buscador mundial: huellas de gránulos de cualquier parte y la vista previa del elegido ----
+  let mundo: MundoMapa | null = null;
+  let vistaMundo = "";
+  const FC_VACIA = { type: "FeatureCollection" as const, features: [] };
+  function aplicarMundo() {
+    if (!cargado) return;
+    if (!map.getSource("mundo")) {
+      map.addSource("mundo", { type: "geojson", data: FC_VACIA });
+      map.addLayer(
+        { id: "mundo-relleno", type: "fill", source: "mundo", paint: { "fill-color": "#ffffff", "fill-opacity": 0.06 } },
+        "huellas-relleno",
+      );
+      map.addLayer(
+        {
+          id: "mundo-contorno",
+          type: "line",
+          source: "mundo",
+          paint: { "line-color": "#ffffff", "line-width": 1.2, "line-opacity": 0.75, "line-dasharray": [2, 2] },
+        },
+        "huellas-relleno",
+      );
+      map.addLayer(
+        {
+          id: "mundo-elegido",
+          type: "line",
+          source: "mundo",
+          filter: ["==", ["get", "id"], ""],
+          paint: { "line-color": "#ffffff", "line-width": 3 },
+        },
+        "huellas-relleno",
+      );
+    }
+    (map.getSource("mundo") as maplibregl.GeoJSONSource).setData(mundo?.huellas ?? FC_VACIA);
+    map.setFilter("mundo-elegido", ["==", ["get", "id"], mundo?.elegido ?? ""]);
+    const vista = mundo?.vista ?? null;
+    const clave = vista ? `${vista.url}|${vista.bbox.join(",")}` : "";
+    if (clave === vistaMundo) return;
+    vistaMundo = clave;
+    if (map.getLayer("mundo-vista")) map.removeLayer("mundo-vista");
+    if (map.getSource("mundo-vista")) map.removeSource("mundo-vista");
+    if (!vista) return;
+    const [o, s, e, n] = vista.bbox;
+    map.addSource("mundo-vista", {
+      type: "image",
+      url: vista.url,
+      coordinates: [
+        [o, n],
+        [e, n],
+        [e, s],
+        [o, s],
+      ],
+    });
+    map.addLayer(
+      { id: "mundo-vista", type: "raster", source: "mundo-vista", paint: { "raster-opacity": 0.85, "raster-fade-duration": 300 } },
+      "mundo-relleno",
+    );
+  }
+  map.on("load", () => aplicarMundo());
+
+  /** Comparador antes/después recortado a la zona (corrección del 2026-11-14). No fuerza el 2D. */
+  function aplicarAntesDespues() {
+    const activo = estado.antesDespues && Boolean(estado.optical?.before?.tiles.length || estado.optical?.after?.tiles.length);
+    if (activo && !antesDespues) {
+      antesDespues = crearAntesDespues(contenedor, map, { optical: estado.optical, idioma: estado.idioma, aoi: estado.aoi });
+    } else if (activo && antesDespues) {
+      antesDespues.actualizar({ optical: estado.optical, idioma: estado.idioma, aoi: estado.aoi });
+    } else if (!activo && antesDespues) {
+      antesDespues.destruir();
+      antesDespues = null;
+    }
+  }
 
   function aplicarComparador() {
     const activo = quiereComparador();
@@ -504,16 +635,20 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     }
   }
 
-  map.on("moveend", () => {
+  function avisarVista() {
     if (!opciones.onViewChanged) return;
     const b = map.getBounds();
     const bbox: Bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()];
     opciones.onViewChanged({ bbox, zoom: map.getZoom() });
-  });
+  }
+  map.on("moveend", avisarVista);
+  // También la vista inicial: sin movimiento, el buscador mundial no sabría qué se ve (prueba del 2026-11-14).
+  map.once("load", () => window.setTimeout(avisarVista, 0));
 
   redibujarTextos();
   redibujarLeyenda();
   aplicarComparador();
+  aplicarAntesDespues();
 
   return {
     actualizar(c: CambiosMapa) {
@@ -557,13 +692,27 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       if (c.compare) estado.compare = c.compare;
       if ("modo3d" in c) estado.modo3d = c.modo3d ?? false;
       if ("optical" in c || c.compare || c.idioma || c.aoi || "modo3d" in c) aplicarComparador();
+      if ("antesDespues" in c) estado.antesDespues = c.antesDespues ?? false;
+      if ("optical" in c || "antesDespues" in c || c.idioma || c.aoi) aplicarAntesDespues();
     },
     fijarOpacidad,
     encuadrar: () => map.fitBounds(bboxContinuo(estado.aoi), { padding: 32 }),
+    mostrarMundo(m) {
+      mundo = m;
+      aplicarMundo();
+    },
+    volarA(bbox) {
+      const opciones = { padding: 48, maxZoom: 9 };
+      if (sinAnimacion()) map.fitBounds(bbox, { ...opciones, animate: false });
+      else map.fitBounds(bbox, { ...opciones, duration: 1600 });
+    },
     destruir: () => {
       peticion?.abort();
+      window.clearInterval(reloj);
       comparador?.destruir();
       comparador = null;
+      antesDespues?.destruir();
+      antesDespues = null;
       map.remove();
       contenedor.replaceChildren();
       contenedor.classList.remove("atlas-mapa", "atlas-con-3d", "atlas-plano");
@@ -621,6 +770,8 @@ function mapaSinWebgl(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtla
     },
     fijarOpacidad: () => {},
     encuadrar: () => {},
+    mostrarMundo: () => {},
+    volarA: () => {},
     destruir: () => {
       contenedor.replaceChildren();
       contenedor.classList.remove("atlas-mapa", "atlas-sin-mapa");

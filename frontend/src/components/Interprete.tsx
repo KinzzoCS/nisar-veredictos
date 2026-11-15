@@ -29,10 +29,11 @@ function ParTexto({ v }: { v: Verdict }) {
           {v.from_date} → {v.to_date} · {v.series}
         </span>
       </span>
-      <span className="par-texto">{v.summary.detected}</span>
       <details className="par-mas">
-        <summary>{t('interpreter.limits')}</summary>
+        <summary>{t('interpreter.readTexts')}</summary>
         <dl>
+          <dt>{t('verdict.detected')}</dt>
+          <dd>{v.summary.detected}</dd>
           <dt>{t('verdict.doesNotProve')}</dt>
           <dd>{v.summary.does_not_prove}</dd>
           <dt>{t('verdict.missing')}</dt>
@@ -116,6 +117,8 @@ export function Interprete({
         <p className="interprete-etiqueta muted">{t('interpreter.reading')}</p>
         <h3 id="interprete-abierta">{abierta.title}</h3>
         <p className="muted">
+          <strong className="autoria">{abierta.author_alias}</strong>
+          {' · '}
           {t('community.meta', {
             role: t(`community.role.${abierta.author_role}`),
             from: abierta.from_date,
@@ -149,7 +152,7 @@ export function Interprete({
             icono="descargar"
             etiqueta={t('community.download')}
             className="boton-principal"
-            disabled={!conSesion || ocupado}
+            disabled={ocupado}
             onClick={async () => {
               setOcupado(true)
               await onDescargar(abierta, encontrados)
@@ -264,7 +267,7 @@ export function Interprete({
         <BotonIcono
           icono="descargar"
           etiqueta={t('community.download')}
-          disabled={!conSesion || vacio || ocupado}
+          disabled={vacio || ocupado}
           onClick={async () => {
             setOcupado(true)
             await onDescargar(borrador(), incluidos)

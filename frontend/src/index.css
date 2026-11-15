@@ -208,22 +208,10 @@ input[type='time'] {
   min-width: 0;
 }
 
-.app-marcas {
-  display: inline-flex;
-  gap: 3px;
-  font-size: 0.8rem;
-}
-
 .app-header h1 {
   margin: 0;
   font-size: var(--texto-l);
   letter-spacing: -0.01em;
-}
-
-.app-lema {
-  margin: 0;
-  font-size: var(--texto-s);
-  max-width: 34rem;
 }
 
 /* Vista, idioma y tema: una fila que se parte en pantallas estrechas. */
@@ -235,9 +223,6 @@ input[type='time'] {
 }
 
 @media (max-width: 40rem) {
-  .app-lema {
-    display: none;
-  }
 
   .app-controls {
     width: 100%;
@@ -817,22 +802,6 @@ legend {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--espacio-2);
-}
-
-.linea-rango {
-  display: block;
-  width: 100%;
-  /* El SVG escala con el ancho: sin tope, en un panel ancho de móvil el texto se haría enorme. */
-  max-width: 20rem;
-  height: auto;
-  margin-bottom: var(--espacio-2);
-  color: var(--color-texto);
-}
-
-.linea-rango-sel {
-  fill: var(--color-superficie);
-  stroke: var(--color-texto);
-  stroke-width: 1;
 }
 
 .resultados {

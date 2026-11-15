@@ -14,6 +14,10 @@ import {
   type HistoriaNueva,
 } from './comunidad/historias'
 import { AtlasMap } from './components/AtlasMap'
+import { Espacio } from './components/Espacio'
+import { Mundo, type GranuloMundo } from './components/Mundo'
+import type { Bbox, MundoMapa } from './mapa/tipos'
+import { Portal, type SeccionPortal } from './components/Portal'
 import { Buscador } from './components/Buscador'
 import { Comunidad } from './components/Comunidad'
 import { EventQuery } from './components/EventQuery'
@@ -23,7 +27,7 @@ import { BarraRecogible, BotonRecoger, CabeceraPanel } from './components/Barra'
 import { Esqueleto } from './components/Esqueleto'
 import { BotonIcono, Icono, type NombreIcono } from './components/Iconos'
 import { LanguageSwitch } from './components/LanguageSwitch'
-import { LeyendaEstados, Marca } from './components/Marca'
+import { LeyendaEstados } from './components/Marca'
 import { Reproductor } from './components/Reproductor'
 import { SesionBoton } from './components/SesionBoton'
 import { Story } from './components/Story'
@@ -32,7 +36,6 @@ import { VerdictCard } from './components/VerdictCard'
 import { authApi, detalle, useSesion } from './sesion/sesion'
 import { SesionProvider } from './sesion/SesionProvider'
 import { VistaProvider } from './vista/VistaContexto'
-import { useVista } from './vista/vista'
 import type { CapaRadar } from './mapa/tipos'
 
 type Load =
@@ -44,13 +47,14 @@ type Load =
 type Todos = { lang: Lang; status: 'ready' | 'error'; items: Verdict[]; fallidas: string[] }
 
 /** Pestañas de la barra derecha (T-FAR-21, RF-INT-27). */
-type PestanaDer = 'hallazgos' | 'historia' | 'evento' | 'comunidad'
-const PESTANAS_DER: PestanaDer[] = ['hallazgos', 'historia', 'evento', 'comunidad']
+type PestanaDer = 'hallazgos' | 'historia' | 'evento' | 'comunidad' | 'mundo'
+const PESTANAS_DER: PestanaDer[] = ['hallazgos', 'historia', 'evento', 'comunidad', 'mundo']
 const ICONO_PESTANA: Record<PestanaDer, NombreIcono> = {
   hallazgos: 'hallazgos',
   historia: 'historia',
   evento: 'evento',
   comunidad: 'comunidad',
+  mundo: 'satelite',
 }
 const CAPAS: CapaRadar[] = ['state', 'change_hh', 'change_hv']
 
@@ -123,7 +127,7 @@ function PestanasDer({
           aria-controls={`derecha-panel-${k}`}
           aria-expanded={abierta && activa === k}
           tabIndex={activa === k ? 0 : -1}
-          title={t(`layout.tabs.${k}`)}
+          data-etiqueta={t(`layout.tabs.${k}`)}
           onClick={() => onElegir(k)}
         >
           {/* Solo icono a la vista; el nombre de la pestaña lo lee el lector de pantalla. */}
@@ -151,13 +155,35 @@ function PanelPestana({ clave, activa, children }: { clave: PestanaDer; activa: 
 
 function Contenido() {
   const { t, i18n } = useTranslation()
-  const { vista } = useVista()
+  // Desde el 2026-11-14 todo se ve igual con o sin sesión (decisión del usuario): la evidencia explicada y en
+  // tabla, el enlace al JSON, las capas y el comparador. La cuenta solo sirve para publicar, valorar y borrar
+  // historias, que salen con el seudónimo y el perfil de quien las escribe.
   const { cabeceras } = useSesion()
-  const publica = vista === 'public'
+  const publica = false
   const lang: Lang = i18n.language === 'en' ? 'en' : 'es'
 
   const [state, setState] = useState<Load>({ status: 'loading' })
   const [todos, setTodos] = useState<Todos>()
+  // Buscador mundial (pestaña Mundo): lo que se ve del mapa, las pasadas encontradas y la elegida.
+  const [vistaMapa, setVistaMapa] = useState<Bbox | null>(null)
+  const [granulosMundo, setGranulosMundo] = useState<GranuloMundo[]>([])
+  const [elegidoMundo, setElegidoMundo] = useState<string | null>(null)
+  const [volarMundo, setVolarMundo] = useState<{ bbox: Bbox } | null>(null)
+  const mundoMapa = useMemo<MundoMapa | null>(() => {
+    if (granulosMundo.length === 0) return null
+    const elegido = granulosMundo.find((g) => g.id === elegidoMundo)
+    return {
+      huellas: {
+        type: 'FeatureCollection',
+        features: granulosMundo
+          .filter((g) => g.footprint.length >= 4)
+          .map((g) => ({ type: 'Feature', properties: { id: g.id }, geometry: { type: 'Polygon', coordinates: [g.footprint] } })),
+      },
+      elegido: elegidoMundo,
+      vista: elegido?.browse_url && elegido.bbox ? { url: elegido.browse_url, bbox: elegido.bbox as Bbox } : null,
+    }
+  }, [granulosMundo, elegidoMundo])
+
   const [filtro, setFiltro] = useState<Filtro>({ series: 'all', desde: '', hasta: '', estados: [...ESTADOS], ventanas: false })
   const [seleccion, setSeleccion] = useState<string>()
   const [pestanaDer, setPestanaDer] = useState<PestanaDer>('hallazgos')
@@ -166,8 +192,8 @@ function Contenido() {
 
   // Barras recogibles (RF-INT-26): en escritorio abren Filtros y Hallazgos; en móvil, todas recogidas.
   const [estrecha] = useState(pantallaEstrecha)
-  const [barraArriba, setBarraArriba] = useState(false)
-  const [barraAbajo, setBarraAbajo] = useState(false)
+  const [barraArriba, setBarraArriba] = useState(true)
+  const [barraAbajo, setBarraAbajo] = useState(true)
   const [barraIzq, setBarraIzq] = useState(!estrecha)
   const [barraDer, setBarraDer] = useState(!estrecha)
   // En pantalla estrecha cada lateral ocupa el ancho: abrir una recoge la otra.
@@ -331,7 +357,26 @@ function Contenido() {
     setFiltro((f) => ({ ...f, series: h.series, desde: h.from_date, hasta: h.to_date }))
   }
 
-  const intro = publica && (
+  // Ventanas informativas (components/Portal.tsx): se abren solas en la primera visita y luego desde el botón «i».
+  const [portal, setPortal] = useState(() => {
+    if (import.meta.env.MODE === 'test') return false
+    try {
+      return localStorage.getItem('portal-visto') !== '1'
+    } catch {
+      return false
+    }
+  })
+  const [seccionPortal, setSeccionPortal] = useState<SeccionPortal>('inicio')
+  function cerrarPortal() {
+    setPortal(false)
+    try {
+      localStorage.setItem('portal-visto', '1')
+    } catch {
+      // Sin almacenamiento se volverá a abrir en la próxima visita.
+    }
+  }
+
+  const intro = (
     <section className="intro-publico" aria-labelledby="intro-heading">
       <h2 id="intro-heading">{t('public.question')}</h2>
       <p className="intro-lead">{t('public.lead')}</p>
@@ -356,23 +401,24 @@ function Contenido() {
       </a>
 
       {/* Barra superior: marca, buscador de ubicación (próximamente), estado de la API, idioma y cuenta. */}
-      <BarraRecogible lado="arriba" id="barra-arriba" nombre={t('layout.top')} abierta={barraArriba} onCambiar={setBarraArriba}>
+      {/* Sin losa de vidrio: marca suelta, buscador y controles en piezas de vidrio líquido (como el prototipo). */}
+      <BarraRecogible
+        lado="arriba"
+        id="barra-arriba"
+        nombre={t('layout.top')}
+        abierta={barraArriba}
+        onCambiar={setBarraArriba}
+        vidrio={false}
+      >
         <header className="app-header">
+          {/* Marca mínima: solo «SAR» y el satélite (corrección de diseño del 2026-11-14). */}
           <div className="app-marca">
-            <span className="app-marcas" aria-hidden="true">
-              <Marca estado="change_probable" />
-              <Marca estado="no_detectable_change" />
-              <Marca estado="not_observable" />
-            </span>
-            <div>
-              <h1>{t('app.title')}</h1>
-              <p className="muted app-lema">{t('app.tagline')}</p>
-            </div>
+            <h1>SAR</h1>
             <span className="app-separador" aria-hidden="true" />
-            <Icono nombre="satelite" tamano={26} />
+            <Icono nombre="satelite" tamano={22} />
           </div>
           {/* La API no tiene geocodificador: el campo se ve, pero no busca (RF-INT-29). */}
-          <div className="buscador-ubicacion" title={t('geocoder.soon')}>
+          <div className="buscador-ubicacion vidrio" title={t('geocoder.soon')}>
             <Icono nombre="buscar" />
             <input type="search" disabled placeholder={t('geocoder.placeholder')} aria-label={t('geocoder.label')} />
             <span className="pronto">{t('geocoder.soon')}</span>
@@ -383,6 +429,15 @@ function Contenido() {
               <span className="estado-api-punto" aria-hidden="true" />
               {t(`status.${estadoApi}`)}
             </p>
+            <BotonIcono
+              icono="info"
+              etiqueta={t('portal.open')}
+              aria-haspopup="dialog"
+              onClick={() => {
+                setSeccionPortal('inicio')
+                setPortal(true)
+              }}
+            />
             <LanguageSwitch />
             <SesionBoton />
             <BotonRecoger lado="arriba" abierta nombre={t('layout.top')} controla="barra-arriba" onCambiar={setBarraArriba} />
@@ -398,7 +453,14 @@ function Contenido() {
       )}
 
       {/* Barra izquierda: Filtros (búsqueda de veredictos con línea de tiempo y resultados). */}
-      <BarraRecogible lado="izq" id="panel-izq" nombre={t('layout.filters')} abierta={barraIzq} onCambiar={abrirIzq}>
+      <BarraRecogible
+        lado="izq"
+        id="panel-izq"
+        nombre={t('layout.filters')}
+        abierta={barraIzq}
+        onCambiar={abrirIzq}
+        icono="filtros"
+      >
         <aside className="panel-izq" aria-labelledby="titulo-filtros">
           <CabeceraPanel icono="filtros" titulo={t('layout.filters')} idTitulo="titulo-filtros">
             <BotonRecoger lado="izq" abierta nombre={t('layout.filters')} controla="panel-izq" onCambiar={abrirIzq} />
@@ -413,6 +475,7 @@ function Contenido() {
             {listo && (
               <Buscador
                 series={series}
+                todos={items}
                 filtro={filtro}
                 onFiltro={(f) => {
                   setFiltro(f)
@@ -446,16 +509,21 @@ function Contenido() {
       <main id="main" tabIndex={-1} className="zona-principal">
         {/* El mapa, siempre de fondo y a pantalla completa (RF-INT-24). */}
         <div className="fondo-mapa">
+          {/* El espacio detrás del globo: el lienzo del mapa es transparente fuera de la Tierra. */}
+          <Espacio />
           {mapOptions && verdict && (
             <AtlasMap
               options={mapOptions}
               compare={comparar}
-              canCompare={vista === 'researcher' && hasOpticalScene(verdict)}
+              canCompare={hasOpticalScene(verdict)}
               busy={cargando}
               modo3d={modo3d}
               layer={capa}
               opacity={opacidad}
               reframe={encuadre}
+              mundo={mundoMapa}
+              volar={volarMundo}
+              onVista={setVistaMapa}
             />
           )}
         </div>
@@ -477,8 +545,8 @@ function Contenido() {
                 {verdict && (
                   <>
                     <VerdictCard verdict={verdict} />
-                    {!publica && <Evidencia verdict={verdict} explicar={vista === 'student'} />}
-                    {vista === 'researcher' && (
+                    <Evidencia verdict={verdict} explicar />
+                    {verdict && (
                       <p className="enlace-json">
                         <a href={verdictJsonUrl(verdict, lang)} target="_blank" rel="noreferrer">
                           {t('evidence.json')}
@@ -504,6 +572,25 @@ function Contenido() {
               </CabeceraPanel>
               <div className="panel-cuerpo">{listo && <EventQuery aoi={aoi} lang={lang} />}</div>
             </PanelPestana>
+            <PanelPestana clave="mundo" activa={pestanaDer}>
+              <CabeceraPanel icono="satelite" titulo={t('layout.tabs.mundo')}>
+                <BotonRecoger lado="der" abierta nombre={t('layout.tabs.mundo')} controla="panel-der" onCambiar={abrirDer} />
+              </CabeceraPanel>
+              <div className="panel-cuerpo">
+                <Mundo
+                  vista={vistaMapa}
+                  elegido={elegidoMundo}
+                  onResultados={(g) => {
+                    setGranulosMundo(g)
+                    setElegidoMundo(null)
+                  }}
+                  onElegir={(g) => {
+                    setElegidoMundo(g.id)
+                    if (g.bbox) setVolarMundo({ bbox: g.bbox as Bbox })
+                  }}
+                />
+              </div>
+            </PanelPestana>
             <PanelPestana clave="comunidad" activa={pestanaDer}>
               <CabeceraPanel icono="comunidad" titulo={t('layout.tabs.comunidad')}>
                 <BotonRecoger lado="der" abierta nombre={t('layout.tabs.comunidad')} controla="panel-der" onCambiar={abrirDer} />
@@ -511,6 +598,8 @@ function Contenido() {
               <div className="panel-cuerpo">
                 {listo && (
                   <>
+                    <Comunidad aoi={aoi} version={version} onAbrir={abrirHistoria} onDescargar={(h) => descargar(h, [])} />
+
                     <Interprete
                       aoi={aoi}
                       filtro={filtro}
@@ -525,7 +614,6 @@ function Contenido() {
                       onDescargar={descargar}
                       onReproducir={reproducir}
                     />
-                    <Comunidad aoi={aoi} version={version} onAbrir={abrirHistoria} onDescargar={(h) => descargar(h, [])} />
                   </>
                 )}
               </div>
@@ -551,8 +639,17 @@ function Contenido() {
         />
       )}
 
+      <Portal abierta={portal} seccion={seccionPortal} onSeccion={setSeccionPortal} onCerrar={cerrarPortal} />
+
       {/* Barra inferior: herramientas del mapa (RF-INT-28). */}
-      <BarraRecogible lado="abajo" id="barra-abajo" nombre={t('layout.tools')} abierta={barraAbajo} onCambiar={setBarraAbajo}>
+      <BarraRecogible
+        lado="abajo"
+        id="barra-abajo"
+        nombre={t('layout.tools')}
+        abierta={barraAbajo}
+        onCambiar={setBarraAbajo}
+        icono="cubo"
+      >
         <nav className="herramientas" aria-label={t('layout.tools')}>
           <div className="segmentado" role="group" aria-label={t('tools.projection')}>
             <button type="button" aria-pressed={modo3d} title={t('tools.view3d')} onClick={() => setModo3d(true)}>
@@ -568,7 +665,7 @@ function Contenido() {
           </div>
           <span className="herramientas-separador" aria-hidden="true" />
           <BotonIcono icono="centrar" etiqueta={t('tools.reframe')} disabled={!mapOptions} onClick={() => setEncuadre((n) => n + 1)} />
-          {!publica && (
+          {(
             <div className="capas-caja">
               <BotonIcono
                 icono="capas"
@@ -601,7 +698,8 @@ function Contenido() {
               </div>
             </div>
           )}
-          {vista === 'researcher' && verdict && hasOpticalScene(verdict) && (
+          {/* Antes y después, para cualquier perfil: es la comparación más fácil de leer. */}
+          {verdict && hasOpticalScene(verdict) && (
             <BotonIcono icono="comparar" etiqueta={t('map.compare')} aria-pressed={comparar} onClick={() => setComparar((c) => !c)} />
           )}
           <BotonIcono

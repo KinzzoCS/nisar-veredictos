@@ -712,6 +712,17 @@ def second_page_fails(first_page):
     return handler
 
 
+class WorldList:
+    """Buscador mundial sin red: un gránulo de la zona, con su hora UTC del nombre."""
+
+    def search(self, bbox, start, end, direction, limit):
+        from catalog.world import WorldPage, parse_entry
+
+        title = TITLE.format(d="20260617", c="P05023")
+        entry = {"title": title, "granule_size": "7000", "polygons": [["26.0 -106.0 26.0 -105.0 27.5 -105.0 26.0 -106.0"]], "links": []}
+        return WorldPage(total=1, granules=[parse_entry(entry)])
+
+
 def full_client(source=None, scenes=None, water=None):
     return TestClient(create_app(
         ROOT / "config" / "aois",
@@ -719,6 +730,7 @@ def full_client(source=None, scenes=None, water=None):
         lambda: NOW,
         scenes or SceneList([]),
         water or OperaList([]),
+        world_source=WorldList(),
     ))
 
 
@@ -763,6 +775,7 @@ def test_every_api_time_is_utc_iso8601():
         "/aois/{aoi_id}/references/optical": "/aois/parral/references/optical?date=2026-06-29",
         "/aois/{aoi_id}/references/opera": "/aois/parral/references/opera?date=2026-06-29",
         "/search/passes": "/search/passes?aoi=parral&kind=acquired&kind=excluded&kind=estimated",
+        "/search/world": "/search/world?bbox=-106,26,-105,27.5",
     }
     routes = {route.path for route in public_app.routes if "GET" in getattr(route, "methods", set())}
     routes -= {"/openapi.json", "/docs", "/docs/oauth2-redirect", "/redoc"}

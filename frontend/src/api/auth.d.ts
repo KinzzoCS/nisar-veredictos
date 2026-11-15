@@ -195,7 +195,8 @@ export interface paths {
         /**
          * Download
          * @description Cuenta la descarga y devuelve la historia. El archivo lo arma la interfaz con los veredictos actuales de la
-         *     API y las notas aparte. No es una barrera de seguridad: los datos son públicos (constitución II.4).
+         *     API y las notas aparte. Desde el 2026-11-14 no pide sesión: toda la información es pública y la cuenta solo
+         *     hace falta para publicar, valorar y borrar (constitución II.4).
          */
         post: operations["download_stories__story_id__download_post"];
         delete?: never;
@@ -595,6 +596,11 @@ export interface components {
             /** Aoi */
             aoi: string;
             /**
+             * Author Alias
+             * @description Seudónimo estable de la cuenta autora (SAR-XXXXXX, del SHA-256 de su id): identifica a quien publica sin revelar el correo (RF-ACC-16).
+             */
+            author_alias: string;
+            /**
              * Author Role
              * @description Perfil declarado de quien la escribió. Nunca se muestra el correo (RF-ACC-16).
              * @enum {string}
@@ -607,7 +613,7 @@ export interface components {
             created_at: string;
             /**
              * Downloads
-             * @description Descargas hechas con sesión.
+             * @description Descargas, con o sin sesión.
              */
             downloads: number;
             /** From Date */
@@ -1125,13 +1131,6 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["StoryOut"];
                 };
-            };
-            /** @description Sin sesión o con un token no válido */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
             };
             /** @description No hay una historia con ese id */
             404: {

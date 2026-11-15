@@ -50,6 +50,8 @@ def test_anyone_reads_stories_without_account_and_never_sees_the_email(client, a
     body = created.json()
     assert body["author_role"] == "student" and body["is_mine"] is True and body["my_stars"] is None
     assert body["created_at"] == "2026-11-14T18:00:00Z" and body["downloads"] == 0
+    assert body["author_alias"].startswith("SAR-") and len(body["author_alias"]) == 10
+    assert client.get("/stories").json()["stories"][0]["author_alias"] == body["author_alias"]
     assert body["pairs"][0] == {"series": "T048A-F015", "pair": "20260816_20260828"}
 
     listed = client.get("/stories")
@@ -66,11 +68,12 @@ def test_a_story_stores_references_and_notes_but_no_verdict_text(client, ana):
     assert "summary" not in body and "texto inventado" not in json.dumps(body)
 
 
-def test_creating_rating_and_downloading_need_a_session(client, ana):
+def test_creating_and_rating_need_a_session(client, ana):
     sid = client.post("/stories", json=story(), headers=ana).json()["id"]
     assert client.post("/stories", json=story()).status_code == 401
     assert client.post(f"/stories/{sid}/rating", json={"stars": 4}).status_code == 401
-    assert client.post(f"/stories/{sid}/download").status_code == 401
+    # Descargar no pide sesión desde el 2026-11-14: cuenta igual.
+    assert client.post(f"/stories/{sid}/download").json()["downloads"] == 1
     assert client.delete(f"/stories/{sid}").status_code == 401
     # Un token roto da 401 también en la lectura: nunca se degrada a public (RF-ACC-06).
     assert client.get("/stories", headers={"Authorization": "Bearer roto"}).status_code == 401

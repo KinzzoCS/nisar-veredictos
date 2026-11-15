@@ -6,7 +6,6 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "dev:mapa": "vite --open /src/mapa/demo.html",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "oxlint",

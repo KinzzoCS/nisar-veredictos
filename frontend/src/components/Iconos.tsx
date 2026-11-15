@@ -115,6 +115,22 @@ const TRAZOS: Record<string, ReactNode> = {
       <circle cx="12" cy="10" r="2.25" />
     </>
   ),
+  info: (
+    <>
+      <circle cx="12" cy="12" r="8.5" />
+      <path d="M12 11v5.5M12 7.75v.01" />
+    </>
+  ),
+  subir: <path d="M12 20V9M7.5 13.5L12 9l4.5 4.5M5 4.5h14" />,
+  estrella: <path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" />,
+  llave: (
+    <>
+      <circle cx="8" cy="15.5" r="3.5" />
+      <path d="M10.5 13L19 4.5M16 7.5l2.5 2.5M13.75 9.75l2 2" />
+    </>
+  ),
+  nube: <path d="M7 18.5h10a4 4 0 0 0 .5-7.97A5.5 5.5 0 0 0 7 9.5a4.5 4.5 0 0 0 0 9z" />,
+  recibo: <path d="M6 3.5h12v17l-2-1.25-2 1.25-2-1.25-2 1.25-2-1.25-2 1.25zM9 8h6M9 11.5h6M9 15h4" />,
   arriba: <path d="M6 14.5l6-6 6 6" />,
   abajo: <path d="M6 9.5l6 6 6-6" />,
   cuenta: (

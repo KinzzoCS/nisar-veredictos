@@ -43,20 +43,47 @@
       "hallazgos": "Hallazgos",
       "historia": "Historia de Parral",
       "evento": "¿Pudo verlo?",
-      "comunidad": "Comunidad"
+      "comunidad": "Comunidad",
+      "mundo": "Mundo"
     }
   },
   "search": {
     "heading": "Buscar veredictos",
     "allSeries": "Todas las series",
-    "timeline": "Línea de tiempo",
+    "allShort": "Todas",
+    "timeline": "Periodo",
     "from": "Desde",
     "to": "Hasta",
     "states": "Estados",
     "fullWindows": "Incluir ventanas completas",
     "more": "Más filtros",
     "results_one": "{{count}} veredicto",
-    "results_other": "{{count}} veredictos"
+    "results_other": "{{count}} veredictos",
+    "help": "Elige qué pasadas mirar, el periodo y qué buscas. Luego toca un resultado para verlo en el mapa.",
+    "seriesHelp": "NISAR pasa sobre la zona por dos órbitas, cada 12 días. Puedes ver las dos a la vez.",
+    "direction": {
+      "A": "ascendente",
+      "D": "descendente"
+    },
+    "periodHelp": "Cada barra es un par de pasadas seguidas: cuanto más alta, más cambió la señal. Los picos que brillan son cambio probable. Arrastra las asas para elegir el periodo o toca una barra para verla en el mapa.",
+    "shortcuts": "Atajos de periodo",
+    "shortcut": {
+      "all": "Todo",
+      "last30": "Último mes",
+      "last90": "Últimos 3 meses"
+    },
+    "statesHelp": "Qué tipo de respuesta quieres ver. Cada estado tiene su forma en el mapa.",
+    "fullWindowsHelp": "Compara la primera y la última pasada de la serie, no solo pasadas seguidas.",
+    "reset": "Limpiar filtros",
+    "pickHelp": "Toca uno para verlo en el mapa y leer su explicación.",
+    "none": "Nada con estos filtros. Amplía el periodo o marca más estados.",
+    "days_one": "{{count}} día",
+    "days_other": "{{count}} días",
+    "chartDesc_one": "Gráfica de la fracción de cambio por par de pasadas, con {{count}} pico de cambio probable.",
+    "chartDesc_other": "Gráfica de la fracción de cambio por par de pasadas, con {{count}} picos de cambio probable.",
+    "threshold": "umbral {{value}}",
+    "periodStart": "Inicio del periodo",
+    "periodEnd": "Fin del periodo"
   },
   "interpreter": {
     "heading": "Intérprete de historias",
@@ -74,13 +101,14 @@
     "notesHelp": "{{n}} de {{max}} caracteres. Se muestran aparte de los textos de la API y no se comprueban.",
     "save": "Guardar historia",
     "saved": "Historia guardada. Está en la pestaña Comunidad.",
-    "loginToSave": "Inicia sesión para guardar y descargar historias.",
+    "loginToSave": "Inicia sesión para publicar tu historia: saldrá con tu seudónimo y tu perfil.",
     "reading": "Historia de la comunidad",
     "authorNotes": "Notas de quien la escribió",
     "notesDisclaimer": "No son texto de la API ni están comprobadas.",
     "missingPair": "{{pair}}: este par ya no está en la API o es de otra zona.",
     "otherZone": "Esta historia es de la zona {{aoi}}; aquí solo se pueden mostrar los pares de la zona actual.",
-    "backToDraft": "Volver al borrador"
+    "backToDraft": "Volver al borrador",
+    "readTexts": "Leer lo que dice la API"
   },
   "community": {
     "heading": "Historias de la comunidad",
@@ -112,7 +140,7 @@
     "starsN_other": "{{count}} estrellas",
     "unrate": "Quitar mi valoración",
     "ownStory": "Es tu historia: no puedes valorarla.",
-    "loginToRate": "Inicia sesión para descargar y valorar historias.",
+    "loginToRate": "Inicia sesión para valorar historias y publicar las tuyas.",
     "open": "Abrir",
     "download": "Descargar",
     "delete": "Borrar",
@@ -307,7 +335,7 @@
   },
   "map": {
     "label": "Mapa",
-    "compare": "Comparar con la imagen óptica (Sentinel-2)"
+    "compare": "Comparar antes y después (Sentinel-2)"
   },
   "footer": {
     "attribution": "Datos NISAR: NASA e ISRO. Cada fuente externa se atribuye donde se muestra.",
@@ -348,5 +376,41 @@
     "close": "Cerrar la reproducción",
     "timeline": "Pares de la historia en el tiempo",
     "position": "Par {{n}} de {{total}}"
+  },
+  "portal": {
+    "title": "SAR: veredictos de radar NISAR",
+    "open": "Acerca de SAR",
+    "sections": "Secciones",
+    "close": "Cerrar",
+    "carousel": "carrusel",
+    "slide": "diapositiva",
+    "slideOf": "{{n}} de {{total}}",
+    "slides": "Diapositivas",
+    "goTo": "Ir a {{n}}: {{title}}",
+    "previous": "Anterior",
+    "next": "Siguiente",
+    "pause": "Pausar el carrusel",
+    "play": "Reanudar el carrusel",
+    "feature": "Función",
+    "yes": "Incluido",
+    "no": "No incluido"
+  },
+  "world": {
+    "heading": "Buscador mundial de pasadas NISAR",
+    "intro": "Busca pasadas del radar NISAR en cualquier parte del mundo sin descargar nada ni crear cuenta. Mueve el mapa hasta la zona que te interesa y busca: verás la huella de cada pasada y su vista previa.",
+    "area": "Área de búsqueda (lo que ves en el mapa):",
+    "areaHelp": "Acerca o aleja el globo para cambiar el área. Con el mundo entero a la vista se busca en todo el planeta.",
+    "direction": "Dirección de la órbita",
+    "bothDirections": "Ambas",
+    "search": "Buscar en esta área",
+    "loading": "Buscando pasadas en el catálogo de NASA…",
+    "error": "El catálogo de NASA (CMR) no respondió. Vuelve a intentarlo en unos segundos.",
+    "results": "Las {{count}} más recientes de {{total}} pasadas",
+    "none": "No hay pasadas de NISAR en esta área y estas fechas. Amplía el área o el periodo.",
+    "frame": "marco",
+    "newTab": "se abre en otra pestaña",
+    "note": "La vista previa de ASF se coloca en la caja de la huella: su posición es aproximada. Descargar el producto completo (unos 7 GB) pide una cuenta de Earthdata; un veredicto para esta zona necesita procesarla antes, y eso aún no se hace desde aquí.",
+    "sources": "Fuentes: NASA CMR (Earthdata Search) y vistas previas de ASF DAAC (Vertex), recursos oficiales del reto.",
+    "wholeWorld": "todo el mundo"
   }
 }

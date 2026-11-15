@@ -4,7 +4,7 @@ import { fetchTimeline, verdictsApi, type EventVerdict, type Lang } from '../api
 import type { LineaTiempoApi } from '../mapa/lineaTiempo'
 import { EVENT_TYPES, EXAMPLE, type Query } from '../story/data'
 import { Esqueleto } from './Esqueleto'
-import { BotonIcono } from './Iconos'
+import { Icono } from './Iconos'
 import { Marca } from './Marca'
 import { PassTimeline } from './PassTimeline'
 import { SyntheticNotice } from './SyntheticBadge'
@@ -206,7 +206,10 @@ export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
         </div>
 
         <div className="form-actions">
-          <BotonIcono type="submit" icono="buscar" etiqueta={t('event.submit')} className="boton-principal" />
+          <button type="submit" className="boton-principal boton-con-texto">
+            <Icono nombre="buscar" tamano={16} />
+            {t('event.submit')}
+          </button>
           <button
             type="button"
             onClick={() => {

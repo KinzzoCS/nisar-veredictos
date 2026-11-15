@@ -20,6 +20,7 @@ from .optical import COLLECTION, LICENSE_URL, EarthSearchSource, SceneSource, gr
 from .pairing import Granule, Series, build_series, closed_ring, series_id
 from .timeline import build_timeline
 from . import search as passes_search
+from . import world
 
 T = TypeVar("T")
 
@@ -43,6 +44,44 @@ def _as_utc(value: datetime) -> datetime:
 
 
 UtcDatetime = Annotated[datetime, AfterValidator(_as_utc)]
+
+
+class WorldGranuleOut(BaseModel):
+    id: str = Field(description="Nombre del gránulo (título en CMR).")
+    acquired_at: UtcDatetime = Field(description="Inicio de la adquisición, UTC, del nombre del gránulo.")
+    date: date
+    track: int
+    direction: Literal["A", "D"]
+    frame: int
+    mode: str
+    polarization: str
+    size_mb: float
+    footprint: list[list[float]] = Field(
+        description="Anillo cerrado [lon, lat] de la huella en CMR, 5 decimales. Vacío si CMR no da polígono."
+    )
+    bbox: list[float] | None = Field(description="Caja [oeste, sur, este, norte] de la huella, o null sin huella.")
+    browse_url: str | None = Field(
+        description="Vista previa _LATLON.png de ASF: pública, sin cuenta. No es un producto georreferenciado: su caja "
+        "en el mapa es la de la huella y se dice aproximada."
+    )
+    thumbnail_url: str | None = Field(description="Miniatura de esa vista previa.")
+    data_url: str = Field(description="HDF5 completo en ASF; pide una cuenta de Earthdata.")
+    vertex_url: str = Field(description="El gránulo en ASF Data Search Vertex.")
+    earthdata_search_url: str = Field(description="El gránulo en NASA Earthdata Search.")
+
+
+class WorldSearchOut(BaseModel):
+    bbox: list[float]
+    from_: date = Field(alias="from")
+    to: date
+    direction: Literal["A", "D"] | None
+    total: int = Field(description="Gránulos que CMR encuentra en el rectángulo y las fechas, sin filtrar por dirección.")
+    granules: list[WorldGranuleOut] = Field(description="Los más recientes primero, como mucho `limit`.")
+    collection: str
+    sources: list[str] = Field(description="Recursos oficiales usados: CMR (NASA Earthdata Search) y ASF.")
+    data_kind: Literal["real"] = "real"
+
+    model_config = {"populate_by_name": True}
 
 
 class Aoi(BaseModel):
@@ -440,12 +479,14 @@ def create_app(
     optical_source: SceneSource | None = None,
     opera_source: opera.OperaSource | None = None,
     plan_dir: Path | None = None,
+    world_source: world.WorldSource | None = None,
 ) -> FastAPI:
     directory = aoi_dir or Path(os.environ.get("AOI_DIR", "/config/aois"))
     plans = plan_dir or Path(os.environ.get("PLAN_DIR", "/data/plan"))
     granule_source = source or CmrSource()
     scene_source = optical_source or EarthSearchSource()
     water_source = opera_source or opera.CmrOperaSource()
+    world_search = world_source or world.CmrWorldSource()
     now = clock or (lambda: datetime.now(timezone.utc))
     app = FastAPI(title="NISAR catalog", version="0.1.0")
 
@@ -707,6 +748,63 @@ def create_app(
                 )
                 for row in page
             ],
+        )
+
+    @app.get(
+        "/search/world",
+        response_model=WorldSearchOut,
+        response_model_by_alias=True,
+        responses={422: {"description": "Rectángulo o fechas no válidos."}, 502: {"description": "CMR no respondió."}},
+    )
+    def search_world(
+        bbox: str = Query(..., description="oeste,sur,este,norte en WGS84; sin cruzar el antimeridiano."),
+        from_: date | None = Query(None, alias="from", description="Primer día (UTC). Por omisión, 90 días antes de `to`."),
+        to: date | None = Query(None, description="Último día (UTC), incluido. Por omisión, hoy."),
+        direction: Literal["A", "D"] | None = Query(None, description="A ascendente o D descendente."),
+        limit: int = Query(60, ge=1, le=world.MAX_RESULTS),
+    ) -> WorldSearchOut:
+        """Pasadas NISAR GCOV en cualquier parte del mundo, sin descargar nada y sin cuenta (buscador mundial).
+
+        Usa CMR, el catálogo detrás de NASA Earthdata Search, y las vistas previas públicas de ASF. Abierta a todos:
+        solo son metadatos públicos.
+        """
+        try:
+            caja = [float(v) for v in bbox.split(",")]
+        except ValueError:
+            raise HTTPException(422, "bbox debe ser oeste,sur,este,norte") from None
+        if len(caja) != 4 or not all(-180 <= caja[i] <= 180 for i in (0, 2)) or not all(-90 <= caja[i] <= 90 for i in (1, 3)):
+            raise HTTPException(422, "bbox fuera de rango")
+        if caja[0] >= caja[2] or caja[1] >= caja[3]:
+            raise HTTPException(422, "bbox: oeste < este y sur < norte, sin cruzar el antimeridiano")
+        fin = to or now().date()
+        inicio = from_ or date.fromordinal(fin.toordinal() - 90)
+        if inicio > fin:
+            raise HTTPException(422, "from posterior a to")
+        page = _upstream(
+            lambda: world_search.search(caja, inicio.isoformat(), fin.isoformat(), direction, limit),
+            "El catálogo CMR no respondió o su respuesta no se pudo leer",
+        )
+        salida = []
+        for g in page.granules:
+            anillo = closed_ring(g.footprint) if len(g.footprint) >= 3 else []
+            caja_g = (
+                [min(p[0] for p in anillo), min(p[1] for p in anillo), max(p[0] for p in anillo), max(p[1] for p in anillo)]
+                if anillo
+                else None
+            )
+            salida.append(
+                WorldGranuleOut(
+                    id=g.id, acquired_at=g.acquired_at, date=g.acquired_at.date(), track=g.track,
+                    direction=g.direction, frame=g.frame, mode=g.mode, polarization=g.polarization,
+                    size_mb=round(g.size_mb, 1), footprint=anillo, bbox=caja_g, browse_url=g.browse_url,
+                    thumbnail_url=g.thumbnail_url, data_url=g.data_url, vertex_url=world.vertex_url(g.id),
+                    earthdata_search_url=world.earthdata_search_url(g.id),
+                )
+            )
+        return WorldSearchOut(
+            bbox=caja, **{"from": inicio}, to=fin, direction=direction, total=page.total, granules=salida,
+            collection=world.COLLECTION,
+            sources=["NASA CMR (Earthdata Search)", "ASF DAAC (Vertex) browse images"],
         )
 
     def openapi_with_bearer() -> dict:

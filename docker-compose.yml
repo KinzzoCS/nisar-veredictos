@@ -1,3 +1,6 @@
+# Topes de memoria (2026-11-14): la pila cabe en un equipo de 16 GB con el navegador abierto. Medido en reposo con
+# datos reales: tiles ~1,8 GB sin tope de caché de GDAL, el resto < 160 MB. `process` (datos reales, bajo demanda)
+# llega a ~1,9 GB y no se limita para no cortarlo a media serie.
 services:
   # Genera datos sintéticos una vez; conserva lo que ya exista en ./data.
   seed:
@@ -34,6 +37,7 @@ services:
 
   catalog:
     build: ./services/catalog
+    mem_limit: 384m
     environment:
       AOI_DIR: /config/aois
       # Plan de observación de NISAR que escribe `ingest plan`; sin archivo, la línea de tiempo dice unknown.
@@ -44,6 +48,7 @@ services:
 
   verdicts:
     build: ./services/verdicts
+    mem_limit: 1g
     environment:
       ARTIFACT_ROOT: /data/artifacts
       # Línea de tiempo de Antena: hora UTC de adquisición y latencia de publicación (T-BAL-02).
@@ -70,6 +75,19 @@ services:
   tiles:
     image: ghcr.io/developmentseed/titiler:2.4.0
     command: ["uvicorn", "titiler.application.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # GDAL guardaba en caché hasta el 5 % de la RAM por bloque leído: 1,8 GB en reposo. Con 160 MB de caché de
+    # bloques y 32 MB de caché HTTP sigue sirviendo las teselas de la zona sin releerlas en cada petición.
+    # Tope de 1,5 GB: con 768 MB, en la prueba de uso del 2026-11-14, llegó al tope con la CPU al 1500 % y las
+    # teselas tardaban hasta 60 s (504); el navegador encolaba detrás hasta la búsqueda mundial (102 s).
+    # GDAL_NUM_THREADS acota los hilos por lectura para que unas pocas teselas no acaparen todos los núcleos.
+    mem_limit: 1536m
+    environment:
+      GDAL_CACHEMAX: "160"
+      GDAL_NUM_THREADS: "2"
+      CPL_VSIL_CURL_CACHE_SIZE: "33554432"
+      VSI_CACHE: "TRUE"
+      VSI_CACHE_SIZE: "16777216"
+      GDAL_DISABLE_READDIR_ON_OPEN: "EMPTY_DIR"
     volumes:
       - ./data:/data:ro
     depends_on:
@@ -80,6 +98,7 @@ services:
   # llega a él. La clave Ed25519 se genera al primer arranque en ./data/auth (fuera de git) si el .env no la trae.
   auth:
     build: ./services/auth
+    mem_limit: 256m
     environment:
       AUTH_DATA_DIR: /data/auth
       AUTH_PRIVATE_KEY: ${AUTH_PRIVATE_KEY:-}
@@ -89,6 +108,7 @@ services:
 
   gateway:
     image: nginx:1.29-alpine
+    mem_limit: 128m
     ports:
       - "8080:80"
     environment:
@@ -112,6 +132,7 @@ services:
 
   # Sitio estático de Faro y Atlas en http://localhost:3000. El navegador llama al gateway en :8080.
   frontend:
+    mem_limit: 64m
     build:
       context: ./frontend
       args:

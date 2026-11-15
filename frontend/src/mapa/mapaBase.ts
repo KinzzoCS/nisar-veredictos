@@ -1,4 +1,5 @@
 import type { RasterSourceSpecification, StyleSpecification } from "maplibre-gl";
+import { luzDelSol } from "./sol";
 import type { Feature, Polygon } from "geojson";
 import type { Idioma } from "./textos";
 import type { Bbox } from "./tipos";
@@ -21,8 +22,17 @@ export const ATRIBUCION_NISAR =
 
 /** Textos del control de atribución: OSM siempre; NISAR solo si hay capas radar con datos reales. */
 export function atribuciones(idioma: Idioma, nisar: boolean): string[] {
-  return nisar ? [atribucionOsm(idioma), ATRIBUCION_NISAR] : [atribucionOsm(idioma)];
+  const base = [ATRIBUCION_SATELITE, atribucionOsm(idioma)];
+  return nisar ? [...base, ATRIBUCION_NISAR] : base;
 }
+
+/**
+ * Mapa base a todo color (corrección de diseño del 2026-11-14): Sentinel-2 cloudless de EOX, edición
+ * de 2016, la única con licencia CC BY 4.0 (las de 2018 en adelante son CC BY-NC-SA). Exige esta
+ * atribución con enlace, igual en los dos idiomas.
+ */
+export const ATRIBUCION_SATELITE =
+  '<a href="https://s2maps.eu" target="_blank" rel="noopener">Sentinel-2 cloudless</a> © EOX (Copernicus 2016)';
 
 export const ZOOM_MAXIMO_BASE = 19;
 
@@ -62,7 +72,17 @@ export function estiloMapaBase(proyeccion: "globe" | "mercator" = "mercator"): S
   return {
     version: 8,
     projection: { type: proyeccion },
+    // Atmósfera del globo iluminada desde la posición real del Sol (src/mapa/sol.ts); se desvanece
+    // al acercarse, cuando el globo ya es plano.
+    sky: { "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 8, 0] },
+    light: luzDelSol(new Date()),
     sources: {
+      satelite: {
+        type: "raster",
+        tiles: ["https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/{z}/{y}/{x}.jpg"],
+        tileSize: 256,
+        maxzoom: 15,
+      },
       osm: {
         type: "raster",
         tiles: ["https://tile.openstreetmap.org/{z}/{x}/{y}.png"],
@@ -72,11 +92,18 @@ export function estiloMapaBase(proyeccion: "globe" | "mercator" = "mercator"): S
       },
     },
     layers: [
-      // Fondo blanco mientras cargan las teselas, en lugar del negro del lienzo.
-      { id: "fondo", type: "background", paint: { "background-color": "#ffffff" } },
-      // Mapa base en grises: el color queda para nada, y el relleno y la trama del estado
-      // se leen encima sin competir con los verdes y azules de OpenStreetMap.
-      { id: "osm", type: "raster", source: "osm", paint: { "raster-saturation": -1 } },
+      // Océano oscuro mientras cargan las teselas.
+      { id: "fondo", type: "background", paint: { "background-color": "#0b1a2a" } },
+      // La Tierra a todo color: imagen de satélite sin nubes.
+      { id: "satelite", type: "raster", source: "satelite", paint: { "raster-fade-duration": 200 } },
+      // Calles de OpenStreetMap solo de muy cerca, cuando la imagen de 10 m ya no da más detalle.
+      {
+        id: "osm",
+        type: "raster",
+        source: "osm",
+        minzoom: 14,
+        paint: { "raster-opacity": ["interpolate", ["linear"], ["zoom"], 14, 0, 15, 0.55] },
+      },
     ],
   };
 }

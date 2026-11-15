@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import type { Verdict } from '../api/client'
+import { Icono } from './Iconos'
 import { Marca } from './Marca'
 import { SyntheticNotice } from './SyntheticBadge'
 
@@ -28,7 +29,10 @@ function Receipt({ verdict }: { verdict: Verdict }) {
   const water = verdict.evidence.water
   return (
     <details className="receipt">
-      <summary>{t('receipt.summary')}</summary>
+      <summary>
+        <Icono nombre="recibo" tamano={16} />
+        <span>{t('receipt.summary')}</span>
+      </summary>
       <dl>
         <dt>{t('receipt.dataKind')}</dt>
         <dd>{t(`dataKind.${r.data_kind}`)}</dd>
@@ -116,22 +120,32 @@ export function VerdictCard({ verdict }: { verdict: Verdict }) {
         {verdict.state === 'not_observable' && verdict.cause_label && (
           <p className="verdict-cause">{t('verdict.cause', { cause: verdict.cause_label })}</p>
         )}
-        <p className="muted">
+        <p className="verdict-fechas">
+          <Icono nombre="evento" tamano={14} />
           {t('verdict.dates', { from: verdict.from_date, to: verdict.to_date, count: verdict.interval_days })}
         </p>
       </header>
 
       <dl className="verdict-summary">
-        <div>
-          <dt>{t('verdict.detected')}</dt>
+        <div className="resumen-detectado">
+          <dt>
+            <Icono nombre="ver" tamano={15} />
+            {t('verdict.detected')}
+          </dt>
           <dd>{verdict.summary.detected}</dd>
         </div>
-        <div>
-          <dt>{t('verdict.doesNotProve')}</dt>
+        <div className="resumen-no-prueba">
+          <dt>
+            <Icono nombre="quitar" tamano={15} />
+            {t('verdict.doesNotProve')}
+          </dt>
           <dd>{verdict.summary.does_not_prove}</dd>
         </div>
-        <div>
-          <dt>{t('verdict.missing')}</dt>
+        <div className="resumen-falta">
+          <dt>
+            <Icono nombre="info" tamano={15} />
+            {t('verdict.missing')}
+          </dt>
           <dd>{verdict.summary.missing}</dd>
         </div>
       </dl>
