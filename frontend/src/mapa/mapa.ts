@@ -10,6 +10,16 @@ import { crearComparador, type Comparador } from "./comparador";
 import { normalizarAvisoEscena } from "./escena";
 import { Control3d } from "./control3d";
 import { capacidadGrafica, elegirProyeccion, escalaValida, transicionGlobo } from "./globo";
+import {
+  anclaEtiqueta,
+  centroZona,
+  describirHuella,
+  geojsonHuellas,
+  huellasValidas,
+  nombreCorto,
+  puntoEtiqueta,
+  type Huella,
+} from "./huellas";
 import { crearLeyenda, limitarOpacidad, rangoReescalado } from "./leyenda";
 import { ladoDisponible } from "./optico";
 import {
@@ -38,6 +48,10 @@ import type { Bbox, CambiosMapa, CapaRadar, MapaAtlas, OpcionesMapa } from "./ti
 maplibregl.setWorkerUrl(workerUrl);
 
 const CAPA_ENCIMA = "aoi-contorno-halo";
+/** Desde este zoom la huella ocupa más que la pantalla y su nombre estorbaría a los datos. */
+const ZOOM_SIN_ETIQUETAS = 9;
+/** Hasta este zoom la caja de la zona es diminuta: se marca también con un punto. */
+const ZOOM_PUNTO_ZONA = 7;
 const IDS_RADAR = ["radar-state", "radar-change_hh", "radar-change_hv", "radar-trama"] as const;
 
 /**
@@ -68,6 +82,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     compare: opciones.compare ?? "off",
     modo3d: opciones.modo3d ?? false,
     falloGlobo: false,
+    huellas: huellasValidas(opciones.huellas),
   };
 
   // Comparador óptico (T-ATL-07): solo con compare "swipe" y al menos un lado con datos.
@@ -137,6 +152,10 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
   const extension = document.createElement("div");
   extension.className = "atlas-extension";
   extension.append(document.createElement("strong"), document.createElement("span"));
+  // Las etiquetas del mapa no se leen en voz alta; la lista sí (RF-INT-16).
+  const listaHuellas = document.createElement("ul");
+  listaHuellas.className = "atlas-solo-lector";
+  extension.append(listaHuellas);
   contenedor.append(extension);
 
   const sello = document.createElement("div");
@@ -325,6 +344,14 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     map.getCanvas().setAttribute("aria-label", t.mapaDe(zona));
     extension.querySelector("strong")!.textContent = t.extensionDe(zona);
     extension.querySelector("span")!.textContent = textoExtension(estado.aoi);
+    listaHuellas.setAttribute("aria-label", t.huellas);
+    listaHuellas.replaceChildren(
+      ...estado.huellas.map((h) => {
+        const li = document.createElement("li");
+        li.textContent = `${h.properties.series}: ${describirHuella(h.properties, estado.idioma)}`;
+        return li;
+      }),
+    );
     sello.textContent = t.sintetico;
     sello.hidden = estado.dataKind !== "synthetic";
     ayuda.textContent =
@@ -389,8 +416,56 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     }
   }
 
+  // Huellas (T-ATL-13): contorno y relleno tenue bajo el radar, y el nombre en una etiqueta HTML,
+  // porque el estilo base no trae fuentes tipográficas para capas de texto.
+  let etiquetas: maplibregl.Marker[] = [];
+  function aplicarHuellas() {
+    (map.getSource("huellas") as maplibregl.GeoJSONSource | undefined)?.setData(
+      geojsonHuellas(estado.huellas),
+    );
+    for (const e of etiquetas) e.remove();
+    etiquetas = estado.huellas.map((h: Huella) => {
+      const el = document.createElement("div");
+      el.className = "atlas-etiqueta-huella";
+      el.setAttribute("aria-hidden", "true");
+      el.textContent = nombreCorto(h.properties);
+      return new maplibregl.Marker({ element: el, anchor: anclaEtiqueta(h), offset: [0, -2] }).setLngLat(puntoEtiqueta(h)).addTo(map);
+    });
+    mostrarEtiquetas();
+  }
+  function mostrarEtiquetas() {
+    contenedor.classList.toggle("atlas-sin-etiquetas", map.getZoom() >= ZOOM_SIN_ETIQUETAS);
+  }
+  map.on("zoom", mostrarEtiquetas);
+
   map.on("load", () => {
+    map.addSource("huellas", { type: "geojson", data: geojsonHuellas(estado.huellas) });
+    map.addLayer({
+      id: "huellas-relleno",
+      type: "fill",
+      source: "huellas",
+      paint: { "fill-color": "#1d4e89", "fill-opacity": 0.08 },
+    });
+    map.addLayer({
+      id: "huellas-contorno",
+      type: "line",
+      source: "huellas",
+      paint: { "line-color": "#1d4e89", "line-width": 1.5 },
+    });
     map.addSource("aoi", { type: "geojson", data: contornoZona(estado.aoi) });
+    map.addSource("aoi-centro", { type: "geojson", data: centroZona(estado.aoi) });
+    map.addLayer({
+      id: "aoi-punto",
+      type: "circle",
+      source: "aoi-centro",
+      maxzoom: ZOOM_PUNTO_ZONA,
+      paint: {
+        "circle-radius": 5,
+        "circle-color": "#000000",
+        "circle-stroke-color": "#ffffff",
+        "circle-stroke-width": 2,
+      },
+    });
     map.addLayer({
       id: "aoi-contorno-halo",
       type: "line",
@@ -404,6 +479,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       paint: { "line-color": "#000000", "line-width": 2, "line-dasharray": [3, 2] },
     });
     aplicarCapas();
+    aplicarHuellas();
     cargado = true;
     aplicarProyeccion();
   });
@@ -446,9 +522,16 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
         (map.getSource("aoi") as maplibregl.GeoJSONSource | undefined)?.setData(
           contornoZona(estado.aoi),
         );
+        (map.getSource("aoi-centro") as maplibregl.GeoJSONSource | undefined)?.setData(
+          centroZona(estado.aoi),
+        );
         map.fitBounds(bboxContinuo(estado.aoi), { padding: 32 });
       }
       if ("nombreZona" in c) estado.zona = c.nombreZona;
+      if ("huellas" in c) {
+        estado.huellas = huellasValidas(c.huellas);
+        if (cargado) aplicarHuellas();
+      }
       if ("causaNoObservable" in c) estado.causa = c.causaNoObservable;
       if ("desplazamientoEscena" in c) estado.avisoEscena = normalizarAvisoEscena(c.desplazamientoEscena);
       if (c.idioma) estado.idioma = c.idioma;
@@ -494,6 +577,7 @@ function mapaSinWebgl(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtla
   let zona = opciones.nombreZona;
   let idioma = opciones.idioma ?? "es";
   let dataKind = opciones.dataKind;
+  let huellas = huellasValidas(opciones.huellas);
   contenedor.classList.add("atlas-mapa", "atlas-sin-mapa");
   const extension = document.createElement("div");
   extension.className = "atlas-extension";
@@ -504,7 +588,10 @@ function mapaSinWebgl(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtla
   const aviso = document.createElement("p");
   aviso.className = "atlas-aviso-sin-mapa";
   aviso.setAttribute("role", "alert");
-  contenedor.append(extension, sello, aviso);
+  // Sin mapa, las huellas quedan en texto (RF-INT-16).
+  const lista = document.createElement("ul");
+  lista.className = "atlas-lista-huellas";
+  contenedor.append(extension, sello, aviso, lista);
   function dibujar() {
     const t = TEXTOS[idioma];
     extension.querySelector("strong")!.textContent = t.extensionDe(zona ?? t.zonaPorDefecto);
@@ -512,6 +599,15 @@ function mapaSinWebgl(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtla
     sello.textContent = t.sintetico;
     sello.hidden = dataKind !== "synthetic";
     aviso.textContent = t.sinMapa;
+    lista.setAttribute("aria-label", t.huellas);
+    lista.hidden = huellas.length === 0;
+    lista.replaceChildren(
+      ...huellas.map((h) => {
+        const li = document.createElement("li");
+        li.textContent = `${h.properties.series}: ${describirHuella(h.properties, idioma)}`;
+        return li;
+      }),
+    );
   }
   dibujar();
   return {
@@ -520,6 +616,7 @@ function mapaSinWebgl(contenedor: HTMLElement, opciones: OpcionesMapa): MapaAtla
       if ("nombreZona" in c) zona = c.nombreZona;
       if (c.idioma) idioma = c.idioma;
       if (c.dataKind) dataKind = c.dataKind;
+      if ("huellas" in c) huellas = huellasValidas(c.huellas);
       dibujar();
     },
     fijarOpacidad: () => {},

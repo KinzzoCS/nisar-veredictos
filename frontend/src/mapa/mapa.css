@@ -558,3 +558,25 @@
   top: 146px;
   max-height: calc(100% - 196px);
 }
+
+/* Nombre de cada huella en el mapa (T-ATL-13). Solo de vista: la lista está en .atlas-extension. */
+.atlas-etiqueta-huella {
+  padding: 1px 6px;
+  border: 1px solid #1d4e89;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1d4e89;
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+.atlas-sin-etiquetas .atlas-etiqueta-huella {
+  display: none;
+}
+
+.atlas-lista-huellas {
+  margin: 0;
+  padding-left: 1.25rem;
+}
