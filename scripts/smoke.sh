@@ -705,6 +705,48 @@ assert mine[0]['status'] == 'revoked' and mine[0]['revoked_at'], mine
     || fail "DELETE de un token inexistente no respondió 404"
   covered auth "/tokens/{token_id}"
 
+  # Historias de la comunidad (T-ANT-20, RF-ACC-12 a 17): leer sin cuenta; guardar, valorar y descargar con sesión.
+  story_body="{\"title\":\"humo $RUN\",\"aoi\":\"$AOI\",\"series\":\"$SERIES\",\"from_date\":\"2026-06-01\",\"to_date\":\"2026-09-30\",\"pairs\":[{\"series\":\"$SERIES\",\"pair\":\"$pair_id\"}],\"notes\":\"Notas de la prueba de humo.\"}"
+  test "$(call st_anon -X POST "${JSON[@]}" --data "$story_body" "$BASE/api/auth/stories")" = "401" \
+    || fail "POST /api/auth/stories sin sesión no respondió 401"
+  code=$(bearer st_create "$STUDENT" -X POST "${JSON[@]}" --data "$story_body" "$BASE/api/auth/stories")
+  test "$code" = "201" || fail "POST /api/auth/stories respondió $code: $(head -c 300 "$TMP/st_create.json")"
+  check "auth: historia creada" st_create "
+assert d['is_mine'] is True and d['author_role'] == 'student' and d['downloads'] == 0, d
+assert 'email' not in d and d['pairs'] == [{'series': '$SERIES', 'pair': '$pair_id'}], d
+"
+  STORY=$(field st_create id)
+  test "$(call st_list "$BASE/api/auth/stories?aoi=$AOI&sort=recent")" = "200" || fail "GET /api/auth/stories sin cuenta"
+  check "auth: lista de historias sin cuenta" st_list "
+mine = [s for s in d['stories'] if s['id'] == '$STORY']
+assert len(mine) == 1 and mine[0]['is_mine'] is False and mine[0]['my_stars'] is None, mine
+"
+  covered auth /stories
+  test "$(call st_get "$BASE/api/auth/stories/$STORY")" = "200" || fail "GET /api/auth/stories/{id} sin cuenta"
+  test "$(call st_missing "$BASE/api/auth/stories/no-existe-$RUN")" = "404" || fail "historia inexistente no dio 404"
+  # Valorar: la propia no (409); otra cuenta sí, y quitar la valoración la deja sin estrellas.
+  test "$(bearer st_rate_own "$STUDENT" -X POST "${JSON[@]}" --data '{"stars":5}' "$BASE/api/auth/stories/$STORY/rating")" = "409" \
+    || fail "se pudo valorar la historia propia"
+  test "$(bearer st_rate "$RESEARCHER" -X POST "${JSON[@]}" --data '{"stars":4}' "$BASE/api/auth/stories/$STORY/rating")" = "200" \
+    || fail "POST /api/auth/stories/{id}/rating"
+  check "auth: valoración" st_rate "assert d['my_stars'] == 4 and d['ratings']['count'] == 1 and d['ratings']['average'] == 4, d['ratings']"
+  test "$(bearer st_unrate "$RESEARCHER" -X DELETE "$BASE/api/auth/stories/$STORY/rating")" = "200" \
+    || fail "DELETE /api/auth/stories/{id}/rating"
+  check "auth: valoración quitada" st_unrate "assert d['my_stars'] is None and d['ratings']['count'] == 0, d['ratings']"
+  covered auth "/stories/{story_id}/rating"
+  test "$(call st_dl_anon -X POST "$BASE/api/auth/stories/$STORY/download")" = "401" || fail "descarga sin sesión no dio 401"
+  test "$(bearer st_dl "$RESEARCHER" -X POST "$BASE/api/auth/stories/$STORY/download")" = "200" \
+    || fail "POST /api/auth/stories/{id}/download"
+  check "auth: descarga contada" st_dl "assert d['downloads'] == 1, d['downloads']"
+  covered auth "/stories/{story_id}/download"
+  # Borrar: solo quien la escribió (403 para otra cuenta, 204 para la suya).
+  test "$(bearer st_del_other "$RESEARCHER" -X DELETE "$BASE/api/auth/stories/$STORY")" = "403" \
+    || fail "otra cuenta borró la historia"
+  test "$(bearer st_del "$STUDENT" -X DELETE "$BASE/api/auth/stories/$STORY")" = "204" \
+    || fail "DELETE /api/auth/stories/{id} no respondió 204"
+  test "$(call st_gone "$BASE/api/auth/stories/$STORY")" = "404" || fail "la historia borrada sigue respondiendo"
+  covered auth "/stories/{story_id}"
+
   # Cabeceras falsificadas: con token de student, X-Auth-Role y X-Auth-Sub del cliente no cuentan (RF-ACC-05).
   forged=(-H "X-Auth-Role: researcher" -H "X-Auth-Sub: otra-persona")
   test "$(search s_forged "$STUDENT" "quality_flag=false" "${forged[@]}")" = "403" || fail "X-Auth-Role falsificada dio paso"
