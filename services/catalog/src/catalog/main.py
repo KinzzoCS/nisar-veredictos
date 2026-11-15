@@ -314,9 +314,13 @@ class OperaOut(BaseModel):
     acquisitions: list[OperaAcquisition] = Field(description="Vacía si no hay productos en la ventana.")
 
 
-def _load_aois(aoi_dir: Path) -> dict[str, dict]:
-    result = {}
-    for path in sorted(aoi_dir.glob("*.yaml")):
+def _load_aois(aoi_dir: Path | list[Path]) -> dict[str, dict]:
+    """Zonas de una o varias carpetas (AOI_DIR admite varias separadas por ':'): las de config/aois y las que crea
+    el procesado en línea en data/aois-online (2026-11-15). Si un id se repite, gana la primera carpeta."""
+    result: dict[str, dict] = {}
+    dirs = aoi_dir if isinstance(aoi_dir, list) else [aoi_dir]
+    paths = [p for d in dirs if d.exists() for p in sorted(d.glob("*.yaml"))]
+    for path in reversed(paths):
         data = yaml.safe_load(path.read_text(encoding="utf-8"))
         result[data["id"]] = data
     return result
@@ -481,7 +485,7 @@ def create_app(
     plan_dir: Path | None = None,
     world_source: world.WorldSource | None = None,
 ) -> FastAPI:
-    directory = aoi_dir or Path(os.environ.get("AOI_DIR", "/config/aois"))
+    directory = aoi_dir or [Path(p) for p in os.environ.get("AOI_DIR", "/config/aois").split(":") if p]
     plans = plan_dir or Path(os.environ.get("PLAN_DIR", "/data/plan"))
     granule_source = source or CmrSource()
     scene_source = optical_source or EarthSearchSource()

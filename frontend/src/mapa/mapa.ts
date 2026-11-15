@@ -1,4 +1,5 @@
 import * as maplibregl from "maplibre-gl";
+import { prepararVistaPrevia } from "./vistaPrevia";
 import "maplibre-gl/dist/maplibre-gl.css";
 // MapLibre 6 busca su worker junto a su propio módulo. En `vite build` ese módulo
 // queda dentro del bundle y el worker no se copia: "Worker failed to load" y mapa
@@ -156,12 +157,13 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     contenedor.classList.add("atlas-con-3d");
   }
 
+  // La caja de extensión de la zona ya no se pinta (2026-11-15: «quita el recorte artificial»): con la búsqueda
+  // mundial la zona cambia y el recuadro fijo confundía. Sus textos y la lista de huellas siguen para el lector.
   const extension = document.createElement("div");
-  extension.className = "atlas-extension";
+  extension.className = "atlas-solo-lector";
   extension.append(document.createElement("strong"), document.createElement("span"));
   // Las etiquetas del mapa no se leen en voz alta; la lista sí (RF-INT-16).
   const listaHuellas = document.createElement("ul");
-  listaHuellas.className = "atlas-solo-lector";
   extension.append(listaHuellas);
   contenedor.append(extension);
 
@@ -515,6 +517,7 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     map.addLayer({
       id: "aoi-punto",
       type: "circle",
+      layout: { visibility: "none" },
       source: "aoi-centro",
       maxzoom: ZOOM_PUNTO_ZONA,
       paint: {
@@ -528,12 +531,14 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       id: "aoi-contorno-halo",
       type: "line",
       source: "aoi",
+      layout: { visibility: "none" },
       paint: { "line-color": "#ffffff", "line-width": 4, "line-opacity": 0.9 },
     });
     map.addLayer({
       id: "aoi-contorno",
       type: "line",
       source: "aoi",
+      layout: { visibility: "none" },
       paint: { "line-color": "#000000", "line-width": 2, "line-dasharray": [3, 2] },
     });
     aplicarCapas();
@@ -586,21 +591,19 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
     if (map.getLayer("mundo-vista")) map.removeLayer("mundo-vista");
     if (map.getSource("mundo-vista")) map.removeSource("mundo-vista");
     if (!vista) return;
-    const [o, s, e, n] = vista.bbox;
-    map.addSource("mundo-vista", {
-      type: "image",
-      url: vista.url,
-      coordinates: [
-        [o, n],
-        [e, n],
-        [e, s],
-        [o, s],
-      ],
+    // La vista previa es mayor que la escena: se georreferencia por el contenido (vistaPrevia.ts) y sin el negro.
+    void prepararVistaPrevia(vista.url, vista.bbox).then((lista) => {
+      if (!lista || vistaMundo !== clave || !cargado || map.getSource("mundo-vista")) return;
+      map.addSource("mundo-vista", {
+        type: "image",
+        url: lista.url,
+        coordinates: lista.coordinates as [[number, number], [number, number], [number, number], [number, number]],
+      });
+      map.addLayer(
+        { id: "mundo-vista", type: "raster", source: "mundo-vista", paint: { "raster-opacity": 0.9, "raster-fade-duration": 300 } },
+        "mundo-relleno",
+      );
     });
-    map.addLayer(
-      { id: "mundo-vista", type: "raster", source: "mundo-vista", paint: { "raster-opacity": 0.85, "raster-fade-duration": 300 } },
-      "mundo-relleno",
-    );
   }
   map.on("load", () => aplicarMundo());
 
@@ -696,7 +699,13 @@ export function crearMapa(contenedor: HTMLElement, opciones: OpcionesMapa): Mapa
       if ("optical" in c || "antesDespues" in c || c.idioma || c.aoi) aplicarAntesDespues();
     },
     fijarOpacidad,
-    encuadrar: () => map.fitBounds(bboxContinuo(estado.aoi), { padding: 32 }),
+    // «Encuadrar» (2026-11-15): lleva al espacio con la Tierra centrada donde se mira, sin giro ni inclinación.
+    encuadrar: () => {
+      const c = map.getCenter();
+      const destino = { center: [c.lng, Math.max(-60, Math.min(60, c.lat))] as [number, number], zoom: 1.3, pitch: 0, bearing: 0 };
+      if (sinAnimacion()) map.jumpTo(destino);
+      else map.flyTo({ ...destino, duration: 1800 });
+    },
     mostrarMundo(m) {
       mundo = m;
       aplicarMundo();

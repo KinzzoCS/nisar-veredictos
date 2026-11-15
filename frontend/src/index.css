@@ -1161,3 +1161,49 @@ legend {
     animation: none;
   }
 }
+
+/* Investigación (2026-11-15): formulario, capítulos de la historia y evidencia por afirmación. */
+.investigacion { display: grid; gap: 0.75rem; }
+.investigacion-formulario { display: grid; gap: 0.6rem; }
+.investigacion-formulario textarea { width: 100%; resize: vertical; }
+.investigacion-lugar { display: flex; gap: 0.4rem; }
+.investigacion-lugar input { flex: 1; min-width: 0; }
+.investigacion-sugeridos, .investigacion-previas, .investigacion-capitulos { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.25rem; }
+.investigacion-sugeridos button, .investigacion-previas button, .investigacion-capitulos button {
+  background: none; border: 0; padding: 0.15rem 0; color: inherit; text-align: start; text-decoration: underline; cursor: pointer; font: inherit;
+}
+.investigacion-capitulos { grid-template-columns: repeat(auto-fill, minmax(11rem, 1fr)); font-size: 0.9em; }
+.investigacion-capitulos button[aria-current] { font-weight: 700; text-decoration: none; }
+.investigacion-check { display: flex; gap: 0.4rem; align-items: center; }
+.investigacion-capitulo ul { padding-inline-start: 1.1rem; display: grid; gap: 0.45rem; }
+.investigacion-capitulo li[data-tipo='caveat'], .investigacion-capitulo li[data-tipo='warning'] { opacity: 0.92; }
+.investigacion-evidencia { font-size: 0.85em; margin-top: 0.2rem; }
+.investigacion-evidencia code { word-break: break-all; }
+.investigacion-pasos { display: flex; justify-content: space-between; gap: 0.5rem; }
+.investigacion-historia h3 { margin-bottom: 0.25rem; }
+.aviso-sintetico { font-weight: 700; }
+
+/* Buscador de lugares de la barra superior (2026-11-15). */
+.buscador-ubicacion { position: relative; }
+.app-vidrio .buscador-ubicacion input { cursor: text; }
+.app-vidrio .lugares-lista {
+  position: absolute; inset-inline: 0; top: calc(100% + 0.4rem); z-index: 30; max-height: min(60vh, 26rem); overflow: auto;
+  padding: 0.35rem; border-radius: 1rem;
+}
+.lugares-lista ul { list-style: none; margin: 0; padding: 0; }
+.lugares-lista li[role='option'] { display: grid; gap: 0.1rem; padding: 0.5rem 0.65rem; border-radius: 0.7rem; cursor: pointer; }
+.lugares-lista li[role='option'] span { font-size: 0.82em; }
+.lugares-lista li[role='option']:hover, .lugares-lista li[aria-selected='true'] { background: color-mix(in srgb, currentColor 14%, transparent); }
+.lugares-aviso { margin: 0; padding: 0 0.65rem; font-size: 0.85em; }
+.lugares-aviso:empty { display: none; }
+.zona-volver { margin-bottom: 0.6rem; }
+
+/* Historia de la zona y procesado en línea (2026-11-15). */
+.historia-controles { display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-block: 0.5rem; }
+.procesado-zona { display: grid; gap: 0.4rem; padding: 0.75rem; border-radius: 1rem; margin-bottom: 0.75rem;
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent); }
+.procesado-zona h3 { margin: 0; }
+.procesado-pasos { margin: 0; padding-inline-start: 1.2rem; display: grid; gap: 0.15rem; }
+.procesado-pasos li[data-estado='running'] { font-weight: 700; }
+.procesado-pasos li[data-estado='failed'] { text-decoration: underline wavy; }
+.procesado-log { font-family: ui-monospace, monospace; font-size: 0.78em; overflow-wrap: anywhere; }

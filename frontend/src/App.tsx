@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState, type KeyboardEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
-import { verdictJsonUrl, verdictsApi, type Lang, type SeriesInfo, type Verdict } from './api/client'
+import { API_BASE, verdictJsonUrl, verdictsApi, type Lang, type SeriesInfo, type Verdict } from './api/client'
 import { hasOpticalScene, mapOptionsFor } from './api/mapOptions'
 import {
   ESTADOS,
@@ -23,6 +23,8 @@ import { Comunidad } from './components/Comunidad'
 import { EventQuery } from './components/EventQuery'
 import { Evidencia } from './components/Evidencia'
 import { Interprete } from './components/Interprete'
+import { BuscadorLugares, type Lugar } from './components/BuscadorLugares'
+import { Investigacion } from './components/Investigacion'
 import { BarraRecogible, BotonRecoger, CabeceraPanel } from './components/Barra'
 import { Esqueleto } from './components/Esqueleto'
 import { BotonIcono, Icono, type NombreIcono } from './components/Iconos'
@@ -30,7 +32,8 @@ import { LanguageSwitch } from './components/LanguageSwitch'
 import { LeyendaEstados } from './components/Marca'
 import { Reproductor } from './components/Reproductor'
 import { SesionBoton } from './components/SesionBoton'
-import { Story } from './components/Story'
+import { HistoriaZona, type ZonaHistoria } from './components/HistoriaZona'
+import { ProcesadoZona } from './components/ProcesadoZona'
 import { SyntheticBanner } from './components/SyntheticBadge'
 import { VerdictCard } from './components/VerdictCard'
 import { authApi, detalle, useSesion } from './sesion/sesion'
@@ -41,20 +44,23 @@ import type { CapaRadar } from './mapa/tipos'
 type Load =
   | { status: 'loading' }
   | { status: 'error' }
-  | { status: 'ready'; aoi: string; series: SeriesInfo[] }
+  | { status: 'ready'; zonas: Zona[] }
+
+/** Zona con veredictos procesados: su id, su nombre (de catalog si responde) y la caja de sus series. */
+type Zona = { aoi: string; nombre: string; bbox: Bbox; series: SeriesInfo[] }
 
 /** Veredictos de todas las series, con el idioma en que se pidieron. */
 type Todos = { lang: Lang; status: 'ready' | 'error'; items: Verdict[]; fallidas: string[] }
 
 /** Pestañas de la barra derecha (T-FAR-21, RF-INT-27). */
-type PestanaDer = 'hallazgos' | 'historia' | 'evento' | 'comunidad' | 'mundo'
-const PESTANAS_DER: PestanaDer[] = ['hallazgos', 'historia', 'evento', 'comunidad', 'mundo']
+type PestanaDer = 'hallazgos' | 'historia' | 'evento' | 'comunidad' | 'investigacion'
+const PESTANAS_DER: PestanaDer[] = ['hallazgos', 'historia', 'evento', 'investigacion', 'comunidad']
 const ICONO_PESTANA: Record<PestanaDer, NombreIcono> = {
   hallazgos: 'hallazgos',
   historia: 'historia',
   evento: 'evento',
   comunidad: 'comunidad',
-  mundo: 'satelite',
+  investigacion: 'interprete',
 }
 const CAPAS: CapaRadar[] = ['state', 'change_hh', 'change_hv']
 
@@ -70,11 +76,27 @@ type Reproduccion = { titulo: string; claves: string[]; indice: number; enMarcha
 
 async function loadSeries(): Promise<Load> {
   const aois = await verdictsApi.GET('/aois')
-  const aoi = aois.data?.[0]
-  if (!aoi) return { status: 'error' }
-  const series = await verdictsApi.GET('/aois/{aoi}/series', { params: { path: { aoi } } })
-  return series.data ? { status: 'ready', aoi, series: series.data } : { status: 'error' }
+  if (!aois.data?.length) return { status: 'error' }
+  // Nombres legibles de catalog; si no responde, se usa el id de la zona.
+  const nombres = new Map<string, string>()
+  try {
+    const r = await globalThis.fetch(`${API_BASE}/api/catalog/aois`)
+    if (r.ok) for (const a of (await r.json()) as { id: string; name: string }[]) nombres.set(a.id, a.name)
+  } catch {
+    // sin nombres
+  }
+  const zonas: Zona[] = []
+  for (const aoi of aois.data) {
+    const series = await verdictsApi.GET('/aois/{aoi}/series', { params: { path: { aoi } } })
+    if (!series.data?.length) continue
+    const b = series.data.map((x) => x.bbox)
+    const bbox: Bbox = [Math.min(...b.map((x) => x[0])), Math.min(...b.map((x) => x[1])), Math.max(...b.map((x) => x[2])), Math.max(...b.map((x) => x[3]))]
+    zonas.push({ aoi, nombre: nombres.get(aoi) ?? aoi, bbox, series: series.data })
+  }
+  return zonas.length ? { status: 'ready', zonas } : { status: 'error' }
 }
+
+const seTocan = (a: Bbox, b: Bbox) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1]
 
 /** Primer par consecutivo de la primera serie; si no hay, el primero que haya. */
 function defaultPair(items: Verdict[], series: SeriesInfo[]): Verdict | undefined {
@@ -238,8 +260,45 @@ function Contenido() {
       .catch(() => setState({ status: 'error' }))
   }, [])
 
-  const aoi = state.status === 'ready' ? state.aoi : undefined
-  const series = useMemo(() => (state.status === 'ready' ? state.series : []), [state])
+  // Zona de los filtros (2026-11-15): sin lugar buscado, la primera zona con veredictos; con uno, la zona procesada
+  // que lo toca o, si ninguna, sus pasadas de NISAR (modo mundo). Los veredictos siguen cargados para el mapa.
+  const [lugar, setLugar] = useState<Lugar | null>(null)
+  const [semilla, setSemilla] = useState<Lugar | null>(null)
+  const zonas = useMemo(() => (state.status === 'ready' ? state.zonas : []), [state])
+  const zonaDelLugar = lugar ? zonas.find((z) => seTocan(z.bbox, lugar.bbox)) : undefined
+  const [zonaVeredictos, setZonaVeredictos] = useState<string>()
+  const zona = zonas.find((z) => z.aoi === zonaVeredictos) ?? zonas[0]
+  const modoMundo = Boolean(lugar && !zonaDelLugar)
+  // Zona de la pestaña Historia: el lugar buscado si no tiene veredictos; si no, la zona con veredictos en pantalla.
+  const zonaHistoria: ZonaHistoria | null = modoMundo && lugar
+    ? { id: lugar.id === 'vista' ? `vista-${lugar.bbox.map((v) => v.toFixed(2)).join('_')}` : lugar.id, name: lugar.name, bbox: lugar.bbox }
+    : zona
+      ? { id: zona.aoi, name: zona.nombre, bbox: zona.bbox }
+      : null
+  // El procesado en línea terminó: se recargan las zonas y la nueva pasa a tener veredictos.
+  function zonaProcesada(nueva: string, bbox: Bbox) {
+    loadSeries()
+      .then((st) => {
+        setState(st)
+        setZonaVeredictos(nueva)
+        setLugar(null)
+        setGranulosMundo([])
+        setElegidoMundo(null)
+        setVolarMundo({ bbox })
+      })
+      .catch(() => undefined)
+  }
+  const aoi = zona?.aoi
+  const series = useMemo(() => zona?.series ?? [], [zona])
+  function irALugar(l: Lugar) {
+    setLugar(l)
+    const z = zonas.find((x) => seTocan(x.bbox, l.bbox))
+    if (z) setZonaVeredictos(z.aoi)
+    setVolarMundo({ bbox: l.bbox })
+    setGranulosMundo([])
+    setElegidoMundo(null)
+    abrirIzq(true)
+  }
 
   // Veredictos de todas las series. Se vuelven a pedir al cambiar de idioma: los textos llegan con `lang`.
   useEffect(() => {
@@ -317,11 +376,6 @@ function Contenido() {
     [reproduccion, porClave],
   )
 
-  // Desde la historia de Parral: elige ese par y lo enseña en el mapa.
-  function showPair(nextSeries: string, nextPair: string) {
-    const v = porClave.get(`${nextSeries}/${nextPair}`)
-    if (v) seleccionar(v)
-  }
 
   const guardar = useCallback(
     async (h: HistoriaNueva): Promise<string | null> => {
@@ -417,12 +471,8 @@ function Contenido() {
             <span className="app-separador" aria-hidden="true" />
             <Icono nombre="satelite" tamano={22} />
           </div>
-          {/* La API no tiene geocodificador: el campo se ve, pero no busca (RF-INT-29). */}
-          <div className="buscador-ubicacion vidrio" title={t('geocoder.soon')}>
-            <Icono nombre="buscar" />
-            <input type="search" disabled placeholder={t('geocoder.placeholder')} aria-label={t('geocoder.label')} />
-            <span className="pronto">{t('geocoder.soon')}</span>
-          </div>
+          {/* Buscador de lugares (2026-11-15): sustituye a la pestaña Mundo; el lugar elegido manda en Filtros. */}
+          <BuscadorLugares vista={vistaMapa} onElegir={irALugar} />
           {/* Solo idioma y cuenta: la vista sale del perfil de la sesión y el tema es oscuro (specs/08-interfaz). */}
           <div className="app-controls">
             <p className="estado-api" data-estado={estadoApi} role="status">
@@ -472,7 +522,51 @@ function Contenido() {
                 {t('series.error')}
               </p>
             )}
-            {listo && (
+            {modoMundo && lugar && (
+              <>
+                {zonas.length > 0 && (
+                  <div className="chips zona-volver" role="group" aria-label={t('zone.processedList')}>
+                    {zonas.map((z) => (
+                      <button
+                        key={z.aoi}
+                        type="button"
+                        className="chip"
+                        onClick={() => {
+                          setLugar(null)
+                          setGranulosMundo([])
+                          setZonaVeredictos(z.aoi)
+                          setVolarMundo({ bbox: z.bbox })
+                        }}
+                      >
+                        <Icono nombre="hallazgos" tamano={14} /> {t('zone.back', { name: z.nombre })}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <ProcesadoZona lugar={lugar} onListo={zonaProcesada} />
+                <Mundo
+                  zona={lugar}
+                  elegido={elegidoMundo}
+                  onResultados={(g) => {
+                    setGranulosMundo(g)
+                    setElegidoMundo(null)
+                  }}
+                  onElegir={(g) => {
+                    setElegidoMundo(g.id)
+                    if (g.bbox) setVolarMundo({ bbox: g.bbox as Bbox })
+                  }}
+                  onInvestigar={() => {
+                    setSemilla(lugar)
+                    setPestanaDer('investigacion')
+                    abrirDer(true)
+                  }}
+                />
+              </>
+            )}
+            {listo && !modoMundo && zona && zonas.length > 1 && (
+              <p className="muted zona-actual">{t('zone.processed', { name: zona.nombre })}</p>
+            )}
+            {listo && !modoMundo && (
               <Buscador
                 series={series}
                 todos={items}
@@ -563,7 +657,16 @@ function Contenido() {
               </CabeceraPanel>
               <div className="panel-cuerpo">
                 {intro}
-                {listo && <Story aoi={aoi} lang={lang} onShowPair={showPair} />}
+                {zonaHistoria && (
+                  <HistoriaZona
+                    zona={zonaHistoria}
+                    onVolar={(bbox) => setVolarMundo({ bbox })}
+                    onVerPar={(s, p) => {
+                      const v = porClave.get(`${s}/${p}`)
+                      if (v) setSeleccion(claveVeredicto(v))
+                    }}
+                  />
+                )}
               </div>
             </PanelPestana>
             <PanelPestana clave="evento" activa={pestanaDer}>
@@ -572,21 +675,17 @@ function Contenido() {
               </CabeceraPanel>
               <div className="panel-cuerpo">{listo && <EventQuery aoi={aoi} lang={lang} />}</div>
             </PanelPestana>
-            <PanelPestana clave="mundo" activa={pestanaDer}>
-              <CabeceraPanel icono="satelite" titulo={t('layout.tabs.mundo')}>
-                <BotonRecoger lado="der" abierta nombre={t('layout.tabs.mundo')} controla="panel-der" onCambiar={abrirDer} />
+            <PanelPestana clave="investigacion" activa={pestanaDer}>
+              <CabeceraPanel icono="interprete" titulo={t('layout.tabs.investigacion')}>
+                <BotonRecoger lado="der" abierta nombre={t('layout.tabs.investigacion')} controla="panel-der" onCambiar={abrirDer} />
               </CabeceraPanel>
               <div className="panel-cuerpo">
-                <Mundo
-                  vista={vistaMapa}
-                  elegido={elegidoMundo}
-                  onResultados={(g) => {
-                    setGranulosMundo(g)
-                    setElegidoMundo(null)
-                  }}
-                  onElegir={(g) => {
-                    setElegidoMundo(g.id)
-                    if (g.bbox) setVolarMundo({ bbox: g.bbox as Bbox })
+                <Investigacion
+                  semilla={semilla}
+                  onVolar={(bbox) => setVolarMundo({ bbox })}
+                  onVerPar={(s, p) => {
+                    const v = porClave.get(`${s}/${p}`)
+                    if (v) setSeleccion(claveVeredicto(v))
                   }}
                 />
               </div>
@@ -602,6 +701,7 @@ function Contenido() {
 
                     <Interprete
                       aoi={aoi}
+                      nombreZona={zona?.nombre}
                       filtro={filtro}
                       resultados={cargando ? [] : resultados}
                       abierta={abierta}

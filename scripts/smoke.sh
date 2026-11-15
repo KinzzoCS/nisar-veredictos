@@ -773,7 +773,7 @@ assert mine[0]['status'] == 'revoked' and mine[0]['revoked_at'], mine
     || fail "DELETE de un token inexistente no respondió 404"
   covered auth "/tokens/{token_id}"
 
-  # Historias de la comunidad (T-ANT-20, RF-ACC-12 a 17): leer sin cuenta; guardar, valorar y descargar con sesión.
+  # Historias de la comunidad (T-ANT-20, RF-ACC-12 a 17): leer y descargar sin cuenta; guardar y valorar con sesión.
   story_body="{\"title\":\"humo $RUN\",\"aoi\":\"$AOI\",\"series\":\"$SERIES\",\"from_date\":\"2026-06-01\",\"to_date\":\"2026-09-30\",\"pairs\":[{\"series\":\"$SERIES\",\"pair\":\"$pair_id\"}],\"notes\":\"Notas de la prueba de humo.\"}"
   test "$(call st_anon -X POST "${JSON[@]}" --data "$story_body" "$BASE/api/auth/stories")" = "401" \
     || fail "POST /api/auth/stories sin sesión no respondió 401"
@@ -802,10 +802,12 @@ assert len(mine) == 1 and mine[0]['is_mine'] is False and mine[0]['my_stars'] is
     || fail "DELETE /api/auth/stories/{id}/rating"
   check "auth: valoración quitada" st_unrate "assert d['my_stars'] is None and d['ratings']['count'] == 0, d['ratings']"
   covered auth "/stories/{story_id}/rating"
-  test "$(call st_dl_anon -X POST "$BASE/api/auth/stories/$STORY/download")" = "401" || fail "descarga sin sesión no dio 401"
+  # Desde el 2026-11-14 descargar no pide sesión (toda la información es pública): cuenta con y sin cuenta.
+  test "$(call st_dl_anon -X POST "$BASE/api/auth/stories/$STORY/download")" = "200" || fail "descarga sin sesión no dio 200"
+  check "auth: descarga sin sesión contada" st_dl_anon "assert d['downloads'] == 1 and d['my_stars'] is None, d"
   test "$(bearer st_dl "$RESEARCHER" -X POST "$BASE/api/auth/stories/$STORY/download")" = "200" \
     || fail "POST /api/auth/stories/{id}/download"
-  check "auth: descarga contada" st_dl "assert d['downloads'] == 1, d['downloads']"
+  check "auth: descarga contada" st_dl "assert d['downloads'] == 2, d['downloads']"
   covered auth "/stories/{story_id}/download"
   # Borrar: solo quien la escribió (403 para otra cuenta, 204 para la suya).
   test "$(bearer st_del_other "$RESEARCHER" -X DELETE "$BASE/api/auth/stories/$STORY")" = "403" \

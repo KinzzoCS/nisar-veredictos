@@ -114,6 +114,8 @@ def fetch_series(
     json_getter: Callable[[str], Any] = get_json,
     is_allowed: Callable[[str], bool] = is_nasa_url,
     block_size: int = BLOCK_SIZE,
+    *,
+    last: int | None = None,
 ) -> FetchResult:
     wanted = next((item for item in aoi["series"] if item["id"] == series_id), None)
     if wanted is None:
@@ -141,6 +143,9 @@ def fetch_series(
 
     if limit is not None:
         granules = granules[:limit]
+    if last is not None:
+        # Las N fechas más recientes (procesado en línea, 2026-11-15): las de catalog vienen en orden de fecha.
+        granules = sorted(granules, key=lambda g: g.get("date") or "")[-last:]
 
     target = data_dir / "raw" / "real" / aoi["id"] / series_id
     target.mkdir(parents=True, exist_ok=True)

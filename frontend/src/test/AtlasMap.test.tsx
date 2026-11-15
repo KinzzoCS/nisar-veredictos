@@ -10,7 +10,7 @@ const mapa = vi.hoisted(() => {
   type Doble = Record<'actualizar' | 'destruir' | 'fijarOpacidad' | 'encuadrar', ReturnType<typeof vi.fn>>
   const instancias: Doble[] = []
   const crearMapa = vi.fn(() => {
-    const m = { actualizar: vi.fn(), destruir: vi.fn(), fijarOpacidad: vi.fn(), encuadrar: vi.fn() }
+    const m = { actualizar: vi.fn(), destruir: vi.fn(), fijarOpacidad: vi.fn(), encuadrar: vi.fn(), mostrarMundo: vi.fn(), volarA: vi.fn() }
     instancias.push(m)
     return m
   })

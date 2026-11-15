@@ -73,7 +73,7 @@ test('consulta con Enter y muestra los tres textos, las pasadas y el supuesto', 
   expect(screen.getByText('Qué no prueba').nextElementSibling).toHaveTextContent('Supuesto: el evento dura 24 h')
   expect(screen.getAllByText(/Supuesto: el evento dura 24 h/)).toHaveLength(1)
   expect(screen.queryByText('Duración supuesta')).not.toBeInTheDocument()
-  expect(screen.getByLabelText('Fecha del evento (UTC)')).toHaveAccessibleDescription(/18:00 en Parral/)
+  expect(screen.getByLabelText('Fecha del evento (UTC)')).toHaveAccessibleDescription(/van en UTC/)
 
   const url = new URL((fetch.mock.calls[0][0] as Request).url)
   expect(url.pathname).toMatch(/\/aois\/parral\/events$/)

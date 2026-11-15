@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import shutil
 import urllib.request
 import sys
@@ -89,6 +90,25 @@ def run(args: argparse.Namespace) -> int:
     return 0
 
 
+def run_remote_cmd(args: argparse.Namespace) -> int:
+    """Procesado en línea: lee de NASA en memoria solo la ventana y escribe solo los artefactos (remote.py)."""
+    from .remote import run_remote
+
+    aoi = load_aoi(args.aoi_dir, args.aoi)
+
+    def process(files):
+        return process_series(files, aoi, args.series, args.data_dir / "artifacts", aoi["maturity"], Params(), dem_sources=None,
+                              exclude=excluded_granules(aoi))
+
+    try:
+        manifest = run_remote(aoi, args.series, args.data_dir / "artifacts", args.catalog_url, args.last, process)
+    except (GranuleError, ValueError, OSError) as exc:
+        print(f"Error: {exc}", file=sys.stderr)
+        return 1
+    print(f"{args.series}: {len(manifest['pairs'])} pares ({manifest['data_kind']}), sin recortes en disco")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="processor")
     parser.add_argument("--aoi-dir", type=Path, default=Path("/config/aois"))
@@ -108,6 +128,13 @@ def main() -> int:
         "--multitemporal", action="store_true", help="Aplica el filtro multitemporal de speckle (T-ECO-08)"
     )
     process.set_defaults(handler=run)
+
+    remote = commands.add_parser("run-remote", help="Procesa en línea: lee de NASA en memoria, sin recortes en disco")
+    remote.add_argument("--aoi", required=True)
+    remote.add_argument("--series", required=True)
+    remote.add_argument("--last", type=int, default=4, help="Fechas más recientes que se procesan")
+    remote.add_argument("--catalog-url", default=os.environ.get("CATALOG_URL", "http://localhost:8080/api/catalog"))
+    remote.set_defaults(handler=run_remote_cmd)
 
     dem = commands.add_parser("fetch-dem", help="Baja el DEM Copernicus GLO-30 de una zona")
     dem.add_argument("--aoi", required=True)

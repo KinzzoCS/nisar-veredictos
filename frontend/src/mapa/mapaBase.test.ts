@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   ATRIBUCION_NISAR,
+  ATRIBUCION_SATELITE,
   atribuciones,
   atribucionOsm,
   bboxContinuo,
@@ -34,8 +35,9 @@ describe("mapa base", () => {
   });
 
   it("NISAR solo se atribuye con capas de datos reales", () => {
-    expect(atribuciones("en", false)).toEqual([atribucionOsm("en")]);
-    expect(atribuciones("es", true)).toEqual([atribucionOsm("es"), ATRIBUCION_NISAR]);
+    // La imagen de satélite (EOX, CC BY 4.0) se atribuye siempre, igual que OSM.
+    expect(atribuciones("en", false)).toEqual([ATRIBUCION_SATELITE, atribucionOsm("en")]);
+    expect(atribuciones("es", true)).toEqual([ATRIBUCION_SATELITE, atribucionOsm("es"), ATRIBUCION_NISAR]);
   });
 
   it("cierra el contorno de la zona", () => {

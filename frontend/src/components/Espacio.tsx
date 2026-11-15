@@ -195,6 +195,9 @@ export function Espacio() {
       const cx = camara.x * escala
       const cy = camara.y * escala
       const R = camara.radio * escala
+      // Sin WebGL (o antes de que el mapa tenga tamaño) la cámara puede llegar con NaN: createRadialGradient lanza
+      // con valores no finitos y, como corre dentro de un efecto, tumbaba toda la app (2026-11-15).
+      if (![cx, cy, R, sx, sy, sz].every(Number.isFinite) || R <= 0) return
 
       // Halo atmosférico: un anillo azul alrededor del borde del globo, desplazado hacia el Sol.
       const lado = Math.hypot(sx, sy) || 1

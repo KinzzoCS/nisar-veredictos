@@ -29,6 +29,8 @@ interface Props {
   volar?: { bbox: Bbox } | null
   /** Lo que se ve del mapa al terminar cada movimiento. */
   onVista?: (bbox: Bbox) => void
+  /** Clic (o Intro) en el mapa: el punto elegido, en grados con 5 decimales. */
+  onPunto?: (p: { lon: number; lat: number }) => void
 }
 
 /**
@@ -37,7 +39,7 @@ interface Props {
  * Las herramientas (3D, capas, opacidad, encuadre y comparador) viven en la barra inferior de la app, así que
  * el mapa se crea sin su botón 3D ni su selector de capas.
  */
-export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, opacity, reframe, mundo, volar, onVista }: Props) {
+export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, opacity, reframe, mundo, volar, onVista, onPunto }: Props) {
   const { t } = useTranslation()
   const container = useRef<HTMLDivElement>(null)
   const map = useRef<MapaAtlas | null>(null)
@@ -48,6 +50,10 @@ export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, op
   const latest = useRef({ options, swipe, modo3d, layer, opacity })
   // La función de vista puede cambiar en cada render de la app: el mapa llama siempre a la última.
   const vistaRef = useRef(onVista)
+  const puntoRef = useRef(onPunto)
+  useEffect(() => {
+    puntoRef.current = onPunto
+  }, [onPunto])
   useEffect(() => {
     vistaRef.current = onVista
   }, [onVista])
@@ -66,6 +72,7 @@ export function AtlasMap({ options, compare, canCompare, busy, modo3d, layer, op
       control3d: false,
       controlCapas: false,
       onViewChanged: (v) => vistaRef.current?.(v.bbox),
+      onPointSelected: (p) => puntoRef.current?.(p),
     })
     created.fijarOpacidad(op)
     map.current = created

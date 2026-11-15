@@ -8,7 +8,7 @@ import { makeVerdict } from './fixtures'
 
 // MapLibre necesita WebGL, que jsdom no tiene: el ciclo de vida del mapa se prueba en AtlasMap.test.
 const crearMapa = vi.hoisted(() =>
-  vi.fn(() => ({ actualizar: vi.fn(), destruir: vi.fn(), fijarOpacidad: vi.fn(), encuadrar: vi.fn() })),
+  vi.fn(() => ({ actualizar: vi.fn(), destruir: vi.fn(), fijarOpacidad: vi.fn(), encuadrar: vi.fn(), mostrarMundo: vi.fn(), volarA: vi.fn() })),
 )
 vi.mock('../mapa/mapa', () => ({ crearMapa }))
 
@@ -100,6 +100,60 @@ function storyOut(over: Record<string, unknown> = {}) {
   }
 }
 
+/** Historia sintética de la zona que devuelve el doble de /api/research/stories. */
+const HISTORIA_ZONA = {
+  id: 'S-zona',
+  research_id: 'R-zona',
+  title: 'Historia de prueba de Hidalgo del Parral',
+  data_kind: 'synthetic',
+  traceability: { ok: true },
+  evidence: [{ id: 'event:prueba', kind: 'external_source', label: 'Tormenta de prueba', urls: ['https://example.invalid/boletin'] }],
+  chapters: [
+    { key: 'title', title: 'Título', claims: [], map: null },
+    { key: 'events', title: 'Acontecimientos relacionados', claims: [{ text: '2026-07-01: tormenta de prueba.', evidence: ['event:prueba'], kind: 'statement' }], map: { bbox: [-105.75, 26.87, -105.6, 26.98] } },
+    { key: 'findings', title: 'Hallazgos', claims: [{ text: 'Sin hallazgos de prueba.', evidence: [], kind: 'statement' }], map: { aoi: 'parral', series: 'T048A-F015', pair_id: '20260629_20260711' } },
+  ],
+}
+
+/** Lugares de prueba de /api/research/places: uno dentro de la zona procesada y otro lejos. */
+const LUGARES = [
+  { id: 'parral', name: 'Hidalgo del Parral, Chihuahua', bbox: [-105.75, 26.87, -105.6, 26.98], source: 'config/aois/parral.yaml' },
+  { id: 'helheim', name: 'Glaciar Helheim, Groenlandia', bbox: [-38.6, 66.25, -38.0, 66.5], source: 'delimitación propia' },
+]
+
+/** Pasadas de prueba de /api/catalog/search/world: dos órbitas sobre la zona pedida. */
+function pasadasMundo(bbox: string) {
+  const g = (i: number, track: number, direction: 'A' | 'D') => ({
+    id: `G${i}`,
+    acquired_at: `2026-10-${10 + i}T12:00:00Z`,
+    track,
+    direction,
+    frame: 20,
+    mode: '4005',
+    polarization: 'DHDH',
+    size_mb: 7000,
+    footprint: [[-38.7, 66.2], [-37.9, 66.2], [-37.9, 66.6], [-38.7, 66.6], [-38.7, 66.2]],
+    bbox: [-38.7, 66.2, -37.9, 66.6],
+    data_url: 'https://example.invalid/x.h5',
+    browse_url: null,
+    thumbnail_url: null,
+    vertex_url: 'https://search.asf.alaska.edu/',
+    earthdata_search_url: 'https://search.earthdata.nasa.gov/',
+    collection_concept_id: null,
+  })
+  return {
+    bbox: bbox.split(',').map(Number),
+    from: '2025-11-15',
+    to: '2026-11-15',
+    direction: null,
+    collection: 'NISAR_L2_GCOV_PROVISIONAL_V1',
+    data_kind: 'real',
+    sources: [],
+    total: 3,
+    granules: [g(1, 12, 'A'), g(2, 12, 'A'), g(3, 99, 'D')],
+  }
+}
+
 interface Opciones {
   kind?: Kind
   failVerdicts?: boolean
@@ -115,9 +169,13 @@ function token(role: string) {
 
 function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil }: Opciones = {}) {
   if (perfil) auth = 'on'
+  // La app solo pide /refresh al arrancar si el navegador tiene la marca de una sesión anterior (SesionProvider).
+  if (perfil) localStorage.setItem('sesion-posible', '1')
+  else localStorage.removeItem('sesion-posible')
   const enviados: { path: string; method: string; body: unknown; authorization: string | null }[] = []
-  const fetch = vi.fn(async (input: Request | string) => {
-    const request = typeof input === 'string' ? new Request(input) : input
+  const fetch = vi.fn(async (input: Request | string, init?: RequestInit) => {
+    // Con una URL de texto, el método y el cuerpo llegan en init (los componentes nuevos llaman así a fetch).
+    const request = typeof input === 'string' ? new Request(input, init) : input
     const url = new URL(request.url)
     const path = url.pathname
     if (path.startsWith('/api/auth/')) {
@@ -132,6 +190,21 @@ function stubApi({ kind = 'real', failVerdicts = false, auth = 'off', perfil }: 
       if (path.endsWith('/rating')) return json(storyOut({ my_stars: (body as { stars: number }).stars }))
       return json({ detail: 'Not Found' }, 404)
     }
+    if (path.endsWith('/api/research/research') && request.method === 'POST') return json({ id: 'R-zona' }, 201)
+    if (path.endsWith('/api/research/research/R-zona/status'))
+      return json({ id: 'R-zona', job: { id: 'J', state: 'done', step: null, error: null }, story_ids: ['S-zona'] })
+    if (path.endsWith('/api/research/stories/S-zona')) return json({ ...HISTORIA_ZONA, data_kind: kind === 'synthetic' ? 'synthetic' : 'real_or_catalog' })
+    if (path.endsWith('/api/online/zones') && request.method === 'POST') return json({ id: 'z-prueba' }, 202)
+    if (path.endsWith('/api/online/zones/z-prueba'))
+      return json({ id: 'z-prueba', state: 'no_processable_series', step: null, bbox: [-38.6, 66.25, -38.0, 66.5], max_dates: 4,
+        steps: { zone: 'done (0 s)', series: 'failed (0 s)', fetch: 'pending', dem: 'pending', process: 'pending' },
+        series: null, series_found: [{ id: 'T126D-F055-7700-SHNA-P05023', polarization: 'SHNA', dates: 9 }], log: [], error: 'sin HH y HV' })
+    if (path.endsWith('/api/research/places')) {
+      const q = url.searchParams.get('q') ?? ''
+      return json({ query: q, geocoder: 'ok', results: LUGARES.filter((l) => l.name.toLowerCase().includes(q.toLowerCase())) })
+    }
+    if (path.endsWith('/api/catalog/search/world')) return json(pasadasMundo(url.searchParams.get('bbox') ?? ''))
+    if (path.endsWith('/api/catalog/aois')) return json([{ id: 'parral', name: 'Hidalgo del Parral, Chihuahua', bbox: [-105.95, 26.7, -105.4, 27.15] }])
     if (path.endsWith('/api/verdicts/aois')) return json(['parral'])
     if (path.endsWith('/api/verdicts/aois/parral/series')) return json(seriesList(kind))
     const m = path.match(/\/series\/([^/]+)\/verdicts$/)
@@ -153,7 +226,9 @@ afterEach(() => vi.unstubAllGlobals())
 
 /** Abre una barra recogible desde su pestaña del borde (T-FAR-21). */
 async function abrirBarra(user: ReturnType<typeof userEvent.setup>, nombre: 'barra superior' | 'Herramientas del mapa' | 'Filtros') {
-  await user.click(screen.getByRole('button', { name: `Abrir ${nombre}` }))
+  // Desde el vidrio líquido (3b604a4) las barras empiezan abiertas: solo se pulsa si está recogida.
+  const abrir = screen.queryByRole('button', { name: `Abrir ${nombre}` })
+  if (abrir) await user.click(abrir)
 }
 
 function resultado(nombre: RegExp) {
@@ -189,7 +264,7 @@ test('con sesión de investigación abre con el primer par consecutivo de la pri
   )
 })
 
-test('el mapa va de fondo y las barras se recogen en su borde: abiertas Filtros y Hallazgos', async () => {
+test('el mapa va de fondo y las barras se recogen en su borde: al cargar están todas abiertas', async () => {
   const user = userEvent.setup()
   stubApi()
   render(<App />)
@@ -197,12 +272,15 @@ test('el mapa va de fondo y las barras se recogen en su borde: abiertas Filtros 
   expect(screen.getByRole('complementary', { name: 'Filtros' })).toBeInTheDocument()
   expect(screen.getByRole('main')).toBeInTheDocument()
   expect(screen.getByRole('tabpanel', { name: 'Hallazgos' })).toBeVisible()
-  // Superior e inferior empiezan recogidas: solo su pestaña.
+  // Superior e inferior también empiezan abiertas (vidrio líquido, 3b604a4); recogerlas deja su pestaña.
+  expect(document.getElementById('barra-arriba')).toBeVisible()
+  expect(screen.getByRole('navigation', { name: 'Herramientas del mapa' })).toBeInTheDocument()
+  await user.click(screen.getByRole('button', { name: 'Recoger barra superior' }))
   expect(document.getElementById('barra-arriba')).not.toBeVisible()
-  expect(screen.queryByRole('navigation', { name: 'Herramientas del mapa' })).not.toBeInTheDocument()
   expect(screen.getByRole('button', { name: 'Abrir barra superior' })).toHaveAttribute('aria-expanded', 'false')
+  await abrirBarra(user, 'barra superior')
+  expect(document.getElementById('barra-arriba')).toBeVisible()
 
-  await abrirBarra(user, 'Herramientas del mapa')
   const herramientas = screen.getByRole('navigation', { name: 'Herramientas del mapa' })
   expect(within(herramientas).getByRole('button', { name: 'Globo en 3D' })).toHaveAttribute('aria-pressed', 'true')
   await user.click(within(herramientas).getByRole('button', { name: 'Mapa plano en 2D' }))
@@ -224,7 +302,7 @@ test('el mapa va de fondo y las barras se recogen en su borde: abiertas Filtros 
   expect(screen.getByRole('tabpanel', { name: '¿Pudo verlo?' })).toBeVisible()
 })
 
-test('la cabecera lleva el estado de la API, el buscador de ubicación (próximamente), el idioma y la cuenta', async () => {
+test('la cabecera lleva el estado de la API, el buscador de lugares, el idioma y la cuenta', async () => {
   const user = userEvent.setup()
   stubApi()
   render(<App />)
@@ -234,8 +312,9 @@ test('la cabecera lleva el estado de la API, el buscador de ubicación (próxima
   expect(within(cabecera).getByRole('group', { name: 'Idioma' })).toBeInTheDocument()
   expect(within(cabecera).getByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
   expect(within(cabecera).getByText('En línea')).toBeInTheDocument()
-  // Sin geocodificador en la API: el campo se ve, pero no busca.
-  expect(within(cabecera).getByRole('searchbox', { name: 'Buscar ubicación (próximamente)' })).toBeDisabled()
+  // Buscador de lugares (2026-11-15): sustituye al campo «Próximamente» y a la pestaña Mundo.
+  expect(within(cabecera).getByRole('combobox', { name: 'Buscar un lugar' })).toBeEnabled()
+  expect(screen.queryByRole('tab', { name: 'Mundo' })).not.toBeInTheDocument()
   // Tema solo oscuro (RF-INT-23): sin botón de tema ni selector de vista.
   expect(within(cabecera).queryByRole('button', { name: /tema/ })).not.toBeInTheDocument()
   expect(within(cabecera).queryByRole('group', { name: 'Vista' })).not.toBeInTheDocument()
@@ -247,6 +326,8 @@ test('los botones de acción solo llevan icono, con nombre accesible y descripci
   stubApi({ perfil: 'researcher' })
   render(<App />)
   await screen.findByRole('heading', { name: /Cambio probable/ })
+  // Los veredictos ya no esperan a la sesión: la renovación puede llegar después.
+  await screen.findByRole('button', { name: 'Cuenta: investigador o investigadora' })
   await abrirBarra(user, 'barra superior')
   await abrirBarra(user, 'Herramientas del mapa')
   await user.click(screen.getByRole('tab', { name: 'Comunidad' }))
@@ -264,7 +345,8 @@ test('los botones de acción solo llevan icono, con nombre accesible y descripci
     const visible = Array.from(b.childNodes).filter((n) => !(n instanceof Element && n.classList.contains('sr-solo')))
     expect(visible.map((n) => n.textContent).join('').trim(), b.outerHTML).toBe('')
     expect(b.querySelector('svg.icono')).not.toBeNull()
-    expect(b.getAttribute('title')).toBeTruthy()
+    // Descripción emergente: `title` en los botones; las pestañas la pintan en CSS desde `data-etiqueta` (vidrio.css).
+    expect(b.getAttribute('title') || b.getAttribute('data-etiqueta'), b.outerHTML).toBeTruthy()
   }
 })
 
@@ -318,7 +400,9 @@ test('el buscador filtra por rango de fechas, por estado y con ventanas completa
   await screen.findByRole('heading', { name: /Cambio probable/ })
   expect(screen.getByRole('heading', { name: '3 veredictos' })).toBeInTheDocument()
 
-  fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '2026-06-26' } })
+  // «Desde» también está en la pestaña Mundo: se busca dentro de Filtros.
+  const filtros = () => within(screen.getByRole('complementary', { name: 'Filtros' }))
+  fireEvent.change(filtros().getByLabelText('Desde'), { target: { value: '2026-06-26' } })
   expect(screen.getByRole('heading', { name: '2 veredictos' })).toBeInTheDocument()
   // El par elegido (17 al 29 de junio) queda fuera: se pasa al primero de la búsqueda.
   expect(resultado(/2026-06-26 → 2026-07-08/)).toHaveAttribute('aria-pressed', 'true')
@@ -327,7 +411,7 @@ test('el buscador filtra por rango de fechas, por estado y con ventanas completa
   await user.click(screen.getByRole('checkbox', { name: 'No observable' }))
   expect(screen.getByRole('heading', { name: '1 veredicto' })).toBeInTheDocument()
 
-  fireEvent.change(screen.getByLabelText('Desde'), { target: { value: '' } })
+  fireEvent.change(filtros().getByLabelText('Desde'), { target: { value: '' } })
   await user.click(screen.getByRole('switch', { name: /Incluir ventanas completas/ }))
   expect(resultado(/2026-06-17 → 2026-07-11.*ventana completa/)).toBeInTheDocument()
 })
@@ -409,10 +493,11 @@ test('las pestañas de la derecha se recorren con las flechas arriba y abajo', a
   await screen.findByRole('heading', { name: /Cambio probable/ })
   screen.getByRole('tab', { name: 'Hallazgos' }).focus()
   await user.keyboard('{ArrowDown}')
-  const historia = screen.getByRole('tab', { name: 'Historia de Parral' })
+  const historia = screen.getByRole('tab', { name: 'Historia de la zona' })
   expect(historia).toHaveFocus()
   expect(historia).toHaveAttribute('aria-selected', 'true')
-  expect(screen.getByRole('tabpanel', { name: 'Historia de Parral' })).toBeVisible()
+  expect(screen.getByRole('tabpanel', { name: 'Historia de la zona' })).toBeVisible()
+  // Desde Historia, dos arriba: Hallazgos y, dando la vuelta, la última pestaña (Comunidad).
   await user.keyboard('{ArrowUp}{ArrowUp}')
   expect(screen.getByRole('tab', { name: 'Comunidad' })).toHaveAttribute('aria-selected', 'true')
 })
@@ -442,36 +527,34 @@ describe.each([
 // Vista desde el perfil de la sesión (specs/08-interfaz, cambio del 2026-11-14; RF-INT-02 y 03).
 const PERFILES = [undefined, 'student', 'researcher'] as const
 
-test('sin cuenta la vista es Público: Hallazgos primero, la historia a un clic y lo avanzado plegado', async () => {
+test('sin cuenta se ve todo: Hallazgos primero, la historia a un clic, filtros y capas sin plegar', async () => {
   const user = userEvent.setup()
   stubApi()
   render(<App />)
   await screen.findByRole('heading', { name: 'Buscar veredictos' })
   // Desde el rediseño de vidrio (RF-INT-26) la primera pantalla es el mapa con Hallazgos.
   expect(screen.getByRole('tab', { name: 'Hallazgos' })).toHaveAttribute('aria-selected', 'true')
-  await user.click(screen.getByRole('tab', { name: 'Historia de Parral' }))
-  expect(screen.getByRole('heading', { level: 2, name: '¿Qué pasó en Parral?' })).toBeInTheDocument()
-  // Las siglas de la primera pantalla van explicadas.
-  expect(screen.getByText(/Estados Unidos \(NASA\) y de la India \(ISRO\)/)).toBeInTheDocument()
-  const mas = screen.getByText('Más filtros', { selector: 'summary' }).closest('details') as HTMLDetailsElement
-  expect(mas.open).toBe(false)
+  await user.click(screen.getByRole('tab', { name: 'Historia de la zona' }))
+  expect(screen.getByRole('heading', { level: 2, name: HISTORIA_ZONA.title })).toBeInTheDocument()
+  // La historia es la de la zona activa, generada por research con su evidencia (ya no la fija de Parral).
+  expect(await screen.findByRole('button', { name: 'Reproducir' })).toBeInTheDocument()
+  // Desde el 2026-11-14 la información no depende de la sesión: nada plegado y con selector de capas.
+  expect(screen.queryByText('Más filtros', { selector: 'summary' })).not.toBeInTheDocument()
+  expect(screen.getByRole('group', { name: 'Estados' })).toBeInTheDocument()
   await abrirBarra(user, 'Herramientas del mapa')
-  expect(screen.queryByRole('button', { name: /Comparar con la imagen/ })).not.toBeInTheDocument()
-  // En Público, sin selector de capas (RF-INT-03).
-  expect(screen.queryByRole('button', { name: 'Capas del radar' })).not.toBeInTheDocument()
+  expect(screen.getByRole('button', { name: 'Capas del radar' })).toBeInTheDocument()
 })
 
-test('al entrar, la vista pasa a la del perfil y, al salir, vuelve a Público', async () => {
+test('entrar y salir no cambia lo que se ve: la cuenta solo sirve para publicar y valorar', async () => {
   const user = userEvent.setup()
   stubApi({ auth: 'on' })
   render(<App />)
   await screen.findByRole('heading', { name: 'Buscar veredictos' })
-  await user.click(screen.getByRole('tab', { name: 'Historia de Parral' }))
-  await screen.findByRole('heading', { level: 2, name: '¿Qué pasó en Parral?' })
+  await user.click(screen.getByRole('tab', { name: 'Historia de la zona' }))
+  await screen.findByRole('heading', { level: 2, name: HISTORIA_ZONA.title })
   await entrarComoEstudiante(user)
 
-  expect(screen.queryByRole('heading', { name: '¿Qué pasó en Parral?' })).not.toBeInTheDocument()
-  // Fuera de Público, los filtros de estado se ven sin desplegar nada y la barra lleva el selector de capas.
+  expect(screen.getByRole('heading', { level: 2, name: HISTORIA_ZONA.title })).toBeInTheDocument()
   expect(screen.queryByText('Más filtros')).not.toBeInTheDocument()
   expect(screen.getByRole('group', { name: 'Estados' })).toBeInTheDocument()
   await abrirBarra(user, 'Herramientas del mapa')
@@ -482,7 +565,7 @@ test('al entrar, la vista pasa a la del perfil y, al salir, vuelve a Público', 
   expect(within(cuenta).getByText('Sesión de estudiante')).toBeInTheDocument()
   await user.click(within(cuenta).getByRole('button', { name: 'Salir' }))
   expect(await screen.findByRole('button', { name: 'Iniciar sesión' })).toBeInTheDocument()
-  expect(screen.getByRole('heading', { level: 2, name: '¿Qué pasó en Parral?' })).toBeInTheDocument()
+  expect(screen.getByRole('heading', { level: 2, name: HISTORIA_ZONA.title })).toBeInTheDocument()
 })
 
 test('con cualquier perfil están el estado, los tres textos, el distintivo y el recibo, y la tarjeta es idéntica', async () => {
@@ -506,31 +589,21 @@ test('con cualquier perfil están el estado, los tres textos, el distintivo y el
 })
 
 // Diseño en blanco y negro (2026-11-14): la evidencia va fuera de la tarjeta, que no cambia entre vistas.
-test('la evidencia aparece con perfil Estudiante (explicada) e Investigación (con el JSON), no sin cuenta', async () => {
-  stubApi()
-  const publico = render(<App />)
-  await screen.findByRole('heading', { name: 'Buscar veredictos' })
-  await screen.findByRole('heading', { name: /Cambio probable/ })
-  expect(screen.queryByRole('heading', { name: 'Evidencia' })).not.toBeInTheDocument()
-  publico.unmount()
-
-  stubApi({ perfil: 'student' })
-  const estudiante = render(<App />)
-  const tabla = await screen.findByRole('region', { name: 'Evidencia' })
-  expect(within(tabla).getByRole('rowheader', { name: /Fracción con cambio/ })).toBeInTheDocument()
-  expect(within(tabla).getByText('4,1 % de lo observado')).toBeInTheDocument()
-  expect(within(tabla).getByText(/El decibelio \(dB\)/)).toBeInTheDocument()
-  expect(screen.queryByRole('link', { name: /JSON/ })).not.toBeInTheDocument()
-  estudiante.unmount()
-
-  stubApi({ perfil: 'researcher' })
-  render(<App />)
-  const tablaInv = await screen.findByRole('region', { name: 'Evidencia' })
-  expect(within(tablaInv).queryByText(/El decibelio/)).not.toBeInTheDocument()
-  expect(screen.getByRole('link', { name: /JSON/ })).toHaveAttribute(
-    'href',
-    'http://localhost:8080/api/verdicts/aois/parral/series/T048A-F015/verdicts/20260617_20260629?lang=es',
-  )
+test('la evidencia explicada y el enlace al JSON se ven igual sin cuenta y con cualquier perfil', async () => {
+  for (const perfil of PERFILES) {
+    stubApi({ perfil })
+    const { unmount } = render(<App />)
+    const tabla = await screen.findByRole('region', { name: 'Evidencia' })
+    expect(within(tabla).getByRole('rowheader', { name: /Fracción con cambio/ })).toBeInTheDocument()
+    expect(within(tabla).getByText('4,1 % de lo observado')).toBeInTheDocument()
+    expect(within(tabla).getByText(/El decibelio \(dB\)/)).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: /JSON/ })).toHaveAttribute(
+      'href',
+      'http://localhost:8080/api/verdicts/aois/parral/series/T048A-F015/verdicts/20260617_20260629?lang=es',
+    )
+    unmount()
+    vi.unstubAllGlobals()
+  }
 })
 
 // Historias de la comunidad (RF-ACC-13 a 17, T-ANT-20).
@@ -570,7 +643,7 @@ test('con sesión se guarda una historia con referencias y notas, sin textos de 
   const post = fetch.enviados.find((e) => e.path === '/api/auth/stories' && e.method === 'POST')!
   expect(post.authorization).toBe('Bearer tok')
   expect(post.body).toEqual({
-    title: 'Parral, Todas las series, del 2026-06-17 al 2026-07-11',
+    title: 'Hidalgo del Parral, Chihuahua, Todas las series, del 2026-06-17 al 2026-07-11',
     aoi: 'parral',
     series: 'all',
     from_date: '2026-06-17',
@@ -593,7 +666,7 @@ test('la comunidad muestra las estrellas por perfil y, con sesión, deja valorar
   expect(within(historia).getByText('De estudiantes').nextSibling).toHaveTextContent('5,0 (1)')
   expect(within(historia).getByText('De investigación').nextSibling).toHaveTextContent('4,0 (2)')
   expect(within(historia).queryByRole('group', { name: 'Tu valoración' })).not.toBeInTheDocument()
-  expect(screen.getByText('Inicia sesión para descargar y valorar historias.')).toBeInTheDocument()
+  expect(screen.getByText('Inicia sesión para valorar historias y publicar las tuyas.')).toBeInTheDocument()
 
   await entrarComoEstudiante(user)
 
@@ -650,4 +723,71 @@ test('reproducir una historia recorre sus pares en orden de fechas y cada uno se
 
   await user.click(screen.getByRole('button', { name: 'Cerrar la reproducción' }))
   expect(screen.queryByText('Par 2 de 2')).not.toBeInTheDocument()
+})
+
+// Buscador de lugares y filtros dinámicos (2026-11-15).
+test('un lugar sin veredictos cambia los filtros a sus pasadas, con las órbitas que salen de los datos', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  const caja = screen.getByRole('combobox', { name: 'Buscar un lugar' })
+  await user.type(caja, 'Helheim')
+  await user.click(await screen.findByRole('option', { name: /Glaciar Helheim/ }))
+  const filtros = within(screen.getByRole('complementary', { name: 'Filtros' }))
+  expect(await filtros.findByRole('heading', { name: 'Glaciar Helheim, Groenlandia' })).toBeInTheDocument()
+  expect(filtros.queryByRole('heading', { name: 'Buscar veredictos' })).not.toBeInTheDocument()
+  // Las órbitas salen de las pasadas: T012A con 2 y T099D con 1.
+  await user.click(await filtros.findByRole('button', { name: /T012A-F020 · 2/ }))
+  expect(filtros.getByRole('heading', { name: /Las 2 más recientes de 3/ })).toBeInTheDocument()
+  expect(crearMapa.mock.results.at(-1)!.value.volarA).toHaveBeenLastCalledWith([-38.6, 66.25, -38.0, 66.5])
+  // Volver a la zona con veredictos.
+  await user.click(filtros.getByRole('button', { name: /Ver veredictos de Hidalgo del Parral/ }))
+  expect(await screen.findByRole('heading', { name: 'Buscar veredictos' })).toBeInTheDocument()
+})
+
+test('un lugar dentro de una zona procesada deja los filtros de veredictos', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await user.type(screen.getByRole('combobox', { name: 'Buscar un lugar' }), 'Parral')
+  await user.click(await screen.findByRole('option', { name: /Hidalgo del Parral/ }))
+  expect(screen.getByRole('heading', { name: 'Buscar veredictos' })).toBeInTheDocument()
+  expect(crearMapa.mock.results.at(-1)!.value.volarA).toHaveBeenLastCalledWith([-105.75, 26.87, -105.6, 26.98])
+})
+
+test('la historia de la zona se reproduce sola: cada capítulo mueve el mapa y cita su fuente', async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true })
+  try {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    stubApi()
+    render(<App />)
+    await screen.findByRole('heading', { name: 'Buscar veredictos' })
+    await user.click(screen.getByRole('tab', { name: 'Historia de la zona' }))
+    const panel = within(screen.getByRole('tabpanel', { name: 'Historia de la zona' }))
+    expect(await panel.findByRole('heading', { level: 2, name: HISTORIA_ZONA.title })).toBeInTheDocument()
+    await user.click(panel.getByText('1 evidencia'))
+    expect(panel.getByRole('link', { name: /Fuente 1/ })).toHaveAttribute('href', 'https://example.invalid/boletin')
+    await user.click(panel.getByRole('button', { name: 'Reproducir' }))
+    expect(crearMapa.mock.results.at(-1)!.value.volarA).toHaveBeenLastCalledWith([-105.75, 26.87, -105.6, 26.98])
+    await vi.advanceTimersByTimeAsync(7100)
+    expect(panel.getByText('Capítulo 2 de 2')).toBeInTheDocument()
+    expect(panel.getByRole('heading', { name: 'Hallazgos' })).toBeInTheDocument()
+  } finally {
+    vi.useRealTimers()
+  }
+})
+
+test('un lugar sin serie con HH y HV lo dice y deja ver las pasadas', async () => {
+  const user = userEvent.setup()
+  stubApi()
+  render(<App />)
+  await screen.findByRole('heading', { name: 'Buscar veredictos' })
+  await user.type(screen.getByRole('combobox', { name: 'Buscar un lugar' }), 'Helheim')
+  await user.click(await screen.findByRole('option', { name: /Glaciar Helheim/ }))
+  const filtros = within(screen.getByRole('complementary', { name: 'Filtros' }))
+  expect(await filtros.findByText(/no tiene una serie con HH y HV/)).toBeInTheDocument()
+  expect(filtros.getByText(/T126D-F055-7700-SHNA-P05023/)).toBeInTheDocument()
+  expect(await filtros.findByRole('button', { name: /T012A-F020 · 2/ })).toBeInTheDocument()
 })

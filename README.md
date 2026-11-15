@@ -18,12 +18,25 @@ La aplicación queda en `http://localhost:3000`, y la API en `http://localhost:8
 |---|---|
 | `/api/verdicts/docs` | Veredictos, eventos y serie por píxel |
 | `/api/catalog/docs` | Zonas y series comparables en NASA CMR |
+| `/api/research/docs` | Investigaciones: de una pregunta a una historia con evidencia ([docs/API.md](docs/API.md)) |
 | `/tiles/cog/...` | Teselas; la API entrega las URLs ya construidas |
 
 Ejemplo, la tormenta del 1 de julio en Parral:
 
 ```bash
 curl "http://localhost:8080/api/verdicts/aois/parral/events?date=2026-07-01"
+```
+
+## Investigar con una pregunta
+
+En la pestaña **Investigar** (o con la API) se escribe una pregunta, por ejemplo «¿Cómo ha cambiado el terreno
+alrededor de las zonas mineras de Hidalgo del Parral entre 2016 y 2026?». El servicio `research` busca en el catálogo
+de NASA qué datos existen (NISAR, Sentinel-1, OPERA, GPM, ICESat-2, GRACE-FO, HLS, MODIS), mide los cambios donde este
+proyecto procesó NISAR, cruza acontecimientos verificados y escribe una historia de 17 capítulos en la que cada cifra
+cita su evidencia. No afirma causas y dice lo que no se pudo medir. Detalle en [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
+
+```bash
+curl -X POST localhost:8080/api/research/research -H 'Content-Type: application/json'   -d '{"question": "Compara Parral y Jakobshavn durante 2026", "run": true}'
 ```
 
 ## Cómo fluye
@@ -34,6 +47,7 @@ Eco      recortes ──> processor ──> COG + manifiesto
 Balanza  manifiesto ──> verdicts + tiles + gateway ──> API
 Atlas    API ──> mapa
 Faro     API + mapa ──> experiencia y relato
+research CMR + EONET + verdicts ──> investigación ──> historia con evidencia
 ```
 
 ## Equipo

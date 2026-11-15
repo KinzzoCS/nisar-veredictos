@@ -39,7 +39,8 @@ services:
     build: ./services/catalog
     mem_limit: 384m
     environment:
-      AOI_DIR: /config/aois
+      # Zonas de config/aois y las que crea el procesado en línea (servicio online), separadas por ':'.
+      AOI_DIR: /config/aois:/data/aois-online
       # Plan de observación de NISAR que escribe `ingest plan`; sin archivo, la línea de tiempo dice unknown.
       PLAN_DIR: /data/plan
     volumes:
@@ -106,6 +107,51 @@ services:
     volumes:
       - ./data/auth:/data/auth
 
+  # Motor de investigación (2026-11-15): de una pregunta a una investigación reproducible y a una historia con
+  # evidencia. Llama a verdicts por HTTP, a CMR y a NASA EONET (públicos, sin cuenta). Guarda en ./data/research.
+  research:
+    build: ./services/research
+    mem_limit: 384m
+    environment:
+      VERDICTS_URL: http://verdicts:8000
+      ARTIFACT_ROOT: /data/artifacts
+      EVENTS_DIR: /config/events
+      RESEARCH_DATA_DIR: /data/research
+      RESEARCH_MAX_JOBS: "2"
+      # Geocodificador de OpenStreetMap (Nominatim) para buscar lugares fuera del nomenclátor; vacío lo apaga.
+      RESEARCH_GEOCODER: ${RESEARCH_GEOCODER:-nominatim}
+      RESEARCH_EONET: ${RESEARCH_EONET:-1}
+      # Acontecimientos abiertos (USGS, GDACS, Copernicus EMS, NASA GLC, IBTrACS); vacío = todos. Ej.: usgs,gdacs
+      RESEARCH_EVENT_PROVIDERS: ${RESEARCH_EVENT_PROVIDERS:-}
+      # Opcionales, del .env local: sin ellas, ReliefWeb y FIRMS salen como needs_credentials.
+      RELIEFWEB_APPNAME: ${RELIEFWEB_APPNAME:-}
+      FIRMS_MAP_KEY: ${FIRMS_MAP_KEY:-}
+    volumes:
+      - ./data/artifacts:/data/artifacts:ro
+      - ./data/research:/data/research
+      - ./config/events:/config/events:ro
+    depends_on:
+      - verdicts
+
+  # Procesado en línea (2026-11-15): la zona buscada se trae con ingest y se procesa con processor, sin pasos a mano.
+  # Usa el EARTHDATA_TOKEN del .env (solo esa variable). Un trabajo a la vez; zonas de 0,3° como mucho y 4 fechas.
+  online:
+    build:
+      context: ./services
+      dockerfile: online/Dockerfile
+    mem_limit: 2560m
+    environment:
+      CATALOG_URL: http://catalog:8000
+      EARTHDATA_TOKEN: ${EARTHDATA_TOKEN:-}
+      ZONES_DIR: /data/aois-online
+      DATA_DIR: /data
+      ONLINE_MAX_SPAN_DEG: ${ONLINE_MAX_SPAN_DEG:-0.3}
+      ONLINE_MAX_DATES: ${ONLINE_MAX_DATES:-4}
+    volumes:
+      - ./data:/data
+    depends_on:
+      - catalog
+
   gateway:
     image: nginx:1.29-alpine
     mem_limit: 128m
@@ -129,6 +175,8 @@ services:
       - verdicts
       - tiles
       - auth
+      - research
+      - online
 
   # Sitio estático de Faro y Atlas en http://localhost:3000. El navegador llama al gateway en :8080.
   frontend:

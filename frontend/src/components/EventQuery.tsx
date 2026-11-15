@@ -210,15 +210,18 @@ export function EventQuery({ aoi, lang }: { aoi: string; lang: Lang }) {
             <Icono nombre="buscar" tamano={16} />
             {t('event.submit')}
           </button>
-          <button
-            type="button"
-            onClick={() => {
-              setForm(EXAMPLE)
-              ask(EXAMPLE)
-            }}
-          >
-            {t('event.example')}
-          </button>
+          {/* El ejemplo es la tormenta verificada de Parral: solo tiene sentido en esa zona. */}
+          {aoi === 'parral' && (
+            <button
+              type="button"
+              onClick={() => {
+                setForm(EXAMPLE)
+                ask(EXAMPLE)
+              }}
+            >
+              {t('event.example')}
+            </button>
+          )}
         </div>
       </form>
 

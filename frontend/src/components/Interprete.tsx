@@ -78,6 +78,7 @@ function AvisoSesion() {
  */
 export function Interprete({
   aoi,
+  nombreZona,
   filtro,
   resultados,
   abierta,
@@ -88,6 +89,8 @@ export function Interprete({
   onReproducir,
 }: {
   aoi: string
+  /** Nombre legible de la zona para el título por omisión; si falta, su id. */
+  nombreZona?: string
   filtro: Filtro
   resultados: Verdict[]
   /** Historia guardada que se está leyendo; sin ella, el borrador. */
@@ -168,6 +171,7 @@ export function Interprete({
 
   const incluidos = resultados.filter((v) => !fuera.has(claveVeredicto(v)))
   const tituloAuto = t('interpreter.defaultTitle', {
+    zone: nombreZona ?? aoi,
     series: filtro.series === 'all' ? t('search.allSeries') : filtro.series,
     from: filtro.desde || resultados[0]?.from_date || '…',
     to: filtro.hasta || resultados.at(-1)?.to_date || '…',

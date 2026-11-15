@@ -115,6 +115,26 @@ server {
         include /etc/nginx/snippets/quota-proxy.conf;
     }
 
+    # Motor de investigación (services/research): crea investigaciones (POST) y lanza sus pasos. La respuesta de un
+    # POST es inmediata (202) y el trabajo sigue en segundo plano, así que no necesita un timeout largo.
+    location /api/research/ {
+        include /etc/nginx/snippets/research.conf;
+        set $research http://research:8000;
+        rewrite ^/api/research/(.*)$ /$1 break;
+        proxy_pass $research;
+        proxy_read_timeout 60s;
+    }
+
+    # Procesado en línea (services/online): POST crea o reutiliza la zona y responde 202; el trabajo sigue en segundo
+    # plano. Mismas reglas de método y CORS que /api/research/.
+    location /api/online/ {
+        include /etc/nginx/snippets/research.conf;
+        set $online http://online:8000;
+        rewrite ^/api/online/(.*)$ /$1 break;
+        proxy_pass $online;
+        proxy_read_timeout 60s;
+    }
+
     location /tiles/cog/ {
         # Las teselas no son /api/: no validan el token ni reciben el perfil (specs/06-acceso, plan).
         auth_request off;

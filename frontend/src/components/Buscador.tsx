@@ -97,7 +97,7 @@ export function Buscador({
           {t('picker.series')}
         </legend>
         <p id={ids.serie} className="paso-ayuda">
-          {t('search.seriesHelp')}
+          {t('search.seriesHelp', { count: series.length })}
         </p>
         <div className="chips">
           <label className="chip">

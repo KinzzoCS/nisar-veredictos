@@ -55,7 +55,7 @@ def fetch(args: argparse.Namespace) -> int:
     token, aoi = loaded
     started = time.monotonic()
     try:
-        result = fetch_series(aoi, args.series, args.data_dir, token, args.catalog_url, args.limit)
+        result = fetch_series(aoi, args.series, args.data_dir, token, args.catalog_url, args.limit, last=args.last)
     except (FetchError, SubsetError) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         return 1
@@ -87,6 +87,7 @@ def main() -> int:
     remote.add_argument("--aoi", required=True)
     remote.add_argument("--series", required=True)
     remote.add_argument("--limit", type=int, help="Solo las primeras N fechas; útil para una primera prueba")
+    remote.add_argument("--last", type=int, help="Solo las N fechas más recientes (procesado en línea)")
     remote.add_argument("--catalog-url", default=os.environ.get("CATALOG_URL", "http://localhost:8080/api/catalog"))
     remote.set_defaults(handler=fetch)
 

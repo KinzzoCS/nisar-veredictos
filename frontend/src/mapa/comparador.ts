@@ -244,12 +244,14 @@ export function crearComparador(
       id: "aoi-contorno-halo",
       type: "line",
       source: "aoi",
+      layout: { visibility: "none" },
       paint: { "line-color": "#ffffff", "line-width": 4, "line-opacity": 0.9 },
     });
     optico.addLayer({
       id: "aoi-contorno",
       type: "line",
       source: "aoi",
+      layout: { visibility: "none" },
       paint: { "line-color": "#000000", "line-width": 2, "line-dasharray": [3, 2] },
     });
     sincronizar();

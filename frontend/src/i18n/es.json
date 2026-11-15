@@ -16,8 +16,8 @@
     "researcher": "Investigador"
   },
   "public": {
-    "question": "¿Qué pasó en Parral?",
-    "lead": "NISAR es un satélite de radar de las agencias espaciales de Estados Unidos (NASA) y de la India (ISRO). Ve a través de las nubes y pasa sobre Parral cada 12 días. Aquí ves qué notó entre dos pasadas, qué no pudo ver y qué falta por saber."
+    "question": "¿Qué vio el radar en esta zona?",
+    "lead": "NISAR es un satélite de radar de las agencias espaciales de Estados Unidos (NASA) y de la India (ISRO). Ve a través de las nubes y pasa sobre cada zona cada 12 días. Aquí ves qué notó entre dos pasadas, qué no pudo ver y qué falta por saber."
   },
   "series": {
     "loading": "Cargando datos…",
@@ -41,10 +41,11 @@
     "expand": "Abrir {{name}}",
     "tabs": {
       "hallazgos": "Hallazgos",
-      "historia": "Historia de Parral",
+      "historia": "Historia de la zona",
       "evento": "¿Pudo verlo?",
       "comunidad": "Comunidad",
-      "mundo": "Mundo"
+      "mundo": "Mundo",
+      "investigacion": "Investigar"
     }
   },
   "search": {
@@ -60,7 +61,6 @@
     "results_one": "{{count}} veredicto",
     "results_other": "{{count}} veredictos",
     "help": "Elige qué pasadas mirar, el periodo y qué buscas. Luego toca un resultado para verlo en el mapa.",
-    "seriesHelp": "NISAR pasa sobre la zona por dos órbitas, cada 12 días. Puedes ver las dos a la vez.",
     "direction": {
       "A": "ascendente",
       "D": "descendente"
@@ -83,13 +83,15 @@
     "chartDesc_other": "Gráfica de la fracción de cambio por par de pasadas, con {{count}} picos de cambio probable.",
     "threshold": "umbral {{value}}",
     "periodStart": "Inicio del periodo",
-    "periodEnd": "Fin del periodo"
+    "periodEnd": "Fin del periodo",
+    "seriesHelp_one": "NISAR pasa sobre esta zona por {{count}} órbita, cada 12 días.",
+    "seriesHelp_other": "NISAR pasa sobre esta zona por {{count}} órbitas, cada 12 días. Puedes verlas a la vez."
   },
   "interpreter": {
     "heading": "Intérprete de historias",
     "intro": "Arma una historia con los veredictos del buscador. Los textos son los de la API, tal cual; tus notas se guardan aparte y rotuladas como tuyas.",
     "title": "Título",
-    "defaultTitle": "Parral, {{series}}, del {{from}} al {{to}}",
+    "defaultTitle": "{{zone}}, {{series}}, del {{from}} al {{to}}",
     "fromApi": "Lo que dice la API",
     "summary_one": "{{count}} par: {{change}} con cambio probable, {{nochange}} sin cambio detectable y {{notobs}} sin poder observarse.",
     "summary_other": "{{count}} pares: {{change}} con cambio probable, {{nochange}} sin cambio detectable y {{notobs}} sin poder observarse.",
@@ -306,7 +308,7 @@
     "heading": "¿Pudo el satélite ver un evento?",
     "intro": "Indica cuándo pasó algo (una tormenta, una crecida, un incendio) y te decimos si NISAR pasó por la zona durante el tiempo que suponemos que duró. No dice si algo cambió.",
     "date": "Fecha del evento (UTC)",
-    "dateHelp": "A partir de las 18:00 en Parral, en UTC ya es el día siguiente: una tormenta a las 20:00 del 1 de julio en Parral es del 2 de julio en UTC.",
+    "dateHelp": "Las fechas y horas van en UTC (hora universal). Si en la zona ya es de noche, en UTC puede ser el día siguiente.",
     "type": "Tipo de evento",
     "types": {
       "none": "Sin especificar",
@@ -315,7 +317,7 @@
       "wildfire": "Incendio"
     },
     "time": "Hora de inicio (UTC, opcional)",
-    "timeHelp": "En Parral, la hora UTC es la local más 6 horas: las 15:37 de Parral son las 21:37 UTC.",
+    "timeHelp": "Pasa la hora local a UTC con el desfase de la zona; por ejemplo, en Chihuahua la hora UTC es la local más 6 horas.",
     "submit": "Consultar",
     "example": "Probar con la tormenta del 1 de julio de 2026",
     "loading": "Consultando…",
@@ -345,7 +347,7 @@
     "projection": "Vista del mapa",
     "view3d": "Globo en 3D",
     "view2d": "Mapa plano en 2D",
-    "reframe": "Volver a encuadrar la zona",
+    "reframe": "Ver la Tierra desde el espacio",
     "layers": "Capas del radar",
     "layer": "Capa visible",
     "opacity": "Opacidad",
@@ -412,5 +414,110 @@
     "note": "La vista previa de ASF se coloca en la caja de la huella: su posición es aproximada. Descargar el producto completo (unos 7 GB) pide una cuenta de Earthdata; un veredicto para esta zona necesita procesarla antes, y eso aún no se hace desde aquí.",
     "sources": "Fuentes: NASA CMR (Earthdata Search) y vistas previas de ASF DAAC (Vertex), recursos oficiales del reto.",
     "wholeWorld": "todo el mundo"
+  },
+  "research": {
+    "heading": "Investigar con datos satelitales",
+    "intro": "Escribe una pregunta. Se busca en el catálogo de NASA qué datos existen, se miden los cambios donde este proyecto procesó NISAR, se cruzan acontecimientos verificados y se arma una historia en la que cada afirmación cita su evidencia.",
+    "question": "Tu pregunta",
+    "placeholder": "Ej.: ¿Cómo ha cambiado el terreno alrededor de las zonas mineras de Hidalgo del Parral entre 2016 y 2026?",
+    "examplesLabel": "Preguntas de ejemplo",
+    "examples": {
+      "mining": "¿Cómo ha cambiado el terreno alrededor de las zonas mineras de Hidalgo del Parral entre 2016 y 2026?",
+      "flood": "¿Cómo evolucionaron las superficies inundadas en Parral durante 2026?",
+      "glacier": "¿Cómo ha evolucionado el movimiento de Jakobshavn durante los últimos cinco años?",
+      "compare": "Compara Parral y Jakobshavn durante 2026"
+    },
+    "manual": "Elegir lugares y fechas a mano",
+    "place": "Añadir un lugar a la investigación",
+    "findPlace": "Buscar",
+    "noPlace": "Sin resultados.",
+    "areas": "Lugares elegidos",
+    "removeArea": "Quitar {{name}}",
+    "usePeriod": "Fijar el periodo",
+    "run": "Investigar",
+    "cancel": "Cancelar",
+    "cancelled": "Investigación cancelada.",
+    "failed": "La investigación falló: {{error}}",
+    "error": "El servicio de investigación no respondió.",
+    "step": {
+      "queued": "En cola…",
+      "discover": "Buscando datos en el catálogo de NASA…",
+      "analyze": "Analizando cambios, series y acontecimientos…",
+      "story": "Escribiendo la historia con su evidencia…"
+    },
+    "synthetic": "Datos sintéticos: esta historia no describe observaciones reales.",
+    "spanishOnly": "The generated story text is in Spanish.",
+    "traceOk": "Cada cifra cita su evidencia",
+    "traceFail": "Hay afirmaciones sin evidencia",
+    "chapters": "Capítulos de la historia",
+    "showOnMap": "Ver en el mapa",
+    "caveat": "Límite:",
+    "hypothesis": "Hipótesis:",
+    "evidence_one": "{{count}} evidencia",
+    "evidence_other": "{{count}} evidencias",
+    "prev": "Anterior",
+    "next": "Siguiente",
+    "previous": "Investigaciones anteriores",
+    "sources": "Fuentes: NASA CMR, NASA EONET, veredictos de este proyecto y acontecimientos verificados. Nada se descarga; coincidir en fechas no prueba una causa.",
+    "play": "Reproducir",
+    "pause": "Pausar",
+    "chapterOf": "Capítulo {{n}} de {{total}}",
+    "source": "Fuente {{n}}"
+  },
+  "places": {
+    "label": "Buscar un lugar",
+    "placeholder": "Busca un lugar del mundo…",
+    "results": "Lugares encontrados",
+    "thisView": "Lo que se ve del mapa",
+    "thisViewSource": "Busca pasadas en la vista actual",
+    "searching": "Buscando lugares…",
+    "error": "El buscador de lugares no respondió.",
+    "none": "Ningún lugar con ese nombre."
+  },
+  "zone": {
+    "passesOnly": "Aquí no hay veredictos procesados todavía: estas son las pasadas reales del radar NISAR sobre la zona, con su vista previa. Los filtros salen de lo que hay.",
+    "processed": "Zona con veredictos: {{name}}",
+    "processedList": "Zonas con veredictos procesados",
+    "back": "Ver veredictos de {{name}}",
+    "research": "Investigar esta zona",
+    "period": "Periodo",
+    "last90": "Últimos 3 meses",
+    "last365": "Último año",
+    "sinceStart": "Desde el inicio de NISAR",
+    "orbits": "Órbitas que pasan por la zona",
+    "allOrbits": "Todas ({{count}})"
+  },
+  "zoneStory": {
+    "heading": "Historia de {{name}}",
+    "intro": "Se arma con los datos de la zona: los veredictos del radar si están procesados, las pasadas de NASA y los acontecimientos citados (sismos, ciclones, inundaciones, incendios y deslizamientos). Cada frase cita su evidencia.",
+    "question": "¿Qué ha cambiado en {{name}} y qué acontecimientos hubo en el último año?"
+  },
+  "online": {
+    "heading": "Veredictos de esta zona",
+    "starting": "Pidiendo el procesado de la zona…",
+    "error": "No se pudo pedir el procesado: {{error}}",
+    "series": "Serie {{id}} ({{pol}}): se procesan sus {{dates}} fechas más recientes.",
+    "noSeries": "Aquí NISAR no tiene una serie con HH y HV (o tiene menos de dos fechas), y el cálculo de cambio necesita las dos polarizaciones. Las pasadas se pueden ver igual:",
+    "retry": "Reintentar",
+    "cancel": "Cancelar el procesado",
+    "state": {
+      "queued": "En cola: se procesa una zona a la vez.",
+      "running": "Leyendo de NASA en memoria solo la zona (sin guardar recortes). Tarda alrededor de un minuto por fecha.",
+      "done": "Listo: la zona ya tiene veredictos.",
+      "failed": "El procesado falló.",
+      "cancelled": "Procesado cancelado.",
+      "no_processable_series": "Sin serie procesable."
+    },
+    "step": {
+      "zone": "Crear la zona",
+      "series": "Elegir la serie (HH y HV)",
+      "process": "Leer de NASA en memoria y calcular los veredictos"
+    },
+    "stepState": {
+      "pending": "pendiente",
+      "running": "en curso…",
+      "done": "hecho",
+      "failed": "falló"
+    }
   }
 }

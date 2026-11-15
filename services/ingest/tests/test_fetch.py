@@ -212,6 +212,14 @@ def test_limit_restricts_dates(tmp_path, nasa):
     assert result.written == ["GRANULE_0"]
 
 
+def test_last_takes_the_most_recent_dates(tmp_path, nasa):
+    # Procesado en línea (2026-11-15): --last N trae las N fechas más recientes, no las primeras.
+    _, base = nasa
+    getter = catalog_with(f"{base}/g0.h5", f"{base}/g1.h5")
+    result = fetch_series(AOI, "T048A-F015", tmp_path, TOKEN, "http://catalog", None, getter, ALLOW_LOCAL, 64 * 1024, last=1)
+    assert result.written == ["GRANULE_1"]
+
+
 def test_bad_token_gives_clear_error_without_leaving_files_or_token(tmp_path, nasa):
     _, base = nasa
     with pytest.raises(FetchError) as error:
