@@ -289,6 +289,75 @@ def test_bbox_meets_ring_cases():
     assert not meets((8, 8, 9, 9), triangle)    # dentro de la caja del triángulo, fuera de él
 
 
+# --- Fracción de cambio dentro del rectángulo (T-BAL-18, RF-BUS-10 P2) ------------------------------------------------
+
+
+def _cell(west, south, pixels, observed, changed, state="no_detectable_change", cause=None, size=0.01):
+    ring = [[west, south], [west + size, south], [west + size, south + size], [west, south + size], [west, south]]
+    return {"type": "Feature", "geometry": {"type": "Polygon", "coordinates": [ring]},
+            "properties": {"id": f"{west}_{south}", "state": state, "cause": cause, "observed_fraction": observed,
+                           "changed_fraction": changed, "pixels": pixels}}
+
+
+@pytest.fixture()
+def cells_root(root):
+    """Celdas en el primer par: dos con cambio al oeste, una sin observar al este y otra sin cambio en medio."""
+    cells = {"type": "FeatureCollection", "cell_size_m": 1000.0,
+             "rules": {"min_observed_fraction": 0.5, "min_changed_fraction": 0.05},
+             "features": [
+                 _cell(-105.80, 26.90, 10000, 1.0, 0.20, "change_probable"),
+                 _cell(-105.79, 26.90, 10000, 0.5, 0.10, "change_probable"),
+                 _cell(-105.70, 26.90, 10000, 1.0, 0.0),
+                 _cell(-105.60, 26.90, 10000, 0.1, 0.0, "not_observable", "terrain"),
+             ]}
+    path = root / SERIES / "manifest.json"
+    manifest = json.loads(path.read_text(encoding="utf-8"))
+    relative = f"{SERIES}/pairs/20260629_20260711/cells.geojson"
+    (root / relative).parent.mkdir(parents=True, exist_ok=True)
+    (root / relative).write_text(json.dumps(cells), encoding="utf-8")
+    manifest["pairs"][0]["cells"] = relative
+    path.write_text(json.dumps(manifest), encoding="utf-8")
+    return root
+
+
+def _area(client, bbox, pair="20260629_20260711"):
+    body = client.get(SEARCH, headers=STUDENT, params={"bbox": bbox, "limit": 50}).json()
+    return next(row["area"] for row in body["results"] if row["pair_id"] == pair)
+
+
+def test_area_weights_each_cell_by_its_observed_pixels(cells_root):
+    client = _area_client(cells_root, FakeFootprints())
+    area = _area(client, "-105.805,26.902,-105.775,26.905")
+    # 10000 · 1 · 0,20 + 10000 · 0,5 · 0,10 = 2500 cambios sobre 15000 observados.
+    assert area["status"] == "computed" and area["cells"] == 2 and area["pixels"] == 20000
+    assert area["observed_fraction"] == 0.75 and area["changed_fraction"] == pytest.approx(2500 / 15000, abs=1e-6)
+    assert area["state"] == "change_probable" and area["cause"] is None
+    assert area["cells_bbox"] == [-105.80, 26.90, -105.78, 26.91]
+    assert area["decision_rule"]["min_changed_fraction"] == 0.05 and area["decision_rule"]["calibrated"] is False
+
+
+def test_area_without_enough_observed_is_not_observable_with_cause(cells_root):
+    area = _area(_area_client(cells_root, FakeFootprints()), "-105.598,26.902,-105.595,26.905")
+    assert area["state"] == "not_observable" and area["cause"] == "terrain" and area["changed_fraction"] == 0
+
+
+def test_area_with_no_change_and_rows_without_cells(cells_root):
+    client = _area_client(cells_root, FakeFootprints())
+    assert _area(client, "-105.698,26.902,-105.695,26.905")["state"] == "no_detectable_change"
+    assert _area(client, "-105.95,26.70,-105.90,26.75")["status"] == "no_cells_in_bbox"
+    other = _area(client, "-105.698,26.902,-105.695,26.905", pair="20260711_20260723")
+    assert other["status"] == "no_cells" and other["state"] is None
+
+
+def test_area_does_not_change_the_verdict_or_the_filters(cells_root):
+    client = _area_client(cells_root, FakeFootprints())
+    body = client.get(SEARCH, headers=STUDENT, params={"bbox": "-105.598,26.902,-105.595,26.905",
+                                                       "state": "change_probable"}).json()
+    row = next(row for row in body["results"] if row["pair_id"] == "20260629_20260711")
+    assert row["state"] == "change_probable" and row["area"]["state"] == "not_observable"
+    assert all(row["area"] is None for row in client.get(SEARCH, headers=STUDENT).json()["results"])
+
+
 # --- Ruido de la diferencia (T-BAL-14, RF-BUS-09) ---------------------------------------------------------------
 
 

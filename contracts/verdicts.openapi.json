@@ -24,6 +24,146 @@
         "title": "AccessDenied",
         "type": "object"
       },
+      "AreaResult": {
+        "description": "Estado del par dentro del rectángulo con las celdas de 1 km de Eco (RF-BUS-10, P2; T-BAL-18).",
+        "properties": {
+          "basis": {
+            "const": "cells_touching_bbox",
+            "default": "cells_touching_bbox",
+            "description": "Se cuentan enteras las celdas de 1 km que tocan el rectángulo: el área evaluada es cells_bbox, que puede ser mayor que el rectángulo pedido.",
+            "title": "Basis",
+            "type": "string"
+          },
+          "cause": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Con not_observable, la causa con más píxeles no observados entre las celdas que la declaran; null si ninguna la declara.",
+            "title": "Cause"
+          },
+          "cells": {
+            "description": "Celdas que tocan el rectángulo.",
+            "title": "Cells",
+            "type": "integer"
+          },
+          "cells_bbox": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "number"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Caja [oeste, sur, este, norte] de las celdas usadas.",
+            "title": "Cells Bbox"
+          },
+          "changed_fraction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Píxeles con cambio entre píxeles observados: la fracción de cada celda ponderada por sus píxeles observados (pixels · observed_fraction).",
+            "title": "Changed Fraction"
+          },
+          "decision_rule": {
+            "$ref": "#/components/schemas/AreaRule"
+          },
+          "observed_fraction": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Píxeles observados entre píxeles de las celdas.",
+            "title": "Observed Fraction"
+          },
+          "pixels": {
+            "description": "Píxeles de esas celdas.",
+            "title": "Pixels",
+            "type": "integer"
+          },
+          "state": {
+            "anyOf": [
+              {
+                "enum": [
+                  "change_probable",
+                  "no_detectable_change",
+                  "not_observable"
+                ],
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Misma regla que el veredicto, sobre las celdas. null si no hay celdas.",
+            "title": "State"
+          },
+          "status": {
+            "description": "computed: hay celdas que tocan el rectángulo. no_cells: el manifiesto del par no trae celdas (artefactos anteriores a T-ECO-12 o malla no métrica). no_cells_in_bbox: ninguna celda del par toca el rectángulo.",
+            "enum": [
+              "computed",
+              "no_cells",
+              "no_cells_in_bbox"
+            ],
+            "title": "Status",
+            "type": "string"
+          }
+        },
+        "required": [
+          "status",
+          "state",
+          "cause",
+          "observed_fraction",
+          "changed_fraction",
+          "cells",
+          "pixels",
+          "cells_bbox",
+          "decision_rule"
+        ],
+        "title": "AreaResult",
+        "type": "object"
+      },
+      "AreaRule": {
+        "properties": {
+          "calibrated": {
+            "default": false,
+            "description": "Siempre false, como en evidence.decision_rule.",
+            "title": "Calibrated",
+            "type": "boolean"
+          },
+          "min_changed_fraction": {
+            "title": "Min Changed Fraction",
+            "type": "number"
+          },
+          "min_observed_fraction": {
+            "title": "Min Observed Fraction",
+            "type": "number"
+          }
+        },
+        "required": [
+          "min_observed_fraction",
+          "min_changed_fraction"
+        ],
+        "title": "AreaRule",
+        "type": "object"
+      },
       "DateQuality": {
         "properties": {
           "date": {
@@ -1459,6 +1599,17 @@
           "aoi": {
             "title": "Aoi",
             "type": "string"
+          },
+          "area": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AreaResult"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Solo con bbox: el par dentro del rectángulo con las celdas de 1 km de Eco (T-BAL-18). Es un cálculo aparte del veredicto, que sigue siendo de toda la zona; state y los filtros de la búsqueda miran el veredicto, no area."
           },
           "cause": {
             "anyOf": [
