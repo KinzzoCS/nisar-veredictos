@@ -250,7 +250,7 @@ export function crearComparador(
       id: "aoi-contorno",
       type: "line",
       source: "aoi",
-      paint: { "line-color": "#1b1f3b", "line-width": 2, "line-dasharray": [3, 2] },
+      paint: { "line-color": "#000000", "line-width": 2, "line-dasharray": [3, 2] },
     });
     sincronizar();
     aplicarEscena();

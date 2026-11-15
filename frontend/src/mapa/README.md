@@ -115,6 +115,21 @@ Controles en 3D (T-ATL-10):
 
 Pendiente: el espacio alrededor del globo sale oscuro.
 
+## Huellas de las series
+
+`huellas` recibe una `FeatureCollection` con el `footprint` de cada serie de `GET /api/catalog/aois/{aoi}/series` (T-ANT-17), sin tocar; las series con `footprint: null` se dejan fuera ([`huellas.ts`](huellas.ts)).
+
+```ts
+const series = await (await fetch(`${gateway}/api/catalog/aois/parral/series`)).json();
+const huellas = { type: "FeatureCollection", features: series.flatMap((s) => (s.footprint ? [s.footprint] : [])) };
+mapa.actualizar({ huellas });
+```
+
+- **En el mapa:** contorno azul y relleno tenue bajo el radar, con el nombre corto (`T048A-F015`) en el vértice más al norte, hacia fuera de la huella, para que dos series cruzadas no se tapen. El nombre se oculta desde el zoom 9, donde la huella ya llena la pantalla.
+- **Zona:** además de la caja, un punto en su centro hasta el zoom 7, porque en el globo la caja no se ve.
+- **Lectores de pantalla:** las etiquetas del mapa no se leen; la caja de extensión lleva la lista con pista, sentido y marco en palabras. Sin WebGL 2, la lista se ve en texto.
+- **Antimeridiano:** las longitudes se hacen seguidas, para no dar la vuelta al mundo.
+
 ## Límites de zoom
 
 - El mapa llega como mucho al zoom 16 (`ZOOM_MAXIMO_MAPA`): un píxel de 10 m ocupa unos 5 px de pantalla, suficiente para elegir un punto sin aparentar más detalle.
@@ -134,6 +149,7 @@ Pendiente: el espacio alrededor del globo sale oscuro.
 | Globo 3D (`modo3d`) con caída a 2D y aviso | T-ATL-09 | Hecho; probado en el navegador con la API local |
 | Botón 2D/3D, giro e inclinación, escala oculta y teclas en 3D | T-ATL-10 | Hecho; probado en el navegador con la API local |
 | Comparador óptico (`optical` y `compare`) | T-ATL-07 | Hecho; probado con la API real y artefactos reales de T048 (PR 77) |
+| Huellas de las series y punto de la zona en el globo (`huellas`) | T-ATL-13 | Hecho; probado en el navegador con el catálogo local (T048A y T171D de Parral) |
 | Límites de zoom y fuentes acotadas a la zona | T-ATL-08 | Hecho; probado con la API real. Quedan 404 ópticos dentro de la zona hasta tener la caja de cada tesela |
 
 ## Desarrollo

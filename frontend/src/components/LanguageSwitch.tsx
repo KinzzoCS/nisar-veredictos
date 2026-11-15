@@ -11,9 +11,12 @@ export function LanguageSwitch() {
           type="button"
           lang={lang}
           aria-pressed={i18n.language === lang}
+          aria-label={t(`language.${lang}`)}
+          title={t(`language.${lang}`)}
           onClick={() => void i18n.changeLanguage(lang)}
         >
-          {t(`language.${lang}`)}
+          {/* El código es el texto mínimo que distingue el idioma; el nombre completo va en aria-label. */}
+          {lang.toUpperCase()}
         </button>
       ))}
     </div>
